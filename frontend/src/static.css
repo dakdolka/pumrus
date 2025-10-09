@@ -1,0 +1,12 @@
+@font-face {
+    font-family: 'chapter-text';
+    src: url("/Unbounded.ttf");
+}
+
+:root {
+    --chapter-text: 'chapter-text';
+
+    --main-color: white;
+
+    --go-icon: ">";
+}
