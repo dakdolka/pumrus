@@ -3,6 +3,9 @@ from app.models import BlockType, Theory, TheoryType, Block
 from app.core.db import async_session_factory
 from sqlalchemy import insert
 import asyncio
+import sys
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
