@@ -1,12 +1,15 @@
 from pathlib import Path
+import sys
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from app.models import BlockType, Theory, TheoryType, Block
 from app.core.db import async_session_factory
 from sqlalchemy import insert
 import asyncio
-import sys
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+
+
 
 
 
