@@ -25,7 +25,6 @@
     
 
     border-radius: var(--border-size);
-    background-color: var(--block-color);
 
     display: flex;
     flex-direction: row;
