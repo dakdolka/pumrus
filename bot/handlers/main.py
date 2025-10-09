@@ -16,7 +16,7 @@ rt = Router()
 
 @rt.message(Command("start"))
 async def start(message: Message):
-    await message.answer("Открой приложение по кнопке ниже!", reply_markup=InlineKeyboardMarkup([
+    await message.answer("Открой приложение по кнопке ниже!", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Открыть приложение", url=f"{settings.WEB_APP_URL}")],
     ]))
     
