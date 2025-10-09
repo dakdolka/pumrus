@@ -102,7 +102,6 @@ function App() {
     tg.expand?.();
 
     const params = tg.themeParams || {};
-    const isDark = tg.colorScheme === "dark";
     const root = document.documentElement;
 
     // Функция — задаёт переменные, если они есть
