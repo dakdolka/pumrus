@@ -18,7 +18,7 @@ class TextType(enum.Enum):
 class TheoryText(Base):
     __tablename__ = 'theory_text'
     id: Mapped[int] = mapped_column(primary_key=True)
-    text: Mapped[Text]
+    text: Mapped[str] = mapped_column(Text)
     type: Mapped[Optional[TextType]] = mapped_column(Enum(TextType))
     
     theory_id: Mapped[int] = mapped_column(ForeignKey("theory.id", ondelete="CASCADE"))
