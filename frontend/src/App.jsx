@@ -1,6 +1,41 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect, use } from 'react'
 import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
+
+const Themes = [
+  {
+    name: "Текст"
+  },
+  {
+    name: "Морфемы"
+  },
+  {
+    name: "Части речи"
+  },
+  {
+    name: "Пунктуация"
+  },
+]
+
+
+function Option({ children, onSelect }) {
+  const [isChosen, setMood] = useState(false);
+
+  return (
+    <div className="option" data-ischosen={isChosen.toString()}>
+      <div className={isChosen ? "option__button option__button--active" : "option__button"} onClick={() => {
+        setMood(prev => {
+          onSelect(children, !prev);
+          return !prev
+        })
+      }}></div>
+      <div className="option__nameBlock">
+        <div className="option__name">{children}</div>
+      </div>
+    </div>
+  )
+}
+
 
 function TheoryChoose() {
   const task = useRef();
@@ -8,6 +43,23 @@ function TheoryChoose() {
 
   const [isTaskActive, setTaskMood] = useState(false);
   const [isThemeActive, setThemeMood] = useState(false);
+
+  const [chosenBlock, setChosenBlock] = useState([]);
+
+  function handleSelect(name, isChoose) {
+    setChosenBlock(prev => {
+      if (isChoose) {
+        if (!prev.includes(name)) return [...prev, name];
+        return prev;
+      } else {
+        return prev.filter(item => item !== name);
+      }
+    });
+  };
+
+  useEffect(() => {
+    console.log(`Вывели теорию по запросу = ${chosenBlock}`);
+  }, [chosenBlock]);
 
   function showContent(parent) {
     if (parent === "task") {
@@ -33,7 +85,11 @@ function TheoryChoose() {
         Задания
       </div>
       <div className={isThemeActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
-        Темы
+        {Themes.map((item, index) => {
+          return (
+            <Option key={index} onSelect={handleSelect}>{item.name}</Option>
+          )
+        })}
       </div>
     </>
   )

@@ -70,14 +70,81 @@
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
     margin-top: 5px;
-    width: 90%;
-    height: 200px;
+    width: calc(90% - 20px);
+    height: auto;
+    padding: 15px 10px;
 
     border-radius: var(--border-size);
-
     background-color: rgb(100, 100, 100);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .theoryChoose__block--hidden {
     display: none;
+}
+
+.option {
+    position: relative;
+    width: 95%;
+    height: 50px;
+
+    border-radius: var(--border-size);
+    background-color: rgb(130, 130, 130);
+    overflow: hidden;
+
+    transition: all 0.1s;
+    &:active {
+        background-color: rgb(140, 140, 140);
+    }
+}
+
+.option + .option {
+    margin-top: 10px;
+}
+
+.option__button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+
+    z-index: 1;
+    transition: all 0.2s;
+
+    outline: 2px solid rgb(150, 150, 150);
+}
+
+.option__button--active {
+    outline: none;
+    background-color: rgb(150, 150, 150);
+}
+
+.option__nameBlock {
+    position: absolute;
+    top: 0;
+    left: 60px;
+    width: calc(100% - 60px - 5px);
+    height: 100%;
+    padding-right: 5px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    overflow-x: scroll;
+    &::--webkit-scrollbar {
+        display: none;
+    }
+}
+
+.option__name {
+    font-size: medium;
+    font-family: var(--chapter-text);
+    color: white;
 }
