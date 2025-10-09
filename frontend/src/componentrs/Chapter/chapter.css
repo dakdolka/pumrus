@@ -10,6 +10,9 @@
     display: flex;
     flex-direction: row;
     overflow: hidden;
+
+    border: none;
+    box-shadow: none;
 }
 
 .chapter + .chapter {
@@ -46,5 +49,6 @@
         font-size: 1.5em;
         font-family: var(--chapter-text);
         color: var(--text-color);
+        display: inline-block;
     }
 }
