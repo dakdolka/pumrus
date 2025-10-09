@@ -1,6 +1,6 @@
 from pathlib import Path
-from models import BlockType, Theory, TheoryType, Block
-from core.db import async_session_factory
+from app.models import BlockType, Theory, TheoryType, Block
+from app.core.db import async_session_factory
 from sqlalchemy import insert
 import asyncio
 import sys
