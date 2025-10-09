@@ -6,14 +6,13 @@
 :root {
     --chapter-text: 'chapter-text';
 
+    /* ? все эти значения - заглушки на случай отсутствия tg-тем */
     --main-color: white;
     --text-color: white;
+    --block-color: rgb(100, 100, 100);
+    --secondary-color: rgb(120, 120, 120);
 
-    /* --tg-text-color: #000000;
-    --tg-hint-color: #999999;
-    --tg-link-color: #2481cc;
-    --tg-button-color: #2481cc;
-    --tg-button-text-color: #ffffff; */
+    --active-color: rgb(85, 85, 255);
 
     --border-size: 7px;
 

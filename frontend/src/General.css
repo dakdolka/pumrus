@@ -50,22 +50,20 @@
 
 .theoryChoose__task--hidden {
     background-color: var(--block-color);
-    border-right: 1px solid rgb(150, 150, 150);
+    border-right: 1px solid var(--main-color);
 }
 
 .theoryChoose__task--active {
-    background-color: rgb(150, 150, 150);
-    border-right: 1px solid rgb(150, 150, 150);
+    background-color: var(--active-color);
 }
 
 .theoryChoose__theme--hidden {
     background-color: var(--block-color);
-    border-left: 1px solid rgb(150, 150, 150);
+    border-left: 1px solid var(--main-color);
 }
 
 .theoryChoose__theme--active {
-    background-color: rgb(150, 150, 150);
-    border-right: 1px solid rgb(150, 150, 150);
+    background-color: var(--active-color);
 }
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
@@ -92,12 +90,12 @@
     height: 50px;
 
     border-radius: var(--border-size);
-    background-color: rgb(130, 130, 130);
+    background-color: var(--main-color);
     overflow: hidden;
 
     transition: all 0.1s;
     &:active {
-        background-color: rgb(140, 140, 140);
+        opacity: 0.9;
     }
 }
 
@@ -117,12 +115,12 @@
     z-index: 1;
     transition: all 0.2s;
 
-    outline: 2px solid rgb(150, 150, 150);
+    outline: 2px solid var(--active-color);
 }
 
 .option__button--active {
     outline: none;
-    background-color: rgb(150, 150, 150);
+    background-color: var(--active-color)
 }
 
 .option__nameBlock {
