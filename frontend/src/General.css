@@ -21,7 +21,8 @@
     margin-top: 20px;
 
     width: 90%;
-    min-height: 100px;
+    min-height: 70px;
+    
 
     border-radius: var(--border-size);
     background-color: rgb(100, 100, 100);
@@ -32,16 +33,51 @@
     overflow: hidden;
 }
 
-.theoryChoose__task {
+.theoryChoose__elem {
     width: 50%;
     height: 100%;
+    
+    font-size: medium;
+    font-family: var(--chapter-text);
+    color: white;
 
-    background-color: rgb(200, 255, 200);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    transition: all 0.2s;
 }
 
-.theoryChoose__theme {
-    width: 50%;
-    height: 100%;
+.theoryChoose__task--hidden {
+    background-color: rgb(100, 100, 100);
+    border-right: 1px solid rgb(150, 150, 150);
+}
 
-    background-color: rgb(200, 200, 255);
+.theoryChoose__task--active {
+    background-color: rgb(150, 150, 150);
+    border-right: 1px solid rgb(150, 150, 150);
+}
+
+.theoryChoose__theme--hidden {
+    background-color: rgb(100, 100, 100);
+    border-left: 1px solid rgb(150, 150, 150);
+}
+
+.theoryChoose__theme--active {
+    background-color: rgb(150, 150, 150);
+    border-right: 1px solid rgb(150, 150, 150);
+}
+
+.theoryChoose__block:not(.theoryChoose__block--hidden) {
+    margin-top: 5px;
+    width: 90%;
+    height: 200px;
+
+    border-radius: var(--border-size);
+
+    background-color: rgb(100, 100, 100);
+}
+
+.theoryChoose__block--hidden {
+    display: none;
 }
