@@ -7,9 +7,10 @@
     --chapter-text: 'chapter-text';
 
     /* ? все эти значения - заглушки на случай отсутствия tg-тем */
-    --main-color: white;
     --text-color: white;
-    --block-color: green;
+    --main-color: rgb(70, 70, 70);
+    --block-color: rgb(100, 100, 100);
+    --elem-color: rgb(120, 120, 120);
 
     --active-color: rgb(85, 85, 255);
 

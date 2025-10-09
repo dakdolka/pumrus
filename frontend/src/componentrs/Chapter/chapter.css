@@ -5,7 +5,7 @@
     height: 70px;
 
     border-radius: 7px;
-    background-color: var(--main-color);
+    background-color: var(--elem-color);
 
     display: flex;
     flex-direction: row;
