@@ -6,11 +6,15 @@ from aiogram.filters.command import Command
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-
-
+from handlers import all_rts
 
 bot = Bot(settings.TOKEN)
 dp = Dispatcher()
+
+for elem in all_rts:
+    dp.include_router(elem)
+    
+
 
 
 async def main():
