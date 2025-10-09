@@ -1,4 +1,4 @@
-/backend/.venv
-/backend/__pycache__
+/bot/.venv
+/bot/__pycache__
 
 /frontend/public
