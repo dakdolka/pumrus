@@ -146,4 +146,5 @@
     font-size: medium;
     font-family: var(--chapter-text);
     color: var(--text-color);
+    letter-spacing: 2px;
 }
