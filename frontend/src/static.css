@@ -9,8 +9,8 @@
     /* ? все эти значения - заглушки на случай отсутствия tg-тем */
     --main-color: white;
     --text-color: white;
-    --block-color: rgb(100, 100, 100);
-    --secondary-color: rgb(120, 120, 120);
+    --block-color: green;
+    --secondary-color: red;
 
     --active-color: rgb(85, 85, 255);
 
