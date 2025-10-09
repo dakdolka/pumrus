@@ -5,18 +5,15 @@
     height: 70px;
 
     border-radius: 7px;
-    background-color: var(--elem-color);
+    background-color: var(--block-color);
 
     display: flex;
     flex-direction: row;
     overflow: hidden;
-
-    border: none;
-    box-shadow: none;
 }
 
 .chapter + .chapter {
-    margin-top: 5px;
+    border-top: 3px solid var(--main-color);
 }
 
 .chapter__text {
@@ -32,6 +29,10 @@
     font-family: var(--chapter-text);
     color: var(--text-color);
     letter-spacing: 5px;
+
+    border: none;
+    outline: none;
+    background-color: transparent;
 }
 
 .chapter__icon {
