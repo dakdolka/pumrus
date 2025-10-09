@@ -1,17 +1,13 @@
 from pathlib import Path
 import sys
-BASE_DIR = Path(__file__).resolve().parent.parent
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+sys.path.append(BASE_DIR)
 from app.models import BlockType, Theory, TheoryType, Block
 from app.core.db import async_session_factory
 from sqlalchemy import insert
 import asyncio
 
-
-
-
-
-
+# python app/scripts/parse_theory.py
 
 
 config = {
@@ -51,7 +47,7 @@ async def insert_block(type, content, theory_id):
         
 
 async def script():
-    file_path = BASE_DIR / 'txts' / input("Введите имя файла: ")
+    file_path = BASE_DIR / 'app' / 'txts' / input("Введите имя файла: ")
     with open(file_path, encoding='utf-8') as f:
         text = f.read()
     text = text.split('*')
