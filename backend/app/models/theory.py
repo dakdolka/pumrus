@@ -1,10 +1,10 @@
-from re import T
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
-import enum
 from app.core.db import Base, str_256
+import enum
+
 
 class TheoryType(enum.Enum):
     speechpart = 'speechpart'

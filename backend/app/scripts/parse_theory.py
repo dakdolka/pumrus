@@ -1,13 +1,6 @@
-from ast import AsyncFunctionDef
 from pathlib import Path
-import os
-import json
-from re import A
-from tkinter import E
-from typing import Text, Optional
-from unittest.mock import Base
 from models import BlockType, Theory, TheoryType, Block
-from core.db import async_engine, async_session_factory
+from core.db import async_session_factory
 from sqlalchemy import insert
 import asyncio
 
