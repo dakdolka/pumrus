@@ -1,5 +1,7 @@
-from app.models.theory import Theory
-
+from app.models.theory import Theory, TheoryType, BlockType, Block
 __all__ = [
-    "Theory"
+    'Theory',
+    'TheoryType',
+    'BlockType',
+    'Block'
 ]
