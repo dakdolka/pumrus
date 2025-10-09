@@ -18,7 +18,7 @@ from pydantic import BaseModel
 # async def save_images(image: Photo):
 #     # image_base64 = base64.b64encode(image).decode("utf-8")
 #     # image.img_del = resp.json().data.delete_url
-from crud.create import create_all
+from app.crud.create import create_all
 
 
 class MyException(Exception):
