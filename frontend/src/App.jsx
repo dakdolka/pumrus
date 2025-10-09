@@ -112,6 +112,7 @@ function App() {
     // Передаём основные цвета Telegram темы
     setVar("main-color", params.bg_color);
     setVar("text-color", params.text_color);
+    setVar("block-color", params.secondary_bg_color);
     // setVar("tg-hint-color", params.hint_color);
     // setVar("tg-link-color", params.link_color);
     // setVar("tg-button-color", params.button_color);
