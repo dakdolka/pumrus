@@ -102,6 +102,7 @@ function App() {
     tg.expand?.();
 
     const params = tg.themeParams || {};
+    const isDark = tg.colorScheme === "dark";
     const root = document.documentElement;
 
     // Функция — задаёт переменные, если они есть
@@ -113,7 +114,7 @@ function App() {
     setVar("text-color", params.text_color);
     setVar("main-color", params.bg_color);
     setVar("block-color", params.secondary_bg_color);
-    setVar("elem-color", params.section_bg_color);
+    setVar("elem-color", isDark ? "rgb(120, 120, 120)" : "rgb(80, 80, 80)");
     // setVar("secondary-color", params.secondary_bg_color);
   }, []);
 
