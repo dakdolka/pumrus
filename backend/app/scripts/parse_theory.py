@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-sys.path.append(BASE_DIR)
+BASE_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(BASE_DIR))
 from app.models import BlockType, Theory, TheoryType, Block
 from app.core.db import async_session_factory
 from sqlalchemy import insert
