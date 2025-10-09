@@ -6,8 +6,10 @@
 }
 
 .main {
-    width: 100vw;
-    height: 100vh;
+    /* ! Убери этот костыль */
+    width: calc(100vw - 10px); 
+    height: calc(100vh - 10px);
+    padding: 10px;
 
     background-color: rgb(200, 255, 200);
 }
