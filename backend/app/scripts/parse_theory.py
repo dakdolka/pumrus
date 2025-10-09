@@ -31,19 +31,17 @@ async def insert_theory():
     async with async_session_factory() as session:
         theory_type = input("Введите тип теории: ")
         content = input("Введите название теории: ")
-        stmt = insert(Theory).values(type=type_config[theory_type], name=content).returning(Theory.id)
+        stmt = insert(Theory).values(type=type_config[theory_type], name=content)
         result = await session.execute(stmt)
-        new_id = result.scalar_one()
         await session.commit()
+        new_id = result.lastrowid
         return new_id
         
 async def insert_block(type, content, theory_id):
         async with async_session_factory() as session:
-            stmt = insert(Block).values(type=type, text=content, theory_id=theory_id).returning(Block.id)
+            stmt = insert(Block).values(type=type, text=content, theory_id=theory_id)
             result = await session.execute(stmt)
-            new_id = result.scalar_one()
             await session.commit()
-            return new_id
         
 
 async def script():
@@ -53,6 +51,8 @@ async def script():
     text = text.split('*')
     theory_id = await insert_theory()
     for elem in text:
+        if not elem:
+            continue
         elem_type = config[elem[0]]
         try:
             elem_content = elem[4:len(elem)-2]

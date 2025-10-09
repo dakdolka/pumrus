@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
             break
         except Exception as e:
             print("Waiting for MySQL to be ready...", str(e))
-            await asyncio.sleep(1)
+            break
     await create_all()
     yield
 

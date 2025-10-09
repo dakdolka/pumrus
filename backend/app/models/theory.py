@@ -31,7 +31,7 @@ class Block(Base):
     type: Mapped[Optional[BlockType]] = mapped_column(Enum(BlockType))
     
     theory_id: Mapped[int] = mapped_column(ForeignKey("theory.id", ondelete="CASCADE"))
-    theory: Mapped["Theory"] = relationship(back_populates="texts")
+    theory: Mapped["Theory"] = relationship(back_populates="blocks")
 
     
 class Theory(Base):
