@@ -68,8 +68,8 @@
 }
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
-    margin-top: 3px;
-    width: calc(100% - 20px);
+    margin-top: 2px;
+    width: calc(90% - 20px);
     height: auto;
     padding: 15px 10px;
 
