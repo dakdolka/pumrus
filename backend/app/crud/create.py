@@ -10,7 +10,7 @@ from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.core.db import Base, async_engine, async_session_factory
-from models import *
+from app.models import *
 
 async def create_all():
         async with async_engine.begin() as conn:
