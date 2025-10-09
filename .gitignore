@@ -1,7 +1,7 @@
 /bot/.venv
 /bot/__pycache__
 
-/backend/__pycache__
 /backend/.venv
+__pycache__
 
 /frontend/public
