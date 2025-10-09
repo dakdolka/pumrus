@@ -25,7 +25,6 @@
     
 
     border-radius: var(--border-size);
-    background-color: rgb(100, 100, 100);
 
     display: flex;
     flex-direction: row;
@@ -39,7 +38,7 @@
     
     font-size: medium;
     font-family: var(--chapter-text);
-    color: white;
+    color: var(--text-color);
 
     display: flex;
     justify-content: center;
@@ -49,23 +48,23 @@
 }
 
 .theoryChoose__task--hidden {
-    background-color: rgb(100, 100, 100);
-    border-right: 1px solid rgb(150, 150, 150);
+    background-color: var(--block-color);
+    border-right: 1px solid var(--main-color);
 }
 
 .theoryChoose__task--active {
-    background-color: rgb(150, 150, 150);
-    border-right: 1px solid rgb(150, 150, 150);
+    background-color: var(--active-color);
+    border-right: 2px solid var(--main-color);
 }
 
 .theoryChoose__theme--hidden {
-    background-color: rgb(100, 100, 100);
-    border-left: 1px solid rgb(150, 150, 150);
+    background-color: var(--block-color);
+    border-left: 1px solid var(--main-color);
 }
 
 .theoryChoose__theme--active {
-    background-color: rgb(150, 150, 150);
-    border-right: 1px solid rgb(150, 150, 150);
+    background-color: var(--active-color);
+    border-left: 2px solid var(--main-color);
 }
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
@@ -75,7 +74,7 @@
     padding: 15px 10px;
 
     border-radius: var(--border-size);
-    background-color: rgb(100, 100, 100);
+    background-color: var(--block-color);
 
     display: flex;
     flex-direction: column;
@@ -92,12 +91,12 @@
     height: 50px;
 
     border-radius: var(--border-size);
-    background-color: rgb(130, 130, 130);
+    background-color: var(--main-color);
     overflow: hidden;
 
     transition: all 0.1s;
     &:active {
-        background-color: rgb(140, 140, 140);
+        opacity: 0.9;
     }
 }
 
@@ -117,12 +116,12 @@
     z-index: 1;
     transition: all 0.2s;
 
-    outline: 2px solid rgb(150, 150, 150);
+    outline: 2px solid var(--active-color);
 }
 
 .option__button--active {
     outline: none;
-    background-color: rgb(150, 150, 150);
+    background-color: var(--active-color)
 }
 
 .option__nameBlock {
@@ -146,5 +145,5 @@
 .option__name {
     font-size: medium;
     font-family: var(--chapter-text);
-    color: white;
+    color: var(--text-color);
 }

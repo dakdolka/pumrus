@@ -6,7 +6,13 @@
 :root {
     --chapter-text: 'chapter-text';
 
-    --main-color: white;
+    /* ? все эти значения - заглушки на случай отсутствия tg-тем */
+    --text-color: white;
+    --main-color: rgb(70, 70, 70);
+    --block-color: rgb(100, 100, 100);
+    --elem-color: rgb(120, 120, 120);
+
+    --active-color: rgb(85, 85, 255);
 
     --border-size: 7px;
 
