@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
 import enum
-from core.db import Base, str_256
+from app.core.db import Base, str_256
 
 class TheoryType(enum.Enum):
     speechpart = 'speechpart'
