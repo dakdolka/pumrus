@@ -17,7 +17,7 @@ function App() {
         {/* <Chapter>Задания</Chapter> */}
         <TheoryChoose>
           <div className="theotyChoose__elem theoryChoose__task"></div>
-          <div className="theotyChoose__elem theoryChoose__theme"></div>
+          <div className="theotyChoose__elem theoryChoose__theme">Привет</div>
         </TheoryChoose>
       </div>
     </>
