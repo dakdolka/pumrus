@@ -60,6 +60,11 @@ app.add_middleware(
 )
 
 
+@app.get('/ping')
+async def ping():
+    return JSONResponse(status_code=200, content="pong")
+
+
 asyncio.run(create_all())
 
 if __name__ == "__main__":
