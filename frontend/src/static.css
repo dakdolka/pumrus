@@ -8,5 +8,8 @@
 
     --main-color: white;
 
+    --border-size: 7px;
+
     --go-icon: ">";
+    --back-icon: "<";
 }

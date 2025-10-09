@@ -2,7 +2,7 @@
 
 .chapter {
     width: 90%;
-    height: 100px;
+    height: 70px;
 
     border-radius: 7px;
     background-color: rgb(70, 70, 70);
@@ -10,6 +10,10 @@
     display: flex;
     flex-direction: row;
     overflow: hidden;
+}
+
+.chapter + .chapter {
+    margin-top: 10px;
 }
 
 .chapter__text {
