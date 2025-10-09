@@ -22,13 +22,13 @@ function Option({ children, onSelect }) {
   const [isChosen, setMood] = useState(false);
 
   return (
-    <div className="option" data-ischosen={isChosen.toString()}>
-      <div className={isChosen ? "option__button option__button--active" : "option__button"} onClick={() => {
+    <div className="option" data-ischosen={isChosen.toString()} onClick={() => {
         setMood(prev => {
           onSelect(children, !prev);
           return !prev
         })
-      }}></div>
+      }}>
+      <div className={isChosen ? "option__button option__button--active" : "option__button"}></div>
       <div className="option__nameBlock">
         <div className="option__name">{children}</div>
       </div>
