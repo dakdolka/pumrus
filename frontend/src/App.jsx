@@ -113,8 +113,8 @@ function App() {
     // Передаём основные цвета Telegram темы
     setVar("text-color", params.text_color);
     setVar("main-color", params.bg_color);
-    setVar("block-color", isDark ? "rgb(50, 50, 50)" : "rgb(150, 150, 150)");
-    setVar("elem-color", isDark ? "rgb(70, 70, 70)" : "rgb(180, 180, 180)");
+    setVar("block-color", isDark ? "rgb(35, 40, 45)" : "rgb(150, 150, 150)");
+    setVar("elem-color", isDark ? "rgb(30, 30, 35)" : "rgb(180, 180, 180)");
   }, []);
 
   return (
