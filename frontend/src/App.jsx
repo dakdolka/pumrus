@@ -2,7 +2,7 @@ import { useRef, useState, useEffect, use } from 'react'
 import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
 
-const Themes = [
+const Names = [
   {
     name: "Текст"
   },
@@ -58,7 +58,7 @@ function TheoryChoose() {
   };
 
   useEffect(() => {
-    console.log(`Вывели теорию по запросу = ${chosenBlock}`);
+    // console.log(`Вывели теорию по запросу = ${chosenBlock}`);
   }, [chosenBlock]);
 
   function showContent(parent) {
@@ -85,7 +85,7 @@ function TheoryChoose() {
         Задания
       </div>
       <div className={isThemeActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
-        {Themes.map((item, index) => {
+        {Names.map((item, index) => {
           return (
             <Option key={index} onSelect={handleSelect}>{item.name}</Option>
           )
@@ -96,6 +96,28 @@ function TheoryChoose() {
 }
 
 function App() {
+  useEffect(() => {
+    const tg = window.Telegram.WebApp || {};
+    tg.ready?.();
+    tg.expand?.();
+
+    const params = tg.themeParams || {};
+    const root = document.documentElement;
+
+    // Функция — задаёт переменные, если они есть
+    function setVar(name, value) {
+      if (value) root.style.setProperty(`--${name}`, value);
+    }
+
+    // Передаём основные цвета Telegram темы
+    setVar("main-color", params.bg_color);
+    setVar("text-color", params.text_color);
+    // setVar("tg-hint-color", params.hint_color);
+    // setVar("tg-link-color", params.link_color);
+    // setVar("tg-button-color", params.button_color);
+    // setVar("tg-button-text-color", params.button_text_color);
+  }, []);
+
   return (
     <>
       <div className="main">

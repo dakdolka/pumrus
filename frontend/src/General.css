@@ -39,7 +39,7 @@
     
     font-size: medium;
     font-family: var(--chapter-text);
-    color: white;
+    color: var(--text-color);
 
     display: flex;
     justify-content: center;
@@ -146,5 +146,5 @@
 .option__name {
     font-size: medium;
     font-family: var(--chapter-text);
-    color: white;
+    color: var(--text-color);
 }

@@ -7,6 +7,13 @@
     --chapter-text: 'chapter-text';
 
     --main-color: white;
+    --text-color: white;
+
+    /* --tg-text-color: #000000;
+    --tg-hint-color: #999999;
+    --tg-link-color: #2481cc;
+    --tg-button-color: #2481cc;
+    --tg-button-text-color: #ffffff; */
 
     --border-size: 7px;
 
