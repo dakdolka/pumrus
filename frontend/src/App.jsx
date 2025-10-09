@@ -114,7 +114,7 @@ function App() {
     setVar("text-color", params.text_color);
     setVar("main-color", params.bg_color);
     setVar("block-color", params.secondary_bg_color);
-    setVar("elem-color", isDark ? "rgb(120, 120, 120)" : "rgb(80, 80, 80)");
+    setVar("elem-color", isDark ? "rgb(70, 90, 140)" : "rgb(120, 130, 150)");
     // setVar("secondary-color", params.secondary_bg_color);
   }, []);
 

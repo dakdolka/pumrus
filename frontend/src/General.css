@@ -91,7 +91,7 @@
     height: 50px;
 
     border-radius: var(--border-size);
-    background-color: var(--main-color);
+    background-color: var(--elem-color);
     overflow: hidden;
 
     transition: all 0.1s;
