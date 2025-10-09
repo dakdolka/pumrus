@@ -1,51 +1,37 @@
-import json
-from pprint import pprint
-from fastapi import Body, FastAPI, HTTPException
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 import uvicorn
 import asyncio
 import asyncmy
 from contextlib import asynccontextmanager
-# from data import Orm
 from fastapi.middleware.cors import CORSMiddleware
-# from data import Year
-# from app.models import Photo, Points, User_info, Person, Info
-# from config import settings
-# from data import settings
-# from app.bot import send_to_moderation, bot, dp
-from pydantic import BaseModel
-# async def save_images(image: Photo):
-#     # image_base64 = base64.b64encode(image).decode("utf-8")
-#     # image.img_del = resp.json().data.delete_url
 from app.crud.create import create_all
+from app.core.config import settings
 
 
-class MyException(Exception):
-    def __init__(self, status_code: int, message: str):
-        self.status_code = status_code
-        self.message = message
+# class MyException(Exception):
+#     def __init__(self, status_code: int, message: str):
+#         self.status_code = status_code
+#         self.message = message
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # while True:
-    #     try:
-    #         conn = await asyncmy.connect(
-    #             host=settings.host,
-    #             user=settings.user,
-    #             password=settings.password,
-    #             database=settings.db,
-    #             port=int(settings.port)
-    #         )
-    #         await conn.ensure_closed()
-    #         print("MySQL is ready!")
-    #         break
-    #     except Exception as e:
-    #         print("Waiting for MySQL to be ready...", str(e))
-    #         await asyncio.sleep(1)
-    # await Orm.create_all()
-    # asyncio.create_task(dp.start_polling(bot))
+    while True:
+        try:
+            conn = await asyncmy.connect(
+                host=settings.host,
+                user=settings.user,
+                password=settings.password,
+                database=settings.db,
+                port=int(settings.port)
+            )
+            await conn.ensure_closed()
+            print("MySQL is ready!")
+            break
+        except Exception as e:
+            print("Waiting for MySQL to be ready...", str(e))
+            await asyncio.sleep(1)
     await create_all()
     yield
 
