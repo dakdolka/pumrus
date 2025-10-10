@@ -60,12 +60,14 @@ function TheoryChoose() {
   const [rules, setRules] = useState(
     []
   ); // * Долэжен быть fetch на получение имен
-  fetch("/api/theory/all_theory")
-    .then(response => response.json())
-    .then(data => {
-      // console.log(data)
-      setRules(data)
-  })
+  useEffect(() => {
+    fetch("/api/theory/all_theory")
+      .then(response => response.json())
+      .then(data => {
+        // console.log(data)
+        setRules(data)
+    })
+  }, []);
 
   function handleSelect(name, isChoose) {
     setChosenBlock(prev => {
