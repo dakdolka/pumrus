@@ -13,3 +13,6 @@ class TheoryResponse(BaseModel):
     name: str
     type: TheoryType
     blocks: List[TheoryBlockResponse]
+    
+class TheoryId(BaseModel):
+    theory_id: int
