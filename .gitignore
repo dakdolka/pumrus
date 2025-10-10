@@ -4,6 +4,4 @@
 /backend/.venv
 __pycache__
 
-/frontend/public
-
 .env
