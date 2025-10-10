@@ -22,4 +22,13 @@ class GetTheoryByIdUseCase:
         async with async_session_factory() as session:
             theory = await self.repo.get_theory_by_id(session, id)
             return theory
+        
+class GetAllTheoriesUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self) -> List[str]:
+        async with async_session_factory() as session:
+            theories = await self.repo.get_all_theories(session)
+            return theories
     

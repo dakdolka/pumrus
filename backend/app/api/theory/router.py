@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import GetTheoryByIdUseCase
+from app.core.theory.use_cases import GetTheoryByIdUseCase, GetAllTheoriesUseCase
 from .schemas import TheoryResponse
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
@@ -16,3 +16,11 @@ async def get_theory(theory_id: int):
         if not theory:
             raise HTTPException(status_code=404, detail="Theory not found")
         return theory
+    
+@router.get("/all")
+async def get_all_theories():
+    repo = TheoryRepositoryImpl()
+    usecase = GetAllTheoriesUseCase(repo)
+    async with async_session_factory() as session:
+        theories = await usecase.execute()
+        return theories
