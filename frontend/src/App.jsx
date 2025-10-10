@@ -138,7 +138,11 @@ function App() {
           <div className="mainTitle">
             <div className="mainTitle__picture" />
             <div className="mainTitle__title">PumRus</div>
-            <div className="mainTitle__text">Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++</div>
+            <div className="mainTitle__text">
+              Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
+              <br />
+              <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
+            </div>
           </div>
           <Chapter page={"day-task"} setPage={setPage}>Ежедневное задание</Chapter>
           <Chapter page={"task"} setPage={setPage}>Практика</Chapter>
