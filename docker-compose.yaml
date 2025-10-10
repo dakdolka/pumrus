@@ -11,6 +11,9 @@ services:
       - "3000:3000"
     restart: unless-stopped
     mem_limit: 512m
+    networks:
+      - appnet
+    
 
   backend:
     build:
@@ -30,6 +33,8 @@ services:
     mem_limit: 512m
     extra_hosts:
       - "host.docker.internal:172.17.0.1"
+    networks:
+      - appnet
 
 
   tg_bot:
@@ -43,4 +48,8 @@ services:
     command: python main.py
     restart: unless-stopped
     mem_limit: 256m
+
+networks:
+  appnet:
+    driver: bridge
 
