@@ -1,12 +1,13 @@
 from ast import List
 from app.core.db import async_session_factory
-from app.core.theory.entities import Theory
+from app.core.theory.entities import Theory, TheoryBlock
 from app.core.theory.repository import ITheoryRepository
 from .models import TheoryBD, TheoryBlockBD
 from app.core.theory.enums import TheoryType, BlockType
 from app.core.db import async_session_factory
 from typing import List, Tuple
-from sqlalchemy import insert
+from sqlalchemy import insert, select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class TheoryRepositoryImpl(ITheoryRepository):
@@ -27,15 +28,15 @@ class TheoryRepositoryImpl(ITheoryRepository):
         return new_id, block_ids
     
     
-    async def get_theory_by_id(self, session, id):
+    async def get_theory_by_id(self, session: AsyncSession, id):
         stmt = (
             select(TheoryBD)
-            .where(TheoryBD.id == theory_id)
+            .where(TheoryBD.id == id)
             .options(selectinload(TheoryBD.blocks))
         )
 
-        result = await self.session.execute(stmt)
-        orm_theory = result.scalars().one_or_none()
+        result = await session.execute(stmt)
+        orm_theory: TheoryBD = result.scalars().one_or_none()
 
         if orm_theory is None:
             return None
