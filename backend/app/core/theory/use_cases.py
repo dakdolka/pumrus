@@ -1,17 +1,25 @@
 from .repository import ITheoryRepository
 from .entities import Theory, TheoryBlock
 from app.core.db import async_session_factory
+from typing import Tuple, List
 
 class CreateTheoryUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
 
-    async def execute(self, theory: Theory) -> Theory:
+    async def execute(self, theory: Theory) -> Tuple[int, List[int]]:
         async with async_session_factory() as session:
             async with session.begin():
                 new_id, block_ids = await self.repo.create_theory(session, theory)
-                theory.id = new_id
-                print(theory.id)
-                for i, block in enumerate(theory.blocks):
-                    block.id = block_ids[i]
-                return theory
+                return new_id, block_ids
+
+
+class GetTheoryByIdUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, id: int) -> Theory:
+        async with async_session_factory() as session:
+            theory = await self.repo.get_theory_by_id(session, id)
+            return theory
+    
