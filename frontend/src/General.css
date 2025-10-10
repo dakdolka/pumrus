@@ -160,7 +160,7 @@
 
 .option__button--active {
     outline: none;
-    background-color: var(--active-color)
+    background-color: var(--active-color);
 }
 
 .option__nameBlock {
