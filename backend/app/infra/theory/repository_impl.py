@@ -27,6 +27,11 @@ class TheoryRepositoryImpl(ITheoryRepository):
         
         return new_id, block_ids
     
+    async def get_all_theories(self, session: AsyncSession) -> List[str]:
+        stmt = select(TheoryBD.name)
+        result = await session.execute(stmt)
+        return result.scalars().all()
+    
     
     async def get_theory_by_id(self, session: AsyncSession, id):
         stmt = (
@@ -60,4 +65,5 @@ class TheoryRepositoryImpl(ITheoryRepository):
         )
         
         return domain_theory
+    
     
