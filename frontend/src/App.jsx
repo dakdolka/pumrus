@@ -60,7 +60,7 @@ function TheoryChoose() {
   const [rules, setRules] = useState(
     []
   ); // * Долэжен быть fetch на получение имен
-  fetch("http://backend:8000/all_theory")
+  fetch("/api/theory/all_theory")
     .then(response => response.json())
     .then(data => {
       console.log(data)
