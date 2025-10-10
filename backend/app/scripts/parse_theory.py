@@ -2,10 +2,12 @@ from pathlib import Path
 import sys
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
-from app.models import BlockType, Theory, TheoryType, Block
-from app.core.db import async_session_factory
-from sqlalchemy import insert
+from app.core.theory.entities import Theory, TheoryBlock
+from app.core.theory.enums import BlockType, TheoryType
+from app.core.theory.repository import ITheoryRepository
+from app.core.theory.use_cases import CreateTheoryUseCase
 import asyncio
+
 
 # python app/scripts/parse_theory.py
 
@@ -14,7 +16,7 @@ config = {
     "1": BlockType.title,
     "2": BlockType.subtitle,
     "3": BlockType.rule,
-    "4": BlockType.example,
+    "4": BlockType.example, 
     "5": BlockType.exception,
     "6": BlockType.important,
     "7": BlockType.text,
@@ -27,42 +29,32 @@ type_config = {
     "2": TheoryType.wordparts,
     "3": TheoryType.punctuation
 }
-
-async def insert_theory():
-    async with async_session_factory() as session:
-        theory_type = input("Введите тип теории: ")
-        content = input("Введите название теории: ")
-        stmt = insert(Theory).values(type=type_config[theory_type], name=content)
-        result = await session.execute(stmt)
-        await session.commit()
-        new_id = result.lastrowid
-        return new_id
-        
-async def insert_block(type, content, theory_id):
-        async with async_session_factory() as session:
-            stmt = insert(Block).values(type=type, text=content, theory_id=theory_id)
-            result = await session.execute(stmt)
-            await session.commit()
         
 
 async def script():
-    file_path = BASE_DIR / 'app' / 'txts' / input("Введите имя файла: ")
+    repository = ITheoryRepository()
+    usecase = CreateTheoryUseCase(repository)
+    
+    file_path = BASE_DIR / 'app' / 'scripts' / 'txts' / input("Введите имя файла: ")
     with open(file_path, encoding='utf-8') as f:
         text = f.read()
     text = text.split('#')
     print(text)
-    theory_id = await insert_theory()
+    theory = Theory(
+        id = None,
+        type = type_config[input("Введите тип теории: ")],
+        name = input("Введите название теории: "),
+        blocks = []
+    )
     for elem in text:
         if not elem:
             continue
         elem_type = config[elem[0]]
-        try:
-            elem_content = elem[1:].strip()
-            print(elem_content)
-        except Exception as e:
-            print(e)
-            continue
-        await insert_block(elem_type, elem_content, theory_id)
+        elem_content = elem[1:].strip()
+        theory.blocks.append(TheoryBlock(id=None, type=elem_type, content=elem_content, theory_id=theory.id))
+    saved_theory = await usecase.execute(theory)
+    return saved_theory
+
 
 if __name__ == "__main__":
     asyncio.run(script())
