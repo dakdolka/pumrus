@@ -4,7 +4,7 @@ import uvicorn
 import asyncmy
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.scripts.create import create_all
+from app.scripts.create import create_all
 from app.core.config import settings
 
 @asynccontextmanager
