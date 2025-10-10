@@ -9,12 +9,7 @@ export default defineConfig({
     port: 3000,
     strictPort: true,
     allowedHosts: ['bestgreen.ru'],
-
     https: false,             // SSL делаем на Nginx, dev-server работает HTTP
-    hmr: {
-      protocol: 'wss',        // WebSocket через SSL (через Nginx прокси)
-      host: 'bestgreen.ru',   // домен, с которого открываем фронт
-      port: 443,              // порт HTTPS, куда браузер подключается
-    },
+    hmr: false
   },
 })
