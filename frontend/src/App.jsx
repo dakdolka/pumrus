@@ -127,7 +127,7 @@ function App() {
     setVar("text-color", params.text_color);
     setVar("main-color", params.bg_color);
     setVar("block-color", isDark ? params.section_bg_color : params.secondary_bg_color);
-    setVar("active-color", isDark ? rgb(85, 85, 255) : params.header_bg_color);
+    setVar("active-color", isDark ? "rgb(85, 85, 255)" : params.header_bg_color);
   }, []);
 
   let content;
