@@ -28,6 +28,12 @@
         padding-right: 20px;
         padding-left: 0px;
     }
+    from {
+        transform: translateX(0px);
+        /* text-align: left; */
+        padding-right: 0px;
+        padding-left: 20px;
+    }
 }
 
 .all--disabled {
