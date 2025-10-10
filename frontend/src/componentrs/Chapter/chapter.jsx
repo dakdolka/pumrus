@@ -1,14 +1,14 @@
 import React, { forwardRef } from "react";
 import './chapter.css'
 
-const Chapter = forwardRef(({ children, func }, ref) => {
+const Chapter = forwardRef(({ children, func, isValue=false }, ref) => {
     return (
         <div ref={ref} className="chapter" onClick={() => func()}>
-            <div className="chapter__icon chapter__icon--close all--disabled" />
-            <div className="chapter__text">
+            <div className={isValue ? "chapter__icon chapter__icon--close" : "chapter__icon chapter__icon--close all--disabled"} />
+            <div className={isValue ? "chapter__text chapter__text--after" : "chapter__text"}>
                 {children}
             </div>
-            <div className="chapter__icon chapter__icon--open" />
+            <div className={isValue ?  "chapter__icon chapter__icon--open all--disabled": "chapter__icon chapter__icon--open"} />
         </div>
     )
 });

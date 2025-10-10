@@ -170,8 +170,7 @@ function App() {
           </div>
           <Chapter 
             ref={day_task} 
-            func={() => {
-              // console.log(title.current.style);           
+            func={() => {         
               title.current.style.animation = "disable 0.5s";
               task.current.style.animation = "disable 0.5s";
               theory.current.style.animation = "disable 0.5s";
@@ -183,12 +182,14 @@ function App() {
                 analysis.current.classList.add("all--disabled");
               }, 480);
 
-              day_task.current.children[2].style = "transform: translateX(50px);";
-              day_task.current.children[1].style.animation = "chapter-text 0.5s";
+              const our = day_task.current;
+              our.children[2].style = "transform: translateX(50px);";
+              our.children[1].style.animation = "chapter-text 0.5s forwards";
               setTimeout(() => {
-                day_task.current.children[1].classList.add("chapter__text--after");
-                day_task.current.children[2].classList.toggle("all--disabled");
-                day_task.current.children[0].classList.toggle("all--disabled");
+                our.children[1].classList.add("chapter__text--after");
+                our.children[1].style.animation = "";
+                our.children[2].classList.toggle("all--disabled");
+                our.children[0].classList.toggle("all--disabled");
               }, 480);
             }}
           >
@@ -196,24 +197,85 @@ function App() {
           </Chapter>
           <Chapter 
             ref={task} 
-            funs={() => {
+            func={() => {         
+              title.current.style.animation = "disable 0.5s";
+              day_task.current.style.animation = "disable 0.5s";
+              theory.current.style.animation = "disable 0.5s";
+              analysis.current.style.animation = "disable 0.5s";
+              setTimeout(() => {
+                title.current.classList.add("all--disabled");
+                day_task.current.classList.add("all--disabled");
+                theory.current.classList.add("all--disabled");
+                analysis.current.classList.add("all--disabled");
+              }, 480);
 
+              const our = task.current;
+              our.children[2].style = "transform: translateX(50px);";
+              our.children[1].style.animation = "chapter-text 0.5s forwards";
+              setTimeout(() => {
+                our.children[1].classList.add("chapter__text--after");
+                our.children[1].style.animation = "";
+                our.children[2].classList.toggle("all--disabled");
+                our.children[0].classList.toggle("all--disabled");
+              }, 480);
             }}
           >
             Практика
           </Chapter>
           <Chapter 
             ref={theory} 
-            funs={() => {
+            func={() => {         
+              title.current.style.animation = "disable 0.5s";
+              day_task.current.style.animation = "disable 0.5s";
+              task.current.style.animation = "disable 0.5s";
+              analysis.current.style.animation = "disable 0.5s";
+              setTimeout(() => {
+                title.current.classList.add("all--disabled");
+                day_task.current.classList.add("all--disabled");
+                task.current.classList.add("all--disabled");
+                analysis.current.classList.add("all--disabled");
+              }, 480);
 
+              const our = theory.current;
+              our.children[2].style = "transform: translateX(50px);";
+              our.children[1].style.animation = "chapter-text 0.5s forwards";
+              setTimeout(() => {
+                our.children[1].classList.add("chapter__text--after");
+                our.children[1].style.animation = "";
+                our.children[2].classList.toggle("all--disabled");
+                our.children[0].classList.toggle("all--disabled");
+              }, 480);
+
+              setTimeout(() => {
+                setPage("theory");
+              }, 500);
             }}
           >
             Теория
           </Chapter>
           <Chapter 
             ref={analysis} 
-            funs={() => {
+            func={() => {         
+              title.current.style.animation = "disable 0.5s";
+              day_task.current.style.animation = "disable 0.5s";
+              task.current.style.animation = "disable 0.5s";
+              theory.current.style.animation = "disable 0.5s";
+              setTimeout(() => {
+                title.current.classList.add("all--disabled");
+                day_task.current.classList.add("all--disabled");
+                task.current.classList.add("all--disabled");
+                theory.current.classList.add("all--disabled");
+              }, 480);
 
+              const our = analysis.current;
+              our.children[2].style = "transform: translateX(50px);";
+              our.children[1].style.animation = "chapter-text 0.5s forwards";
+              setTimeout(() => {
+                our.children[1].classList.add("chapter__text--after");
+                our.children[1].style.animation = "";
+                our.children[2].classList.toggle("all--disabled");
+                our.children[0].classList.toggle("all--disabled");
+              }, 480);
             }}
           >
             Аналитика
@@ -239,7 +301,12 @@ function App() {
     content = (
       <>
         <div className="main">
-          <Chapter page={"main"} setPage={setPage}>назад</Chapter>
+          <Chapter 
+            page={"main"} 
+            isValue="true"
+          >
+            Теория
+          </Chapter>
           <TheoryChoose />
         </div>
       </>
