@@ -124,6 +124,12 @@ function TheoryChoose() {
 }
 
 function App() {
+  const day_task = useRef();
+  const task = useRef();
+  const theory = useRef();
+  const analysis = useRef();
+  const title = useRef();
+
   const [page, setPage] = useState("main");
 
   useEffect(() => {
@@ -153,7 +159,7 @@ function App() {
     content = 
       <>
         <div className="main">
-          <div className="mainTitle">
+          <div ref={title} className="mainTitle">
             <div className="mainTitle__picture" />
             <div className="mainTitle__title">PumRus</div>
             <div className="mainTitle__text">
@@ -162,10 +168,56 @@ function App() {
               <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
             </div>
           </div>
-          <Chapter page={"day-task"} setPage={setPage}>Ежедневное задание</Chapter>
-          <Chapter page={"task"} setPage={setPage}>Практика</Chapter>
-          <Chapter page={"theory"} setPage={setPage}>Теория</Chapter>
-          <Chapter page={"analysis"} setPage={setPage}>Аналитика</Chapter>
+          <Chapter 
+            ref={day_task} 
+            func={() => {
+              // console.log(title.current.style);           
+              title.current.style.animation = "disable 0.5s";
+              task.current.style.animation = "disable 0.5s";
+              theory.current.style.animation = "disable 0.5s";
+              analysis.current.style.animation = "disable 0.5s";
+              setTimeout(() => {
+                title.current.classList.add("all--disabled");
+                task.current.classList.add("all--disabled");
+                theory.current.classList.add("all--disabled");
+                analysis.current.classList.add("all--disabled");
+              }, 480);
+
+              day_task.current.children[2].style = "transform: translateX(50px);";
+              day_task.current.children[1].style.animation = "chapter-text 0.5s";
+              setTimeout(() => {
+                day_task.current.children[1].classList.add("chapter__text--after");
+                day_task.current.children[2].classList.toggle("all--disabled");
+                day_task.current.children[0].classList.toggle("all--disabled");
+              }, 480);
+            }}
+          >
+            Ежедневное задание
+          </Chapter>
+          <Chapter 
+            ref={task} 
+            funs={() => {
+
+            }}
+          >
+            Практика
+          </Chapter>
+          <Chapter 
+            ref={theory} 
+            funs={() => {
+
+            }}
+          >
+            Теория
+          </Chapter>
+          <Chapter 
+            ref={analysis} 
+            funs={() => {
+
+            }}
+          >
+            Аналитика
+          </Chapter>
         </div>
       </>
   }
