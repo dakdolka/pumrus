@@ -63,8 +63,8 @@ function TheoryChoose() {
   fetch("/api/theory/all_theory")
     .then(response => response.json())
     .then(data => {
-      console.log(data)
-      // setRules(data)
+      // console.log(data)
+      setRules(data)
   })
 
   function handleSelect(name, isChoose) {
