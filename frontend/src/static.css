@@ -3,8 +3,15 @@
     src: url("/Unbounded.ttf") format("truetype"); 
 }
 
+/* @font-face {
+    font-family: "description";
+    src: url("/manual.ttf"), format('ttf');
+} */
+
 :root {
     --chapter-text: 'chapter-text';
+    --text-font: system-ui, -apple-system, "SF Pro Text", "SF UI Text",
+             "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
     /* ? все эти значения - заглушки на случай отсутствия tg-тем */
     --text-color: white;

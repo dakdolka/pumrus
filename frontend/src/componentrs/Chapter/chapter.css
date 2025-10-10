@@ -13,19 +13,19 @@
 }
 
 .chapter + .chapter {
-    border-top: 3px solid var(--main-color);
+    margin-top: 10px;
 }
 
 .chapter__text {
-    width: calc(100% - 40px - 50px - 20px);
+    width: calc(100% - 40px - 30px - 20px);
     height: 100%;
-    padding-left: 50px;
+    padding-left: 30px;
 
     display: flex;
     justify-content: center;
     flex-direction: column;
 
-    font-size: 1.5em;
+    font-size: large;
     font-family: var(--chapter-text);
     color: var(--text-color);
     letter-spacing: 5px;

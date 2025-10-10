@@ -17,9 +17,56 @@
     background-color: var(--main-color);
 }
 
-.theoryChoose {
-    margin-top: 20px;
+.mainTitle {
+    margin-top: 10px;
+    margin-bottom: 30px;
+    width: 95%;
+    padding: 10px 0px;
 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    /* background-color: rgb(200, 200, 255); */
+}
+
+.mainTitle__picture {
+    width: calc(200px - 5px);
+    height: calc(200px - 5px);
+
+    border-radius: 50%;
+    background-image: url('/picture.jpg');
+    background-position: center;
+    background-size: cover;
+}
+
+.mainTitle__title {
+    margin: 10px 0px;
+    font-size: 2em;
+    font-family: var(--chapter-text);
+    color: var(--text-color);
+}
+
+.mainTitle__text {
+    width: 90%;
+    font-size: medium;
+    font-family: var(--text-font);
+    color: var(--text-color);
+    font-weight: 600;
+    text-align: center;
+}
+
+.mainTitle__link {
+    color: var(--active-color);
+    font-family: var(--chapter-text);
+    letter-spacing: 1px;
+    text-decoration: none;
+}
+
+
+
+.theoryChoose {
+    margin-top: 10px;
     width: 90%;
     min-height: 70px;
     
@@ -68,10 +115,10 @@
 }
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
-    margin-top: 2px;
+    margin-top: 5px;
     width: 90%;
     height: auto;
-    padding: 15px 0px;
+    padding: 5px 0px;
 
     border-radius: var(--border-size);
     background-color: transparent;
@@ -101,7 +148,7 @@
 }
 
 .option + .option {
-    border-top: 2px solid var(--main-color);
+    margin-top: 5px;
 }
 
 .option__button {
@@ -121,7 +168,7 @@
 
 .option__button--active {
     outline: none;
-    background-color: var(--active-color)
+    background-color: var(--active-color);
 }
 
 .option__nameBlock {
