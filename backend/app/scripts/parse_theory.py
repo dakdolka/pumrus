@@ -4,12 +4,12 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 from app.core.theory.entities import Theory, TheoryBlock
 from app.core.theory.enums import BlockType, TheoryType
-from app.core.theory.repository import ITheoryRepository
+from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from app.core.theory.use_cases import CreateTheoryUseCase
 import asyncio
 
 
-# python app/scripts/parse_theory.py
+# python -m app.scripts.parse_theory
 
 
 config = {
@@ -32,7 +32,7 @@ type_config = {
         
 
 async def script():
-    repository = ITheoryRepository()
+    repository = TheoryRepositoryImpl()
     usecase = CreateTheoryUseCase(repository)
     
     file_path = BASE_DIR / 'app' / 'scripts' / 'txts' / input("Введите имя файла: ")

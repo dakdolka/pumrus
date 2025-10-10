@@ -9,11 +9,9 @@ class CreateTheoryUseCase:
     async def execute(self, theory: Theory) -> Theory:
         async with async_session_factory() as session:
             async with session.begin():
-                try:
-                    new_id, block_ids =await self.repo.create_theory(session, theory)
-                    theory.id = new_id
-                    for i, block in enumerate(theory.blocks):
-                        block.id = block_ids[i]
-                    return theory
-                except Exception as e:
-                    print(e)
+                new_id, block_ids = await self.repo.create_theory(session, theory)
+                theory.id = new_id
+                print(theory.id)
+                for i, block in enumerate(theory.blocks):
+                    block.id = block_ids[i]
+                return theory
