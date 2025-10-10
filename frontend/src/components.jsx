@@ -1,9 +1,16 @@
-function Block({ children, ...props }) {
+import './components.css'
+
+function Element({ children }) {
     return (
-        <div {...props}>
+        <div 
+            className="element" 
+            onClick={() => {
+                console.log(children)
+            }}
+        >
             {children}
         </div>
     )
 }
 
-export { Block }
+export { Element }
