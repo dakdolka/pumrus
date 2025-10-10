@@ -17,6 +17,16 @@ const Names = [
   },
 ]
 
+function saveInfo(key, value) {
+    const jsonString = JSON.stringify(value);
+    localStorage.setItem(key, jsonString);
+}
+
+function getInfo(key) {
+    const jsonString = localStorage.getItem(key);
+    return JSON.parse(jsonString);
+}
+
 
 function Option({ children, onSelect }) {
   const [isChosen, setMood] = useState(false);
@@ -96,6 +106,8 @@ function TheoryChoose() {
 }
 
 function App() {
+  const [page, setPage] = useState("main");
+
   useEffect(() => {
     const tg = window.Telegram.WebApp || {};
     tg.ready?.();
@@ -115,13 +127,58 @@ function App() {
     setVar("block-color", params.secondary_bg_color);
   }, []);
 
+  let content;
+  if (page === "main") {
+    content = 
+      <>
+        <div className="main">
+          <div className="mainTitle">
+            <div className="mainTitle__picture" />
+            <div className="mainTitle__title">PumRus</div>
+            <div className="mainTitle__text">Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++</div>
+          </div>
+          <Chapter page={"day-task"} setPage={setPage}>Ежедневное задание</Chapter>
+          <Chapter page={"task"} setPage={setPage}>Практика</Chapter>
+          <Chapter page={"theory"} setPage={setPage}>Теория</Chapter>
+          <Chapter page={"analysis"} setPage={setPage}>Аналитика</Chapter>
+        </div>
+      </>
+  }
+  if (page === "day-task") {
+    content = (
+      <>
+        Кто прочитал тот лох
+      </>
+    )
+  }
+  if (page === "task") {
+    content = (
+      <>
+        Кто прочитал тот лох
+      </>
+    )
+  }
+  if (page === "theory") {
+    content = (
+      <>
+        <div className="main">
+          <Chapter page={"main"} setPage={setPage}>назад</Chapter>
+          <TheoryChoose />
+        </div>
+      </>
+    )
+  }
+  if (page === "analysis") {
+    content = (
+      <>
+        Кто прочитал тот лох
+      </>
+    )
+  }
+
   return (
     <>
-      <div className="main">
-        <Chapter>Теория</Chapter>
-        {/* <Chapter>Задания</Chapter> */}
-        <TheoryChoose />
-      </div>
+      {content}
     </>
   )
 }

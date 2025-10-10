@@ -1,8 +1,8 @@
 import './chapter.css'
 
-function Chapter({ children }) {
+function Chapter({ children, page, setPage }) {
     return (
-        <div className="chapter">
+        <div className="chapter" onClick={() => setPage(page)}>
             <div className="chapter__text">
                 {children}
             </div>

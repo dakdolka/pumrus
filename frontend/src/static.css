@@ -3,8 +3,14 @@
     src: url("/Unbounded.ttf") format("truetype"); 
 }
 
+@font-face {
+    font-family: "description";
+    src: url("/manual.ttf"), format('ttf');
+}
+
 :root {
     --chapter-text: 'chapter-text';
+    --text-font: 'description';
 
     /* ? все эти значения - заглушки на случай отсутствия tg-тем */
     --text-color: white;

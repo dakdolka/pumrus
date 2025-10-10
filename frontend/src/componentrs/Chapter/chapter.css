@@ -17,9 +17,9 @@
 }
 
 .chapter__text {
-    width: calc(100% - 40px - 50px - 20px);
+    width: calc(100% - 40px - 30px - 20px);
     height: 100%;
-    padding-left: 50px;
+    padding-left: 30px;
 
     display: flex;
     justify-content: center;
