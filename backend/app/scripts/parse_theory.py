@@ -49,20 +49,20 @@ async def script():
     file_path = BASE_DIR / 'app' / 'txts' / input("Введите имя файла: ")
     with open(file_path, encoding='utf-8') as f:
         text = f.read()
-    text = text.split('*')
+    text = text.split('#')
     print(text)
-    # theory_id = await insert_theory()
+    theory_id = await insert_theory()
     for elem in text:
         if not elem:
             continue
         elem_type = config[elem[0]]
         try:
-            elem_content = elem[4:len(elem)-2]
+            elem_content = elem[1:].strip()
             print(elem_content)
         except Exception as e:
             print(e)
             continue
-        # await insert_block(elem_type, elem_content, theory_id)
+        await insert_block(elem_type, elem_content, theory_id)
 
 if __name__ == "__main__":
     asyncio.run(script())
