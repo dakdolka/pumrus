@@ -23,7 +23,7 @@ services:
       - db=${db}
       - port=${port}
     working_dir: /app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    command: python -m app
     ports:
       - "8000:8000"
     restart: unless-stopped
