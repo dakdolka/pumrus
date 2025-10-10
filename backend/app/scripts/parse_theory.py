@@ -17,7 +17,8 @@ config = {
     "4": BlockType.example,
     "5": BlockType.exception,
     "6": BlockType.important,
-    "7": BlockType.text
+    "7": BlockType.text,
+    "8": BlockType.svg
 }
 
 type_config = {
@@ -49,17 +50,19 @@ async def script():
     with open(file_path, encoding='utf-8') as f:
         text = f.read()
     text = text.split('*')
-    theory_id = await insert_theory()
+    print(text)
+    # theory_id = await insert_theory()
     for elem in text:
         if not elem:
             continue
         elem_type = config[elem[0]]
         try:
             elem_content = elem[4:len(elem)-2]
+            print(elem_content)
         except Exception as e:
             print(e)
             continue
-        await insert_block(elem_type, elem_content, theory_id)
+        # await insert_block(elem_type, elem_content, theory_id)
 
 if __name__ == "__main__":
     asyncio.run(script())
