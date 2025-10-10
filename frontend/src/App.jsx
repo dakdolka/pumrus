@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, use } from 'react'
 import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
+import { Element } from './components.jsx'
 
 const Names = [
   {
@@ -56,6 +57,16 @@ function TheoryChoose() {
 
   const [chosenBlock, setChosenBlock] = useState([]);
 
+  const [rules, setRules] = useState(
+    []
+  ); // * Долэжен быть fetch на получение имен
+  fetch("http://localhost:8000/all_theory")
+    .then(response => response.json())
+    .then(data => {
+      console.log(data)
+      // setRules(data)
+  })
+
   function handleSelect(name, isChoose) {
     setChosenBlock(prev => {
       if (isChoose) {
@@ -98,6 +109,13 @@ function TheoryChoose() {
         {Names.map((item, index) => {
           return (
             <Option key={index} onSelect={handleSelect}>{item.name}</Option>
+          )
+        })}
+      </div>
+      <div className="elementBlock">
+        {rules.map((item, index) => {
+          return (
+            <Element key={index}>{item}</Element>
           )
         })}
       </div>
