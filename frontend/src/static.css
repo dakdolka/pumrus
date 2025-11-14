@@ -42,9 +42,12 @@
     --block-color: rgb(100, 100, 100);
 
     --active-color: rgb(85, 85, 255);
+    --important-color: rgb(255, 220, 100);
+    --exception-color: rgb(255, 100, 100);
 
     --border-size: 7px;
 
     --go-icon: ">";
     --back-icon: "<";
+    --close-icon: "⨯";
 }

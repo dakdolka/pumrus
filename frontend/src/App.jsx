@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, use } from 'react'
 import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
-import { Element } from './components.jsx'
+import { Element, Popup } from './components.jsx'
 
 const Names = [
   {
@@ -52,6 +52,12 @@ function TheoryChoose() {
   const task = useRef();
   const theme = useRef();
 
+  const [isPopup, setPopup] = useState(false);
+  const [content, setContent] = useState({
+    title: "Отсутствует",
+    blocks: [],
+  });
+
   const [isTaskActive, setTaskMood] = useState(false);
   const [isThemeActive, setThemeMood] = useState(false);
 
@@ -61,7 +67,7 @@ function TheoryChoose() {
     []
   ); // * Долэжен быть fetch на получение имен
   useEffect(() => {
-    fetch("/api/theory/all_theory")
+    fetch("http://localhost:8000/api/theory/all_theory")  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         // console.log(data)
@@ -81,7 +87,7 @@ function TheoryChoose() {
   };
 
   useEffect(() => {
-    // console.log(`Вывели теорию по запросу = ${chosenBlock}`);
+    console.log(`Вывели теорию по запросу = ${chosenBlock}`);
   }, [chosenBlock]);
 
   function showContent(parent) {
@@ -117,10 +123,11 @@ function TheoryChoose() {
       <div className="elementBlock">
         {rules.map((item, index) => {
           return (
-            <Element key={index}>{item}</Element>
+            <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>{item.name}</Element>
           )
         })}
       </div>
+      <Popup isPopup={isPopup} setPopup={setPopup} content={content}/>
     </>
   )
 }
@@ -160,171 +167,199 @@ function App() {
   if (page === "main") {
     content = 
       <>
-        <div className="main">
-          <div ref={title} className="mainTitle">
-            <div className="mainTitle__picture" />
-            <div className="mainTitle__title">PumRus</div>
-            <div className="mainTitle__text">
-              Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
-              <br />
-              <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
-            </div>
+        <div ref={title} className="mainTitle">
+          <div className="mainTitle__picture" />
+          <div className="mainTitle__title">PumRus</div>
+          <div className="mainTitle__text">
+            Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
+            <br />
+            <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
           </div>
-          <Chapter 
-            ref={day_task} 
-            func={() => {         
-              title.current.style.animation = "disable 0.5s";
-              task.current.style.animation = "disable 0.5s";
-              theory.current.style.animation = "disable 0.5s";
-              analysis.current.style.animation = "disable 0.5s";
-              setTimeout(() => {
-                title.current.classList.add("all--disabled");
-                task.current.classList.add("all--disabled");
-                theory.current.classList.add("all--disabled");
-                analysis.current.classList.add("all--disabled");
-              }, 480);
-
-              const our = day_task.current;
-              our.children[2].style = "transform: translateX(50px);";
-              our.children[1].style.animation = "chapter-text 0.5s forwards";
-              setTimeout(() => {
-                our.children[1].classList.add("chapter__text--after");
-                our.children[1].style.animation = "";
-                our.children[2].classList.toggle("all--disabled");
-                our.children[0].classList.toggle("all--disabled");
-              }, 480);
-            }}
-          >
-            Ежедневное задание
-          </Chapter>
-          <Chapter 
-            ref={task} 
-            func={() => {         
-              title.current.style.animation = "disable 0.5s";
-              day_task.current.style.animation = "disable 0.5s";
-              theory.current.style.animation = "disable 0.5s";
-              analysis.current.style.animation = "disable 0.5s";
-              setTimeout(() => {
-                title.current.classList.add("all--disabled");
-                day_task.current.classList.add("all--disabled");
-                theory.current.classList.add("all--disabled");
-                analysis.current.classList.add("all--disabled");
-              }, 480);
-
-              const our = task.current;
-              our.children[2].style = "transform: translateX(50px);";
-              our.children[1].style.animation = "chapter-text 0.5s forwards";
-              setTimeout(() => {
-                our.children[1].classList.add("chapter__text--after");
-                our.children[1].style.animation = "";
-                our.children[2].classList.toggle("all--disabled");
-                our.children[0].classList.toggle("all--disabled");
-              }, 480);
-            }}
-          >
-            Практика
-          </Chapter>
-          <Chapter 
-            ref={theory} 
-            func={() => {         
-              title.current.style.animation = "disable 0.5s";
-              day_task.current.style.animation = "disable 0.5s";
-              task.current.style.animation = "disable 0.5s";
-              analysis.current.style.animation = "disable 0.5s";
-              setTimeout(() => {
-                title.current.classList.add("all--disabled");
-                day_task.current.classList.add("all--disabled");
-                task.current.classList.add("all--disabled");
-                analysis.current.classList.add("all--disabled");
-              }, 480);
-
-              const our = theory.current;
-              our.children[2].style = "transform: translateX(50px);";
-              our.children[1].style.animation = "chapter-text 0.5s forwards";
-              setTimeout(() => {
-                our.children[1].classList.add("chapter__text--after");
-                our.children[1].style.animation = "";
-                our.children[2].classList.toggle("all--disabled");
-                our.children[0].classList.toggle("all--disabled");
-              }, 480);
-
-              setTimeout(() => {
-                setPage("theory");
-              }, 500);
-            }}
-          >
-            Теория
-          </Chapter>
-          <Chapter 
-            ref={analysis} 
-            func={() => {         
-              title.current.style.animation = "disable 0.5s";
-              day_task.current.style.animation = "disable 0.5s";
-              task.current.style.animation = "disable 0.5s";
-              theory.current.style.animation = "disable 0.5s";
-              setTimeout(() => {
-                title.current.classList.add("all--disabled");
-                day_task.current.classList.add("all--disabled");
-                task.current.classList.add("all--disabled");
-                theory.current.classList.add("all--disabled");
-              }, 480);
-
-              const our = analysis.current;
-              our.children[2].style = "transform: translateX(50px);";
-              our.children[1].style.animation = "chapter-text 0.5s forwards";
-              setTimeout(() => {
-                our.children[1].classList.add("chapter__text--after");
-                our.children[1].style.animation = "";
-                our.children[2].classList.toggle("all--disabled");
-                our.children[0].classList.toggle("all--disabled");
-              }, 480);
-            }}
-          >
-            Аналитика
-          </Chapter>
         </div>
+        <Chapter 
+          ref={day_task} 
+          func={() => {         
+            title.current.style.animation = "disable 0.5s";
+            task.current.style.animation = "disable 0.5s";
+            theory.current.style.animation = "disable 0.5s";
+            analysis.current.style.animation = "disable 0.5s";
+            setTimeout(() => {
+              title.current.classList.add("all--disabled");
+              task.current.classList.add("all--disabled");
+              theory.current.classList.add("all--disabled");
+              analysis.current.classList.add("all--disabled");
+            }, 480);
+
+            const our = day_task.current;
+            our.children[2].style = "transform: translateX(50px);";
+            our.children[1].style.animation = "chapter-text 0.5s forwards";
+            setTimeout(() => {
+              our.children[1].classList.add("chapter__text--after");
+              our.children[1].style.animation = "";
+              our.children[2].classList.toggle("all--disabled");
+              our.children[0].classList.toggle("all--disabled");
+            }, 480);
+
+            setTimeout(() => {
+              setPage("day-task");
+            }, 500);
+          }}
+        >
+          Ежедневное задание
+        </Chapter>
+        <Chapter 
+          ref={task} 
+          func={() => {         
+            title.current.style.animation = "disable 0.5s";
+            day_task.current.style.animation = "disable 0.5s";
+            theory.current.style.animation = "disable 0.5s";
+            analysis.current.style.animation = "disable 0.5s";
+            setTimeout(() => {
+              title.current.classList.add("all--disabled");
+              day_task.current.classList.add("all--disabled");
+              theory.current.classList.add("all--disabled");
+              analysis.current.classList.add("all--disabled");
+            }, 480);
+
+            const our = task.current;
+            our.children[2].style = "transform: translateX(50px);";
+            our.children[1].style.animation = "chapter-text 0.5s forwards";
+            setTimeout(() => {
+              our.children[1].classList.add("chapter__text--after");
+              our.children[1].style.animation = "";
+              our.children[2].classList.toggle("all--disabled");
+              our.children[0].classList.toggle("all--disabled");
+            }, 480);
+
+            setTimeout(() => {
+              setPage("task");
+            }, 500);
+          }}
+        >
+          Практика
+        </Chapter>
+        <Chapter 
+          ref={theory} 
+          func={() => {         
+            title.current.style.animation = "disable 0.5s";
+            day_task.current.style.animation = "disable 0.5s";
+            task.current.style.animation = "disable 0.5s";
+            analysis.current.style.animation = "disable 0.5s";
+            setTimeout(() => {
+              title.current.classList.add("all--disabled");
+              day_task.current.classList.add("all--disabled");
+              task.current.classList.add("all--disabled");
+              analysis.current.classList.add("all--disabled");
+            }, 480);
+
+            const our = theory.current;
+            our.children[2].style = "transform: translateX(50px);";
+            our.children[1].style.animation = "chapter-text 0.5s forwards";
+            setTimeout(() => {
+              our.children[1].classList.add("chapter__text--after");
+              our.children[1].style.animation = "";
+              our.children[2].classList.toggle("all--disabled");
+              our.children[0].classList.toggle("all--disabled");
+            }, 480);
+
+            setTimeout(() => {
+              setPage("theory");
+            }, 500);
+          }}
+        >
+          Теория
+        </Chapter>
+        <Chapter 
+          ref={analysis} 
+          func={() => {         
+            title.current.style.animation = "disable 0.5s";
+            day_task.current.style.animation = "disable 0.5s";
+            task.current.style.animation = "disable 0.5s";
+            theory.current.style.animation = "disable 0.5s";
+            setTimeout(() => {
+              title.current.classList.add("all--disabled");
+              day_task.current.classList.add("all--disabled");
+              task.current.classList.add("all--disabled");
+              theory.current.classList.add("all--disabled");
+            }, 480);
+
+            const our = analysis.current;
+            our.children[2].style = "transform: translateX(50px);";
+            our.children[1].style.animation = "chapter-text 0.5s forwards";
+            setTimeout(() => {
+              our.children[1].classList.add("chapter__text--after");
+              our.children[1].style.animation = "";
+              our.children[2].classList.toggle("all--disabled");
+              our.children[0].classList.toggle("all--disabled");
+            }, 480);
+
+            setTimeout(() => {
+              setPage("analysis");
+            }, 500);
+          }}
+        >
+          Аналитика
+        </Chapter>
       </>
   }
   if (page === "day-task") {
     content = (
       <>
-        Кто прочитал тот лох
+        <Chapter
+          isValue="true"
+          func={() => setPage("main")}
+        >
+          Ежедневное задание
+        </Chapter>
       </>
     )
   }
   if (page === "task") {
     content = (
       <>
-        Кто прочитал тот лох
+        <Chapter
+          isValue="true"
+          func={() => setPage("main")}
+        >
+          Практика
+        </Chapter>
       </>
     )
   }
   if (page === "theory") {
     content = (
       <>
-        <div className="main">
-          <Chapter 
-            page={"main"} 
-            isValue="true"
-          >
-            Теория
-          </Chapter>
-          <TheoryChoose />
-        </div>
+        <Chapter
+          isValue="true"
+          func={() => setPage("main")}
+        >
+          Теория
+        </Chapter>
+        <TheoryChoose />
       </>
     )
   }
   if (page === "analysis") {
     content = (
       <>
-        Кто прочитал тот лох
+        <Chapter
+          isValue="true"
+          func={() => {
+            setPage("main")
+            console.log("Функция закрытия")
+          }}
+        >
+          Аналитика
+        </Chapter>
       </>
     )
   }
 
   return (
     <>
-      {content}
+      <div className="main">
+        {content}
+      </div>
     </>
   )
 }
