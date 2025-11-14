@@ -38,7 +38,7 @@ async def script():
     file_path = BASE_DIR / 'app' / 'scripts' / 'txts' / input("Введите имя файла: ")
     with open(file_path, encoding='utf-8') as f:
         text = f.read()
-    text = text.split('#')
+    text = text.split('%')
     print(text)
     theory = Theory(
         id = None,
