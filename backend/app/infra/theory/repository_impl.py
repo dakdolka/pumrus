@@ -27,10 +27,12 @@ class TheoryRepositoryImpl(ITheoryRepository):
         
         return new_id, block_ids
     
-    async def get_all_theories(self, session: AsyncSession) -> List[str]:
-        stmt = select(TheoryBD.name)
+    async def get_all_theories(self, session: AsyncSession) -> List[tuple[int, str]]:
+        stmt = select(TheoryBD.id, TheoryBD.name)
         result = await session.execute(stmt)
-        return result.scalars().all()
+        res = result.all()
+        print(res)
+        return res
     
     
     async def get_theory_by_id(self, session: AsyncSession, id):
