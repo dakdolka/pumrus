@@ -7,6 +7,7 @@ from app.core.theory.enums import BlockType, TheoryType
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from app.core.theory.use_cases import CreateTheoryUseCase
 import asyncio
+import os
 
 
 # python -m app.scripts.parse_theory
@@ -35,24 +36,26 @@ async def script():
     repository = TheoryRepositoryImpl()
     usecase = CreateTheoryUseCase(repository)
     
-    file_path = BASE_DIR / 'app' / 'scripts' / 'txts' / input("Введите имя файла: ")
-    with open(file_path, encoding='utf-8') as f:
-        text = f.read()
-    text = text.split('%')
-    print(text)
-    theory = Theory(
-        id = None,
-        type = type_config[input("Введите тип теории: ")],
-        name = input("Введите название теории: "),
-        blocks = []
-    )
-    for elem in text:
-        if not elem:
-            continue
-        elem_type = config[elem[0]]
-        elem_content = elem[1:].strip()
-        theory.blocks.append(TheoryBlock(id=None, type=elem_type, content=elem_content, theory_id=theory.id))
-    saved_theory = await usecase.execute(theory)
+    dir_path = BASE_DIR / 'app' / 'scripts' / 'txts'
+    for file_name in os.listdir(dir_path):
+        file_path = os.path.join(dir_path, file_name)
+        with open(file_path, encoding='utf-8') as f:
+            text = f.read()
+        text = text.split('%')
+        print(text)
+        theory = Theory(
+            id = None,
+            type = type_config[input("Введите тип теории: ")],
+            name = input("Введите название теории: "),
+            blocks = []
+        )
+        for elem in text:
+            if not elem:
+                continue
+            elem_type = config[elem[0]]
+            elem_content = elem[1:].strip()
+            theory.blocks.append(TheoryBlock(id=None, type=elem_type, content=elem_content, theory_id=theory.id))
+        saved_theory = await usecase.execute(theory)
     return saved_theory
 
 
