@@ -48,6 +48,8 @@ services:
     command: python main.py
     restart: unless-stopped
     mem_limit: 256m
+    networks:
+      - appnet
 
 networks:
   appnet:
