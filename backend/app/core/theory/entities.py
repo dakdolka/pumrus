@@ -4,16 +4,19 @@ from .enums import BlockType, TheoryType
 
 @dataclass
 class TheoryBlock:
-    id: Optional[int]
     type: BlockType
     content: str
-    theory_id: int
+    order: int
+    theory_id: Optional[int] = None
+    id: Optional[int] = None
+    children: List[Optional["TheoryBlock"]] = field(default_factory=list)
+    
     
 @dataclass
 class Theory:
-    id: Optional[int]
     name: str
     type: TheoryType
+    id: Optional[int] = None
     blocks: List[Optional[TheoryBlock]] = field(default_factory=list)
     
 @dataclass

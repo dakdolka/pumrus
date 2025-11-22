@@ -9,6 +9,7 @@ class BlockType(str, Enum):
     important = "important"
     text = "text"
     svg = "svg"
+    group = "group"
 
 class TheoryType(str, Enum):
     speechpart = "speechpart"

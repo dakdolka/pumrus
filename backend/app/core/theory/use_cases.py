@@ -10,8 +10,7 @@ class CreateTheoryUseCase:
     async def execute(self, theory: Theory) -> Tuple[int, List[int]]:
         async with async_session_factory() as session:
             async with session.begin():
-                new_id, block_ids = await self.repo.create_theory(session, theory)
-                return new_id, block_ids
+                await self.repo.create_theory(session, theory)
 
 
 class GetTheoryByIdUseCase:

@@ -5,28 +5,36 @@ from app.core.theory.repository import ITheoryRepository
 from .models import TheoryBD, TheoryBlockBD
 from app.core.theory.enums import TheoryType, BlockType
 from app.core.db import async_session_factory
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from sqlalchemy import insert, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class TheoryRepositoryImpl(ITheoryRepository):
-    async def create_theory(self, session: AsyncSession, theory: Theory) -> Tuple[int, List[int]]:
-        stmt = insert(TheoryBD).values(type=theory.type, name=theory.name)
-        result = await session.execute(stmt)
-        await session.flush()
-        new_id = result.lastrowid
-        block_ids = []
-        for block in theory.blocks:
-            stmt = insert(TheoryBlockBD).values(type=block.type, text=block.content, theory_id=new_id)
-            result = await session.execute(stmt)
-            await session.flush()
-            block.id = result.lastrowid
-            block_ids.append(result.lastrowid)
-        await session.commit()
+    async def create_theory(self, session: AsyncSession, theory: Theory):
+    # Создаём верхний объект
+        bd_theory = TheoryBD(type=theory.type, name=theory.name)
+        session.add(bd_theory)  # ORM теперь знает сессию для top-level
         
-        return new_id, block_ids
-    
+        # Рекурсивно создаём блоки
+        def _map_blocks_to_bd(block: TheoryBlock, parent: Optional[TheoryBlockBD] = None) -> TheoryBlockBD:
+            bd_block = TheoryBlockBD(
+                text=block.content,
+                type=block.type,
+                order=block.order,
+                parent=parent,
+                theory=bd_theory if parent is None else None  # только верхний уровень получает theory
+            )
+            # создаём детей
+            bd_block.children = [_map_blocks_to_bd(child, bd_block) for child in block.children]
+            return bd_block
+
+        # Присваиваем блоки верхнему уровню
+        bd_theory.blocks = [_map_blocks_to_bd(block) for block in theory.blocks]
+
+        await session.commit()
+       
+        
     async def get_all_theories(self, session: AsyncSession) -> List[tuple[int, str]]:
         stmt = select(TheoryBD.id, TheoryBD.name)
         result = await session.execute(stmt)
@@ -39,11 +47,12 @@ class TheoryRepositoryImpl(ITheoryRepository):
         stmt = (
             select(TheoryBD)
             .where(TheoryBD.id == id)
-            .options(selectinload(TheoryBD.blocks))
+            .options(selectinload(TheoryBD.blocks).selectinload(TheoryBlockBD.children))
         )
 
         result = await session.execute(stmt)
         orm_theory: TheoryBD = result.scalars().one_or_none()
+        print(orm_theory)
 
         if orm_theory is None:
             return None
@@ -67,5 +76,4 @@ class TheoryRepositoryImpl(ITheoryRepository):
         )
         
         return domain_theory
-    
     
