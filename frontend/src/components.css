@@ -102,6 +102,50 @@
     font-size: large;
 }
 
+.theory--group {
+    width: 100%;
+    height: auto;
+
+    display: flex;
+    flex-direction: column;
+}
+
+.theory--group__header {
+    font-size: large;
+    font-family: var(--chapter-text);
+    color: var(--text-color);
+    padding: 10px 0px;
+
+    border: 2px solid var(--text-color);
+    border-radius: var(--border-size);
+    
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.theory--group + .theory--group {
+    margin-top: 10px;
+}
+
+.group--open {
+    &::before {
+        content: '▲';
+        padding: 0px 10px;
+    }
+}
+
+.group--close {
+    &::before {
+        content: '▼';
+        padding: 0px 10px;
+    }
+}
+
+.theory--children {
+    padding-left: 20px;
+}
+
 /* .theory--visual + .theory--visual {
     margin-top: 20px;
 } */
