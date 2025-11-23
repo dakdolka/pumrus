@@ -67,7 +67,7 @@ function TheoryChoose() {
     []
   ); // * Долэжен быть fetch на получение имен
   useEffect(() => {
-    fetch("http://localhost:8000/api/theory/all_theory")  //! Должно быть без localhost
+    fetch("/api/theory/all_theory")  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         // console.log(data)
