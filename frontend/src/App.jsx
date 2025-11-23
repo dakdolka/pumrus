@@ -66,6 +66,7 @@ function TheoryChoose() {
   const [rules, setRules] = useState(
     []
   ); // * Долэжен быть fetch на получение имен
+  //             Тест жоска
   useEffect(() => {
     fetch("http://localhost:8000/api/theory/all_theory")  //! Должно быть без localhost
       .then(response => response.json())
