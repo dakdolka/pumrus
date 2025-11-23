@@ -2,7 +2,7 @@ import './components.css'
 
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
-    fetch(`/api/theory/get_theory/${theory_id}`)
+    fetch(`http://localhost:8000/api/theory/get_theory/${theory_id}`)
         .then(response => response.json())
         .then(data => {
             content.title = data.name
