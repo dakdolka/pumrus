@@ -108,6 +108,8 @@
 
     display: flex;
     flex-direction: column;
+
+    margin-top: 5px;
 }
 
 .theory--group__header {
@@ -122,10 +124,6 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-}
-
-.theory--group + .theory--group {
-    margin-top: 10px;
 }
 
 .group--open {
@@ -199,7 +197,7 @@
 }
 
 .theory__example--fieldset {
-    margin: 10px;
+    margin: 5px 0px; 
     width: calc(80% - 20px);
     padding: 10px 10px;
 
