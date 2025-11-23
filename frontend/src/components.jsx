@@ -25,7 +25,7 @@ function Element({ theory_id, children, setPopup, setContent }) {
 
 function Popup({ isPopup, setPopup, content }) {
     // ! console.log
-    console.log("Объект в попапе", content)
+    console.log("------< Объект в попапе >------", content)
 
     function parseBold(text) {
         const parts = text.split(/(\*\*.*?\*\*)/g); 
@@ -40,6 +40,57 @@ function Popup({ isPopup, setPopup, content }) {
         });
     }
 
+
+    function getElem(item, index) {
+        if (item.type === 'group') {
+            console.log("------< Имя группы >------", item) //!
+
+            item.children.map((item, index) => {
+                getElem(item, index)
+            })
+        } else {
+            console.log("------< Элемент >------", item) //!
+
+            const Content = parseBold(item.content)
+            if (item.type === 'text') {
+                return (
+                    <div key={index} className="theory--visual theory__text">{Content}</div>
+                )
+            } if (item.type === 'subtitle') {
+                return (
+                    <div key={index} className="theory--visual theory__subtitle">{Content}</div>
+                )
+            } if (item.type === 'example') {
+                return (
+                    <div key={index} className="example__block">
+                        <fieldset className="theory__example--fieldset">
+                            <legend className="theory__example--legend">Пример</legend>
+                            <div key={index} className="theory--visual">{Content}</div>
+                        </fieldset>
+                    </div>
+                )
+            } if (item.type === 'important') {
+                return (
+                    <div key={index} className="example__block important">
+                        <fieldset className="theory__example--fieldset">
+                            <legend className="theory__example--legend">Важно</legend>
+                            <div key={index} className="theory--visual">{Content}</div>
+                        </fieldset>
+                    </div>
+                )
+            } if (item.type === 'exception') {
+                return (
+                    <div key={index} className="example__block exception">
+                        <fieldset className="theory__example--fieldset">
+                            <legend className="theory__example--legend">Исключение</legend>
+                            <div key={index} className="theory--visual">{Content}</div>
+                        </fieldset>
+                    </div>
+                )
+            }
+        }
+    }
+
     return (
         <div className={isPopup ? "popup" : "popup all--disabled"}>
             <div className="popup__header">
@@ -48,45 +99,7 @@ function Popup({ isPopup, setPopup, content }) {
             </div>
             <div className="popup__content">
                 {
-                    content?.blocks.map((item, index) => {
-                        const Content = parseBold(item.content)
-                        if (item.type === 'text') {
-                            return (
-                                <div key={index} className="theory--visual theory__text">{Content}</div>
-                            )
-                        } if (item.type === 'subtitle') {
-                            return (
-                                <div key={index} className="theory--visual theory__subtitle">{Content}</div>
-                            )
-                        } if (item.type === 'example') {
-                            return (
-                                <div key={index} className="example__block">
-                                    <fieldset className="theory__example--fieldset">
-                                        <legend className="theory__example--legend">Пример</legend>
-                                        <div key={index} className="theory--visual">{Content}</div>
-                                    </fieldset>
-                                </div>
-                            )
-                        } if (item.type === 'important') {
-                            return (
-                                <div key={index} className="example__block important">
-                                    <fieldset className="theory__example--fieldset">
-                                        <legend className="theory__example--legend">Важно</legend>
-                                        <div key={index} className="theory--visual">{Content}</div>
-                                    </fieldset>
-                                </div>
-                            )
-                        } if (item.type === 'exception') {
-                            return (
-                                <div key={index} className="example__block exception">
-                                    <fieldset className="theory__example--fieldset">
-                                        <legend className="theory__example--legend">Исключение</legend>
-                                        <div key={index} className="theory--visual">{Content}</div>
-                                    </fieldset>
-                                </div>
-                            )
-                        }
-                    })
+                    content?.blocks.map((item, index) => getElem(item, index))
                 }   
             </div>
         </div>
