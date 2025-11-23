@@ -132,6 +132,7 @@
     &::before {
         content: '▲';
         padding: 0px 10px;
+        font-size: small;
     }
 }
 
@@ -139,11 +140,12 @@
     &::before {
         content: '▼';
         padding: 0px 10px;
+        font-size: small;
     }
 }
 
 .theory--children {
-    padding-left: 20px;
+    padding-left: 10px;
 }
 
 /* .theory--visual + .theory--visual {
@@ -159,7 +161,7 @@
 }
 
 .theory__subtitle {
-    margin: 20px 0px;
+    margin: 10px 0px;
 
     color: var(--text-color);
     font-size: large;
