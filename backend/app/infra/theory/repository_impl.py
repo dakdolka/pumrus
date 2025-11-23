@@ -1,4 +1,5 @@
 from ast import List
+from pprint import pprint
 from app.core.db import async_session_factory
 from app.core.theory.entities import Theory, TheoryBlock
 from app.core.theory.repository import ITheoryRepository
@@ -19,7 +20,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
         # Рекурсивно создаём блоки
         def _map_blocks_to_bd(block: TheoryBlock, parent: Optional[TheoryBlockBD] = None) -> TheoryBlockBD:
             bd_block = TheoryBlockBD(
-                text=block.content,
+                content=block.content,
                 type=block.type,
                 order=block.order,
                 parent=parent,
@@ -43,37 +44,27 @@ class TheoryRepositoryImpl(ITheoryRepository):
         return res
     
     
-    async def get_theory_by_id(self, session: AsyncSession, id):
-        stmt = (
-            select(TheoryBD)
-            .where(TheoryBD.id == id)
-            .options(selectinload(TheoryBD.blocks).selectinload(TheoryBlockBD.children))
-        )
-
+    async def get_children_by_parent_id(self, session: AsyncSession, parent_id: int) -> List[TheoryBlockBD]:
+        # print("parent_id", parent_id)
+        stmt = select(TheoryBlockBD).where(TheoryBlockBD.parent_id == parent_id).options(selectinload(TheoryBlockBD.children))
         result = await session.execute(stmt)
-        orm_theory: TheoryBD = result.scalars().one_or_none()
-        print(orm_theory)
-
-        if orm_theory is None:
-            return None
-
-        blocks: List[TheoryBlock] = []
-        for b in orm_theory.blocks:
-            blocks.append(
-                TheoryBlock(
-                    id=b.id,
-                    type=BlockType(b.type) if b.type is not None else None,
-                    content=b.text,
-                    theory_id=b.theory_id,
-                )
-            )
-
-        domain_theory = Theory(
-            id=orm_theory.id,
-            name=orm_theory.name,
-            type=TheoryType(orm_theory.type) if orm_theory.type is not None else None,
-            blocks=blocks,
-        )
-        
-        return domain_theory
+        res = result.scalars().all()
+        print("Children reached")
+        for elem in res:
+            if elem.children:
+                elem.children = await self.get_children_by_parent_id(session, elem.id)
+        return res
+    
+    async def get_theory_by_id(self, session: AsyncSession, id: int) -> Theory | None:
+       stmt = select(TheoryBD).where(TheoryBD.id == id).options(selectinload(TheoryBD.blocks).selectinload(TheoryBlockBD.children))
+       result = await session.execute(stmt)
+       res = result.scalars().one_or_none()
+       print("res blocks orm")
+       pprint(res.blocks)
+       for block in res.blocks:
+           print('block children orm view')
+           pprint(block.children)
+           if block.children:
+                block.children = await self.get_children_by_parent_id(session, block.id)
+       return res
     

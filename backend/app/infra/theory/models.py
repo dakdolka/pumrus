@@ -21,13 +21,13 @@ class TheoryBlockBD(Base):
     __tablename__ = "theory_block"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    text: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text)
     type: Mapped[Optional[BlockType]] = mapped_column(Enum(BlockType))
     
-    theory_id: Mapped[Optional[int]] = mapped_column(ForeignKey("theory.id", ondelete="CASCADE"))
+    theory_id: Mapped[Optional[int]] = mapped_column(ForeignKey("theory.id", ondelete="CASCADE"), nullable=True)
     theory: Mapped["TheoryBD"] = relationship(back_populates="blocks")
     
-    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("theory_block.id", ondelete="CASCADE"))
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("theory_block.id", ondelete="CASCADE"), nullable=True)
     order: Mapped[int] = mapped_column(default=0)
 
     children: Mapped[List["TheoryBlockBD"]] = relationship(

@@ -1,12 +1,14 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from app.core.theory.enums import BlockType, TheoryType
 
 class TheoryBlockResponse(BaseModel):
     id: int
     type: BlockType
     content: str
-    theory_id: int
+    order: int
+    theory_id: Optional[int] = None
+    children: List["TheoryBlockResponse"] = []
 
 class TheoryResponse(BaseModel):
     id: int

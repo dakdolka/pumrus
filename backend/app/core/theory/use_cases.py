@@ -29,6 +29,5 @@ class GetAllTheoriesUseCase:
     async def execute(self) -> List[tuple[int, str]]:
         async with async_session_factory() as session:
             theories = await self.repo.get_all_theories(session)
-            print(theories)
             return theories
     
