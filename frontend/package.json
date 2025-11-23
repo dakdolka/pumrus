@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "nom": "^0.0.3",
+    "npm": "^11.6.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
