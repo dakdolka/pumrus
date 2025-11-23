@@ -12,7 +12,7 @@ app/
 │   └── theory/
 │       ├── entities.py      # Доменные сущности (TheoryBlock, Theory)
 │       ├── repository.py    # Интерфейс доступа к данным (ITheoryRepository)
-│       └── use_cases.py     # Бизнес-логика (CreateTheoryUseCase и др.)
+│       └── use_cases.py     # Бизнес-логика (CreateTheoryUseCase  )
 ├── infra/                   # Реализация инфраструктуры (БД, внешние сервисы)
 │   └── theory/
 │       ├── models.py        # SQLAlchemy ORM-модели (TheoryBlockDB, TheoryDB)

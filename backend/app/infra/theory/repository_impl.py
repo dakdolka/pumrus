@@ -40,16 +40,13 @@ class TheoryRepositoryImpl(ITheoryRepository):
         stmt = select(TheoryBD.id, TheoryBD.name)
         result = await session.execute(stmt)
         res = result.all()
-        print(res)
         return res
     
     
     async def get_children_by_parent_id(self, session: AsyncSession, parent_id: int) -> List[TheoryBlockBD]:
-        # print("parent_id", parent_id)
         stmt = select(TheoryBlockBD).where(TheoryBlockBD.parent_id == parent_id).options(selectinload(TheoryBlockBD.children))
         result = await session.execute(stmt)
         res = result.scalars().all()
-        print("Children reached")
         for elem in res:
             if elem.children:
                 elem.children = await self.get_children_by_parent_id(session, elem.id)
@@ -59,11 +56,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
        stmt = select(TheoryBD).where(TheoryBD.id == id).options(selectinload(TheoryBD.blocks).selectinload(TheoryBlockBD.children))
        result = await session.execute(stmt)
        res = result.scalars().one_or_none()
-       print("res blocks orm")
-       pprint(res.blocks)
        for block in res.blocks:
-           print('block children orm view')
-           pprint(block.children)
            if block.children:
                 block.children = await self.get_children_by_parent_id(session, block.id)
        return res
