@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
-    fetch(`http://localhost:8000/api/theory/get_theory/${theory_id}`)
+    fetch(`/api/theory/get_theory/${theory_id}`)
         .then(response => response.json())
         .then(data => {
             content.title = data.name

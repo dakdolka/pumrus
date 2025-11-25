@@ -10,6 +10,12 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: ['bestgreen.ru'],
     https: false,             // SSL делаем на Nginx, dev-server работает HTTP
-    hmr: false
+    hmr: false,
+    proxy: {
+      "/api/": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
 })
