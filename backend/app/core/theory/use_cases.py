@@ -1,3 +1,4 @@
+from pprint import pprint
 from .repository import ITheoryRepository
 from .entities import Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.db import async_session_factory
@@ -7,10 +8,10 @@ class CreateTheoryTypesAndSubjsUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
     
-    async def execute(self, theory_types: List[TheoryType], theory_subjs: List[TheorySubject]):
+    async def execute(self, susbject2type_config: dict):
         async with async_session_factory() as session:
             async with session.begin():
-                await self.repo.create_theory_types_and_subjs(session, theory_types, theory_subjs)
+                await self.repo.create_theory_types_and_subjs(session, susbject2type_config)
 
 class CreateTheoryUseCase:
     def __init__(self, repo: ITheoryRepository):
@@ -21,27 +22,16 @@ class CreateTheoryUseCase:
             async with session.begin():
                 await self.repo.create_theory(session, theory)
 
-class GetAllSubjectsUseCase:
+class GetAllTheoryDopInfoUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
         
-    async def execute(self) -> List[tuple[int, str]]:
+    async def execute(self) -> List[dict]:
         async with async_session_factory() as session:
-            subjs = await self.repo.get_all_subjects(session)
-            subjs = [{"id": subj[0], "name": subj[1].value} for subj in subjs]
-            print(subjs)
-            return subjs
-        
-class GetAllTheoryTypesBySubjectUseCase:
-    def __init__(self, repo: ITheoryRepository):
-        self.repo = repo
-        
-    async def execute(self, subject_id: int) -> List[tuple[int, str]]:
-        async with async_session_factory() as session:
-            types = await self.repo.get_all_theory_types_by_subject(session, subject_id)
-            print(types)
-            types = [{"id": typ[0], "name": typ[1].value} for typ in types]
-            return types
+            res = await self.repo.get_all_theory_dop_info(session)
+            res = [{"id": el[0], "subject": el[1].value, "types": [{"id":e.id, "name":e.name.value} for e in el[2]]} for el in res]
+            pprint(res)
+            return res
 
 class GetTheoryByIdUseCase:
     def __init__(self, repo: ITheoryRepository):

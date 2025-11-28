@@ -42,6 +42,19 @@ type_config = {
     "5": TheoryType.encoding
 }
 
+subject2type_config = {
+    TheorySubject.rus: [
+        TheoryType.speechpart, 
+        TheoryType.text, 
+        TheoryType.wordparts, 
+        TheoryType.punctuation
+        ],
+    TheorySubject.infa: [
+        TheoryType.database, 
+        TheoryType.encoding
+        ]
+}
+
 
 async def find_blocks(dirpath, filename) -> tuple[str, str, list[str]]:
     full_path = os.path.join(dirpath, filename)
@@ -118,9 +131,7 @@ async def parse_blocks(raw_blocks: list[str]):
 async def create_theory_types_and_subjs():
     repository = TheoryRepositoryImpl()
     usecase = CreateTheoryTypesAndSubjsUseCase(repository)
-    theory_types = [elem for elem in list(TheoryType)]
-    theory_subjs = [elem for elem in list(TheorySubject)]
-    await usecase.execute(theory_types, theory_subjs)
+    await usecase.execute(subject2type_config)
 
 async def create_theory():
     await create_theory_types_and_subjs()

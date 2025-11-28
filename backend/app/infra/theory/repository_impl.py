@@ -11,11 +11,12 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class TheoryRepositoryImpl(ITheoryRepository):
-    async def create_theory_types_and_subjs(self, session: AsyncSession, theory_types: list[TheoryType],  theory_subjs: List[TheorySubject]):
-        for typ in theory_types:
-            session.add(TheoryTypeBD(name=typ.name))
-        for typ in theory_subjs:            
-            session.add(TheorySubjectBD(name=typ.name))
+    async def create_theory_types_and_subjs(self, session: AsyncSession, subject2type_config: dict):
+        for subj, types in subject2type_config.items():
+            subj = TheorySubjectBD(name=subj)
+            session.add(subj)
+            for typ in types:
+                session.add(TheoryTypeBD(name=typ, subject=subj))
         await session.commit()
         
     async def create_theory(self, session: AsyncSession, theory: Theory):
@@ -74,16 +75,9 @@ class TheoryRepositoryImpl(ITheoryRepository):
            if block.children:
                 block.children = await self.get_children_by_parent_id(session, block.id)
        return res
-    
-    async def get_all_subjects(self, session):
-        stmt = select(TheorySubjectBD.id, TheorySubjectBD.name)
-        result = await session.execute(stmt)
-        res = result.all()
-        return res
-    
-    async def get_all_theory_types_by_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
-        stmt = select(TheoryBD).where(TheoryBD.subject_id == subject_id).options(selectinload(TheoryBD.types))
+   
+    async def get_all_theory_dop_info(self, session: AsyncSession) -> List[dict]:
+        stmt = select(TheorySubjectBD).options(selectinload(TheorySubjectBD.types))
         result = await session.execute(stmt)
         res = result.scalars().all()
-        res = sorted(set([x for row in [[(typ.id, typ.name) for typ in elem.types] for elem in res] for x in row ]))
-        return res
+        return [(el.id, el.name, el.types) for el in res]

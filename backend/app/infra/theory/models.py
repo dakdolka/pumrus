@@ -20,16 +20,22 @@ class TheorySubjectBD(Base):
     theories: Mapped[list["TheoryBD"]] = relationship(
         back_populates="subject"
     )
+    types: Mapped[list["TheoryTypeBD"]] = relationship(
+        back_populates="subject"
+    )
 
 class TheoryTypeBD(Base):
     __tablename__ = "theory_type"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[TheoryType] = mapped_column(Enum(TheoryType), unique=True)
+    subject_key = mapped_column(Integer, ForeignKey("theory_subject.id"))
     theories: Mapped[list["TheoryBD"]] = relationship(
         secondary=theory2theory_type,
         back_populates="types"
     )
-
+    subject: Mapped["TheorySubjectBD"] = relationship(
+        back_populates="types"
+    )
 
 class TheoryBD(Base):
     __tablename__ = "theory"
