@@ -71,7 +71,7 @@
     width: calc(100% - 110px);
     height: 80px;
 
-    font-size: 2em;
+    font-size: 1.5em;
     font-family: var(--text-font);
     color: var(--text-color);
 
