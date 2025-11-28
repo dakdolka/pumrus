@@ -8,7 +8,7 @@
 .main {
     width: 100vw;
     height: calc(100vh - 20px);
-    padding: 10px 0px;
+    padding-bottom: 10px;
 
     display: flex;
     flex-direction: column;
