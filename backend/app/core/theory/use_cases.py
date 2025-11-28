@@ -28,8 +28,20 @@ class GetAllSubjectsUseCase:
     async def execute(self) -> List[tuple[int, str]]:
         async with async_session_factory() as session:
             subjs = await self.repo.get_all_subjects(session)
-            
+            subjs = [{"id": subj[0], "name": subj[1].value} for subj in subjs]
+            print(subjs)
             return subjs
+        
+class GetAllTheoryTypesBySubjectUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, subject_id: int) -> List[tuple[int, str]]:
+        async with async_session_factory() as session:
+            types = await self.repo.get_all_theory_types_by_subject(session, subject_id)
+            print(types)
+            types = [{"id": typ[0], "name": typ[1].value} for typ in types]
+            return types
 
 class GetTheoryByIdUseCase:
     def __init__(self, repo: ITheoryRepository):

@@ -12,13 +12,13 @@ class BlockType(str, Enum):
     group = "group"
 
 class TheoryType(str, Enum):
-    speechpart = "speechpart"
-    text = "text"
-    wordparts = "wordparts"
-    punctuation = "punctuation"
-    database = "database"
-    encoding = "encoding"
+    speechpart = "Части речи"
+    text = "Текст"
+    wordparts = "Морфемы"
+    punctuation = "Пунктуация"
+    database = "База данных"
+    encoding = "Кодировка"
 
 class TheorySubject(str, Enum):
-    infa = "infa"
-    rus = "rus"
+    infa = "Информатика"
+    rus = "Русский язык"

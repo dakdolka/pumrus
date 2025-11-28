@@ -80,3 +80,10 @@ class TheoryRepositoryImpl(ITheoryRepository):
         result = await session.execute(stmt)
         res = result.all()
         return res
+    
+    async def get_all_theory_types_by_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
+        stmt = select(TheoryBD).where(TheoryBD.subject_id == subject_id).options(selectinload(TheoryBD.types))
+        result = await session.execute(stmt)
+        res = result.scalars().all()
+        res = sorted(set([x for row in [[(typ.id, typ.name) for typ in elem.types] for elem in res] for x in row ]))
+        return res
