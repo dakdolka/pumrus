@@ -7,7 +7,7 @@ from typing import Annotated
 # асинхронный движоек
 async_engine = create_async_engine(
     url=settings.db_url,
-    echo=True,  # выключение логов
+    echo=False,  # выключение логов
     pool_size=5,
     max_overflow=10,
 )
