@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional, List
-from .enums import BlockType, TheoryType
+from .enums import BlockType, TheoryType, TheorySubject
 
 @dataclass
 class TheoryBlock:

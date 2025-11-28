@@ -16,3 +16,9 @@ class TheoryType(str, Enum):
     text = "text"
     wordparts = "wordparts"
     punctuation = "punctuation"
+    database = "database"
+    encoding = "encoding"
+
+class TheorySubject(str, Enum):
+    infa = "infa"
+    rus = "rus"
