@@ -21,6 +21,15 @@ class CreateTheoryUseCase:
             async with session.begin():
                 await self.repo.create_theory(session, theory)
 
+class GetAllSubjectsUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self) -> List[tuple[int, str]]:
+        async with async_session_factory() as session:
+            subjs = await self.repo.get_all_subjects(session)
+            
+            return subjs
 
 class GetTheoryByIdUseCase:
     def __init__(self, repo: ITheoryRepository):

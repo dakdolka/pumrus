@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import GetTheoryByIdUseCase, GetAllTheoriesUseCase
-from .schemas import TheoryResponse, TheoryId, AllTheoryResponse
+from app.core.theory.use_cases import GetTheoryByIdUseCase, GetAllTheoriesUseCase, GetAllSubjectsUseCase
+from .schemas import AllSubjResponse, TheoryResponse, TheoryId, AllTheoryResponse
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
 
@@ -14,6 +14,15 @@ async def get_all_theories():
     usecase = GetAllTheoriesUseCase(repo)
     theories = await usecase.execute()
     return theories
+
+
+@router.get("/all_subjects", response_model=AllSubjResponse)
+async def get_all_subjects():
+    repo = TheoryRepositoryImpl()
+    usecase = GetAllSubjectsUseCase(repo)
+    subjects = await usecase.execute()
+    return subjects
+
 
 #TODO добавить входную модель, тк иначе пути по-тупому перекрываются
 @router.get("/get_theory/{theory_id}", response_model=TheoryResponse)

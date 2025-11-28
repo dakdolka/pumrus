@@ -1,6 +1,14 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from app.core.theory.enums import BlockType, TheoryType
+from app.core.theory.enums import BlockType, TheoryType, TheorySubject
+
+class AllSubjResponse(BaseModel):
+    id: int
+    name: TheorySubject
+
+class AllTheoryTypesResponse(BaseModel):
+    id: int
+    name: TheoryType
 
 class TheoryBlockResponse(BaseModel):
     id: int

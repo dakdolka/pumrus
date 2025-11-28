@@ -75,3 +75,8 @@ class TheoryRepositoryImpl(ITheoryRepository):
                 block.children = await self.get_children_by_parent_id(session, block.id)
        return res
     
+    async def get_all_subjects(self, session):
+        stmt = select(TheorySubjectBD.id, TheorySubjectBD.name)
+        result = await session.execute(stmt)
+        res = result.all()
+        return res
