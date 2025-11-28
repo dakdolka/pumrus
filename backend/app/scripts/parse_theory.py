@@ -6,9 +6,9 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 from app.infra.theory.models import TheoryBD, TheoryBlockBD
 from app.core.theory.entities import Theory, TheoryBlock
-from app.core.theory.enums import BlockType, TheoryType
+from app.core.theory.enums import BlockType, TheoryType, TheorySubject
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import CreateTheoryUseCase
+from app.core.theory.use_cases import CreateTheoryTypesAndSubjsUseCase, CreateTheoryUseCase
 import asyncio
 import os
 
@@ -28,22 +28,31 @@ config = {
     "8": BlockType.group
 }
 
+subject_config = {
+    "0": TheorySubject.rus,
+    "1": TheorySubject.infa
+}
+
 type_config = {
     "0": TheoryType.speechpart,
     "1": TheoryType.text,
     "2": TheoryType.wordparts,
-    "3": TheoryType.punctuation
+    "3": TheoryType.punctuation,
+    "4": TheoryType.database,
+    "5": TheoryType.encoding
 }
 
 
-async def find_blocks(dirpath, filename) -> tuple[str, list[str]]:
+async def find_blocks(dirpath, filename) -> tuple[str, str, list[str]]:
     full_path = os.path.join(dirpath, filename)
     with open(full_path, encoding='utf-8') as f:
         text = f.read()
     text = [elem.strip() for elem in text.split('%')]
-    theory_type = type_config[text.pop(-1).strip()[-1]]
+    last = text.pop(-1).strip().split()
+    theory_types = [type_config[elem] for elem in last[1:len(last)-1]]
+    theory_subj = subject_config[last[-1]]
     theory_blocks = [elem.strip() for elem in text]
-    return theory_type, theory_blocks
+    return theory_types, theory_subj, theory_blocks
 
 def split_multiline_block(block: str) -> list[tuple[int, str]]:
     result = []
@@ -106,19 +115,26 @@ async def parse_blocks(raw_blocks: list[str]):
     title = blocks[0].content if blocks else None
     return title, blocks
 
+async def create_theory_types_and_subjs():
+    repository = TheoryRepositoryImpl()
+    usecase = CreateTheoryTypesAndSubjsUseCase(repository)
+    theory_types = [elem for elem in list(TheoryType)]
+    theory_subjs = [elem for elem in list(TheorySubject)]
+    await usecase.execute(theory_types, theory_subjs)
 
 async def create_theory():
+    await create_theory_types_and_subjs()
     repository = TheoryRepositoryImpl()
     usecase = CreateTheoryUseCase(repository)
     dir_path = BASE_DIR / 'app' / 'scripts' / 'txts'
     for dirpath, dirnames, filenames in os.walk(dir_path):
         for filename in filenames:
-            theory_type, theory_blocks = await find_blocks(dirpath, filename)
-            print(theory_blocks)
+            theory_types, theory_subj, theory_blocks = await find_blocks(dirpath, filename)
             theory_name, theory_blocks = await parse_blocks(theory_blocks)
             theory = Theory(
-                type=theory_type,
-                name=theory_blocks[0].content,
+                types=theory_types,
+                subj=theory_subj,
+                name=theory_name,
                 blocks=theory_blocks
             )
             # pprint(theory)

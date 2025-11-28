@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Table
+from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
@@ -6,14 +6,14 @@ from app.core.db import Base, str_256
 from app.core.theory.entities import BlockType
 from app.core.theory.enums import TheoryType, TheorySubject
 
-theory_theory_type = Table(
-    "theory_theory_type",
+theory2theory_type = Table(
+    "theory2theory_type",
     Base.metadata,
-    mapped_column("theory_id", ForeignKey("theory.id"), primary_key=True),
-    mapped_column("type_id", ForeignKey("theory_type.id"), primary_key=True),
+    Column("theory_id", Integer, ForeignKey("theory.id"), primary_key=True),
+    Column("type_id", Integer, ForeignKey("theory_type.id"), primary_key=True),
 )
 
-class TheorySubject(Base):
+class TheorySubjectBD(Base):
     __tablename__ = "theory_subject"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[TheorySubject] = mapped_column(Enum(TheorySubject), unique=True)
@@ -26,7 +26,7 @@ class TheoryTypeBD(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[TheoryType] = mapped_column(Enum(TheoryType), unique=True)
     theories: Mapped[list["TheoryBD"]] = relationship(
-        secondary=theory_theory_type,
+        secondary=theory2theory_type,
         back_populates="types"
     )
 
@@ -34,13 +34,13 @@ class TheoryTypeBD(Base):
 class TheoryBD(Base):
     __tablename__ = "theory"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
+    name: Mapped[str_256]
     subject_id: Mapped[int] = mapped_column(ForeignKey("theory_subject.id"))
-    subject: Mapped["TheorySubject"] = relationship(
+    subject: Mapped["TheorySubjectBD"] = relationship(
         back_populates="theories"
     )
     types: Mapped[list["TheoryTypeBD"]] = relationship(
-        secondary=theory_theory_type,
+        secondary=theory2theory_type,
         back_populates="theories"
     )
 

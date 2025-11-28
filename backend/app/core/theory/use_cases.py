@@ -1,7 +1,16 @@
 from .repository import ITheoryRepository
-from .entities import Theory, TheoryBlock
+from .entities import Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.db import async_session_factory
 from typing import Tuple, List
+
+class CreateTheoryTypesAndSubjsUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+    
+    async def execute(self, theory_types: List[TheoryType], theory_subjs: List[TheorySubject]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                await self.repo.create_theory_types_and_subjs(session, theory_types, theory_subjs)
 
 class CreateTheoryUseCase:
     def __init__(self, repo: ITheoryRepository):

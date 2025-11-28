@@ -15,7 +15,8 @@ class TheoryBlock:
 @dataclass
 class Theory:
     name: str
-    type: TheoryType
+    types: List[TheoryType]
+    subj: TheorySubject
     id: Optional[int] = None
     blocks: List[Optional[TheoryBlock]] = field(default_factory=list)
     
@@ -23,3 +24,13 @@ class Theory:
 class AllTheory:
     id: Optional[int]
     name: str
+    
+@dataclass
+class TheorySubject:
+    name: TheorySubject
+    id: Optional[int] = None
+    
+@dataclass
+class TheoryType:
+    name: TheoryType
+    id: Optional[int] = None

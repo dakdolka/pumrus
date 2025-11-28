@@ -1,10 +1,9 @@
 from ast import List
 from pprint import pprint
 from app.core.db import async_session_factory
-from app.core.theory.entities import Theory, TheoryBlock
+from app.core.theory.entities import Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
-from .models import TheoryBD, TheoryBlockBD
-from app.core.theory.enums import TheoryType, BlockType
+from .models import TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
 from sqlalchemy import insert, select
@@ -12,11 +11,26 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 class TheoryRepositoryImpl(ITheoryRepository):
-    async def create_theory(self, session: AsyncSession, theory: Theory):
-    # Создаём верхний объект
-        bd_theory = TheoryBD(type=theory.type, name=theory.name)
-        session.add(bd_theory)  # ORM теперь знает сессию для top-level
+    async def create_theory_types_and_subjs(self, session: AsyncSession, theory_types: list[TheoryType],  theory_subjs: List[TheorySubject]):
+        for typ in theory_types:
+            session.add(TheoryTypeBD(name=typ.name))
+        for typ in theory_subjs:            
+            session.add(TheorySubjectBD(name=typ.name))
+        await session.commit()
         
+    async def create_theory(self, session: AsyncSession, theory: Theory):
+        types = [
+            (await session.scalars(
+                select(TheoryTypeBD).where(TheoryTypeBD.name == typ.name)
+            )).one() 
+            for typ in theory.types
+        ]
+        subj = (await session.scalars(
+            select(TheorySubjectBD).where(TheorySubjectBD.name == theory.subj.name)
+        )).one()
+        # Создаём верхний объект
+        bd_theory = TheoryBD(types=types, subject=subj, name=theory.name)
+        session.add(bd_theory)  # ORM теперь знает сессию для top-level
         # Рекурсивно создаём блоки
         def _map_blocks_to_bd(block: TheoryBlock, parent: Optional[TheoryBlockBD] = None) -> TheoryBlockBD:
             bd_block = TheoryBlockBD(
