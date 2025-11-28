@@ -3,19 +3,23 @@ import { useState } from 'react'
 
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
-    fetch(`/api/theory/get_theory/${theory_id}`)
+    async function getTheory() {
+        await fetch(`/api/theory/get_theory/${theory_id}`)
         .then(response => response.json())
         .then(data => {
             content.title = data.name
             content.blocks = data.blocks
         })
+        
+        await setContent(content)
+        setPopup(true)
+    }
 
     return (
         <div 
             className="element" 
             onClick={() => {
-                setContent(content)
-                setPopup(true)
+                getTheory()
             }}
         >
             {children}
@@ -104,7 +108,7 @@ function TheoryElem({ item }) {
 
 function Popup({ isPopup, setPopup, content }) {
     // ! console.log
-    // console.log("------< Объект в попапе >------", content)
+    console.log("------< Объект в попапе >------", content)
 
     return (
         <div className={isPopup ? "popup" : "popup all--disabled"}>

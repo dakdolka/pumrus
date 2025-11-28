@@ -8,12 +8,12 @@ export default defineConfig({
     host: "0.0.0.0",         // чтобы Vite был доступен извне
     port: 3000,
     strictPort: true,
-    allowedHosts: ['bestgreen.ru'],
+    allowedHosts: ['localhost', '127.0.0.1', 'bestgreen.ru'],
     https: false,             // SSL делаем на Nginx, dev-server работает HTTP
-    hmr: false,
+    // hmr: false,
     proxy: {
-      "/api/": {
-        target: "http://localhost:8000",
+      "/api": {
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },
