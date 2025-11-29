@@ -52,9 +52,10 @@ class TheoryRepositoryImpl(ITheoryRepository):
        
         
     async def get_all_theories(self, session: AsyncSession) -> List[tuple[int, str]]:
-        stmt = select(TheoryBD.id, TheoryBD.name)
+        stmt = select(TheoryBD).options(selectinload(TheoryBD.types))
         result = await session.execute(stmt)
-        res = result.all()
+        res = result.scalars().all()
+        print(res)
         return res
     
     

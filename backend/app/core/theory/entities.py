@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import types
 from typing import Optional, List
 from .enums import BlockType, TheoryType, TheorySubject
 
@@ -24,6 +25,7 @@ class Theory:
 class AllTheory:
     id: Optional[int]
     name: str
+    types: List[TheoryType]
     
 @dataclass
 class TheorySubject:
