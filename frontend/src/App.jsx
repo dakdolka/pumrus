@@ -3,20 +3,20 @@ import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
 import { Element, Popup } from './components.jsx'
 
-const Names = [
-  {
-    name: "Текст"
-  },
-  {
-    name: "Морфемы"
-  },
-  {
-    name: "Части речи"
-  },
-  {
-    name: "Пунктуация"
-  },
-]
+// const Names = [
+//   {
+//     name: "Текст"
+//   },
+//   {
+//     name: "Морфемы"
+//   },
+//   {
+//     name: "Части речи"
+//   },
+//   {
+//     name: "Пунктуация"
+//   },
+// ]
 
 function saveInfo(key, value) {
     const jsonString = JSON.stringify(value);
@@ -48,7 +48,10 @@ function Option({ children, onSelect }) {
 }
 
 
-function TheoryChoose() {
+function TheoryChoose({ object }) {
+  console.log("-----< Полученный предмет >-----", object); //! console.log
+
+
   const task = useRef();
   const theme = useRef();
 
@@ -66,9 +69,8 @@ function TheoryChoose() {
   const [rules, setRules] = useState(
     []
   ); // * Долэжен быть fetch на получение имен
-  //             Тест жоска
   useEffect(() => {
-    fetch("/api/theory/all_theory")  //! Должно быть без localhost
+    fetch(`/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         // console.log(data)
@@ -105,6 +107,7 @@ function TheoryChoose() {
     }
   }
 
+
   return (
     <>
       <div className="theoryChoose">
@@ -115,7 +118,7 @@ function TheoryChoose() {
         Задания
       </div>
       <div className={isThemeActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
-        {Names.map((item, index) => {
+        {object.types.map((item, index) => {
           return (
             <Option key={index} onSelect={handleSelect}>{item.name}</Option>
           )
@@ -139,6 +142,19 @@ function App() {
   const theory = useRef();
   const analysis = useRef();
   const title = useRef();
+
+  const [subjects, getSubjects] = useState([]);
+  const [object, chooseSubject] = useState();
+
+  useEffect(() => {
+    fetch("/api/theory/all_theory_dop_info")
+      .then(response => response.json())
+      .then(data => {
+        getSubjects(data)
+
+        console.log("-----< Полученные предметы >-----", data)
+      })
+  }, []);
 
   const [page, setPage] = useState("main");
 
@@ -166,6 +182,38 @@ function App() {
 
   let content;
   if (page === "main") {
+    content =
+    <>
+    <div ref={title} className="mainTitle">
+      <div className="mainTitle__picture" />
+      <div className="mainTitle__title">PumRus</div>
+      <div className="mainTitle__text">
+        Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
+        <br />
+        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
+      </div>
+    </div>
+    <div className="subject__block">
+      {subjects.map((item, index) => {
+        return (
+          <Chapter 
+            key={index}
+            subject="true"
+            func={() => {
+              chooseSubject(item);
+              setPage("subject");
+              
+              console.log("------< Предмет >------", item.subject)            //! console.log
+            }}
+          >
+            {item.subject}
+          </Chapter>
+        )
+      })}
+    </div>
+    </>
+  }
+  if (page === "subject") {
     content = 
       <>
         <div ref={title} className="mainTitle">
@@ -308,7 +356,7 @@ function App() {
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("main")}
+          func={() => setPage("subject")}
         >
           Ежедневное задание
         </Chapter>
@@ -320,7 +368,7 @@ function App() {
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("main")}
+          func={() => setPage("subject")}
         >
           Практика
         </Chapter>
@@ -332,11 +380,11 @@ function App() {
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("main")}
+          func={() => setPage("subject")}
         >
           Теория
         </Chapter>
-        <TheoryChoose />
+        <TheoryChoose object={object} />
       </>
     )
   }
@@ -345,10 +393,7 @@ function App() {
       <>
         <Chapter
           isValue="true"
-          func={() => {
-            setPage("main")
-            console.log("Функция закрытия")
-          }}
+          func={() => {setPage("subject")}}
         >
           Аналитика
         </Chapter>
