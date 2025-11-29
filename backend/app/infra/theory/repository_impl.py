@@ -51,8 +51,8 @@ class TheoryRepositoryImpl(ITheoryRepository):
         await session.commit()
        
         
-    async def get_all_theories(self, session: AsyncSession) -> List[tuple[int, str]]:
-        stmt = select(TheoryBD).options(selectinload(TheoryBD.types))
+    async def get_all_theories_for_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
+        stmt = select(TheoryBD).where(TheoryBD.subject_id == subject_id).options(selectinload(TheoryBD.types))
         result = await session.execute(stmt)
         res = result.scalars().all()
         print(res)
