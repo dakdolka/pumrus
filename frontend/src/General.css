@@ -118,6 +118,7 @@
 .theoryChoose__task--active {
     background-color: var(--active-color);
     border-right: 2px solid var(--main-color);
+    color: var(--main-color);
 }
 
 .theoryChoose__theme--hidden {
