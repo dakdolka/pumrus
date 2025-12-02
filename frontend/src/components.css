@@ -145,6 +145,16 @@
 
 .theory--children {
     padding-left: 15px;
+
+    .theory__subtitle {
+        text-align: left !important;
+    }
+
+    .example__block {
+        justify-content: flex-start !important;
+    }
+
+    
 }
 
 /* .theory--visual + .theory--visual {
