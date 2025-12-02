@@ -349,6 +349,10 @@ function App() {
         >
           Аналитика
         </Chapter>
+        <div 
+          className="back-to-subjects-button" 
+          onClick={() => setPage("main")}
+        />
       </>
   }
   if (page === "day-task") {
