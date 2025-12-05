@@ -107,8 +107,7 @@ function TheoryElem({ item }) {
 
 
 function Popup({ isPopup, setPopup, content }) {
-    // ! console.log
-    console.log("------< Объект в попапе >------", content)
+    // console.log("------< Объект в попапе >------", content) // ! console.log
 
     return (
         <div className={isPopup ? "popup" : "popup all--disabled"}>

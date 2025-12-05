@@ -219,7 +219,8 @@
 .elementBlock {
     margin-top: 10px;
     width: 90%;
-    height: auto;
+    max-height: calc(100% - 200px);
+    overflow-y: scroll;
     padding: 10px 0px;
 }
 

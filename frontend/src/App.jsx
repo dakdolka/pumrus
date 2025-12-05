@@ -29,13 +29,13 @@ function getInfo(key) {
 }
 
 
-function Option({ children, onSelect }) {
+function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
 
   return (
     <div className="option" data-ischosen={isChosen.toString()} onClick={() => {
         setMood(prev => {
-          onSelect(children, !prev);
+          onSelect(theme_id, !prev);
           return !prev
         })
       }}>
@@ -66,6 +66,7 @@ function TheoryChoose({ object }) {
 
   const [chosenBlock, setChosenBlock] = useState([]);
 
+  const [viewRules, setViewRules] = useState([]);
   const [rules, setRules] = useState(
     []
   ); // * Долэжен быть fetch на получение имен
@@ -78,20 +79,37 @@ function TheoryChoose({ object }) {
     })
   }, []);
 
-  function handleSelect(name, isChoose) {
+  console.log("-----< Правила >-----", rules); //! console.log
+
+  function handleSelect(id, isChoose) {
+    // console.log("ВЫБОР ТЕМЫ", id, isChoose) //! console.log
     setChosenBlock(prev => {
       if (isChoose) {
-        if (!prev.includes(name)) return [...prev, name];
+        if (!prev.includes(id)) return [...prev, id];
         return prev;
       } else {
-        return prev.filter(item => item !== name);
+        return prev.filter(item => item !== id);
       }
     });
   };
 
   useEffect(() => {
-    console.log(`Вывели теорию по запросу = ${chosenBlock}`);
-  }, [chosenBlock]);
+    if (chosenBlock.length === 0) {
+      console.log(`Вывели всю теорию}`);
+      setViewRules(rules);
+    } else {
+      setViewRules([]);
+      console.log(`Вывели теорию по запросу (id) = ${chosenBlock}`);
+      rules.map(item => {
+        item.types.map(type => {
+          if (chosenBlock.includes(type.id)) {
+            console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+            setViewRules(prev => [...prev, item]);
+          }
+        })
+      })
+    }
+  }, [chosenBlock, rules]);  
 
   function showContent(parent) {
     if (parent === "task") {
@@ -120,12 +138,12 @@ function TheoryChoose({ object }) {
       <div className={isThemeActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
         {object.types.map((item, index) => {
           return (
-            <Option key={index} onSelect={handleSelect}>{item.name}</Option>
+            <Option key={index} onSelect={handleSelect} theme_id={item.id}>{item.name}</Option>
           )
         })}
       </div>
       <div className="elementBlock">
-        {rules.map((item, index) => {
+        {viewRules.map((item, index) => {
           return (
             <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>{item.name}</Element>
           )
