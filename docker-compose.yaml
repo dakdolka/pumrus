@@ -28,7 +28,7 @@ services:
     working_dir: /app
     command: python -m app
     ports:
-      - "8000:8000"
+    - "8000:8000"
     restart: unless-stopped
     mem_limit: 512m
     extra_hosts:

@@ -29,8 +29,7 @@ class GetAllTheoryDopInfoUseCase:
     async def execute(self) -> List[dict]:
         async with async_session_factory() as session:
             res = await self.repo.get_all_theory_dop_info(session)
-            res = [{"id": el[0], "subject": el[1].value, "types": [{"id":e.id, "name":e.name.value} for e in el[2]]} for el in res]
-            pprint(res)
+            res = sorted([{"id": el[0], "subject": el[1].value, "types": [{"id":e.id, "name":e.name.value} for e in el[2]]} for el in res], key=lambda x: x["id"])
             return res
 
 class GetTheoryByIdUseCase:
