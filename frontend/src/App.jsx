@@ -95,15 +95,14 @@ function TheoryChoose({ object }) {
 
   useEffect(() => {
     if (chosenBlock.length === 0) {
-      console.log(`Вывели всю теорию}`);
+      // console.log(`Вывели всю теорию}`);
       setViewRules(rules);
     } else {
       setViewRules([]);
-      console.log(`Вывели теорию по запросу (id) = ${chosenBlock}`);
+      // console.log(`Вывели теорию по запросу (id) = ${chosenBlock}`);
       rules.map(item => {
         item.types.map(type => {
           if (chosenBlock.includes(type.id)) {
-            console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
             setViewRules(prev => [...prev, item]);
           }
         })
