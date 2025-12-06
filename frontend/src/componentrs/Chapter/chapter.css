@@ -6,7 +6,7 @@
 
 .chapter {
     width: 90%;
-    height: 70px;
+    min-height: 70px;
 
     border-radius: 7px;
     background-color: var(--block-color);

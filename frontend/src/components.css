@@ -160,9 +160,26 @@
 } */
 
 .theory__text {
+    margin: 10px 0px;
     color: var(--text-color);
     font-size: large;
     font-family: var(--text-font);
+
+    text-align: justify;
+}
+
+.theory__rule {
+    width: fit-content;
+
+    margin: 15px 0px;
+    letter-spacing: 2px;
+    font-size: large;
+    font-family: var(--text-font);
+    
+    color: var(--text-color);
+    background-color: var(--rule-color);
+    padding: 5px 10px;
+    border-radius: var(--border-size);
 
     text-align: justify;
 }

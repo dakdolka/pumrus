@@ -70,6 +70,9 @@ function TheoryElem({ item }) {
         case "text":
             return <div className="theory--visual theory__text">{Content}</div>;
 
+        case "rule":
+            return <div className="theory--visual theory__rule">{Content}</div>;
+
         case "subtitle":
             return <div className="theory--visual theory__subtitle">{Content}</div>;
 
