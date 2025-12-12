@@ -134,9 +134,15 @@
 
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
     margin-top: 5px;
-    width: 90%;
-    height: auto;
+    width: calc(90% - 10px);
     padding: 5px 0px;
+    height: auto;
+    max-height: 220px;
+
+    overflow-y: scroll;
+    &::-webkit-scrollbar {
+        display: none;
+    }
 
     border-radius: var(--border-size);
     background-color: transparent;
@@ -220,9 +226,25 @@
     margin-top: 10px;
     width: 90%;
     max-height: calc(100% - 425px);
-    overflow-y: scroll;
     padding: 10px 0px;
+
+    overflow-y: scroll;
+    &::-webkit-scrollbar {
+        display: none;
+    }
 }
+
+.elementBlock--small {
+    height: calc(100% - 385px - 20px);
+    /* ? 20px = padding: 10px 0px; */
+}
+
+
+.elementBlock--big {
+    height: calc(100% - 160px - 20px);
+    /* ? 20px = padding: 10px 0px; */
+}
+
 
 .back-to-subjects-button {
     position: fixed;

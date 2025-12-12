@@ -141,7 +141,7 @@ function TheoryChoose({ object }) {
           )
         })}
       </div>
-      <div className="elementBlock">
+      <div className={isThemeActive ? "elementBlock elementBlock--small" : "elementBlock elementBlock--big"}>
         {viewRules.map((item, index) => {
           return (
             <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>{item.name}</Element>
