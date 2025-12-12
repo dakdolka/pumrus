@@ -3,6 +3,8 @@
 * {
     margin: 0;
     padding: 0;
+
+    user-select: none;
 }
 
 .main {
@@ -225,7 +227,7 @@
 .elementBlock {
     margin-top: 10px;
     width: 90%;
-    /* max-height: calc(100% - 425px); */
+    /* max-height: calc(100% - 425px);   */
     padding: 10px 0px;
 
     overflow-y: scroll;
