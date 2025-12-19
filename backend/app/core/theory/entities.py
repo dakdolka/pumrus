@@ -36,3 +36,20 @@ class TheorySubject:
 class TheoryType:
     name: TheoryType
     id: Optional[int] = None
+
+@dataclass
+class TheoryForTaskTheory:
+    theory_id: int
+    theory_name: str
+
+@dataclass
+class TaskTheory:
+    task_id: int
+    task_name: str
+    theories: List[TheoryForTaskTheory]
+    
+@dataclass
+class TaskTheoryGroup:
+    task_group_id: int
+    group_name: str
+    tasks: List["TaskTheory"]

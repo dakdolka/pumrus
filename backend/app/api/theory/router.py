@@ -37,4 +37,7 @@ async def get_theory(theory_id: int):
     
 @router.get("/get_tasks_theory_for_subject/{subject_id}", response_model=list[TaskGroupsResponse])
 async def get_tasks_theory_for_subject(subject_id: int):
-    pass
+    repo = TheoryRepositoryImpl()
+    usecase = GetAllTheoriesForSubjectUseCase(repo)
+    theories = await usecase.execute(subject_id)
+    return theories

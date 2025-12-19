@@ -1,6 +1,6 @@
 from pprint import pprint
 from .repository import ITheoryRepository
-from .entities import Theory, TheoryBlock, TheoryType, TheorySubject
+from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup
 from app.core.db import async_session_factory
 from typing import Tuple, List
 
@@ -50,3 +50,11 @@ class GetAllTheoriesForSubjectUseCase:
             theories = await self.repo.get_all_theories_for_subject(session, subject_id)
             return theories
     
+class GetAllTaskGroupsForSubjectUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, subject_id) -> List[TaskTheoryGroup]:
+        async with async_session_factory() as session:
+            theories = await self.repo.get_all_task_groups_for_subject(session, subject_id)
+            return theories

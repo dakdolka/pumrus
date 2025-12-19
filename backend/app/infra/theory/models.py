@@ -1,3 +1,4 @@
+from asyncio import Task
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
@@ -85,10 +86,17 @@ class TheoryBlockBD(Base):
     parent: Mapped[Optional["TheoryBlockBD"]] = relationship(back_populates="children", remote_side=[id])
     
 
-class TaskTheoryGroup(Base):
-    id: Mapped[Optional[int]]
+class TaskTheoryGroupBD(Base):
+    __tablename__ = "task_theory_group"
+    
+    id: Mapped[Optional[int]] = mapped_column(primary_key=True)
+    name: Mapped[str_256]
+    tasks: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
 
-class TaskTheory(Base):
-    pass
 
+class TaskTheoryBD(Base):
+    id: Mapped[Optional[int]] = mapped_column(primary_key=True)
+    name: Mapped[str_256]
+    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_theory_group.id"))
+    group: Mapped[Optional["TaskTheoryGroupBD"]] = relationship(back_populates="tasks")
 
