@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from app.core.theory.use_cases import GetAllTheoryDopInfoUseCase, GetTheoryByIdUseCase, GetAllTheoriesForSubjectUseCase
-from .schemas import AllTheoryDopInfoResponse, TheoryResponse, AllTheoryResponse, TheoryTasksResponse
+from .schemas import AllTheoryDopInfoResponse, TheoryResponse, AllTheoryResponse, TaskGroupsResponse
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
 
@@ -35,6 +35,6 @@ async def get_theory(theory_id: int):
     return theory
     
     
-@router.get("/get_tasks_theory_for_subject/{subject_id}", response_model=TheoryTasksResponse)
+@router.get("/get_tasks_theory_for_subject/{subject_id}", response_model=list[TaskGroupsResponse])
 async def get_tasks_theory_for_subject(subject_id: int):
     pass
