@@ -16,8 +16,9 @@ theory2theory_type = Table(
 
 task_theory2theory = Table(
     "task_theory2theory",
+    Base.metadata,
     Column("theory_id", Integer, ForeignKey("theory.id"), primary_key=True),
-    Column("type_id", Integer, ForeignKey(""))
+    Column("task_theory_id", Integer, ForeignKey("task_theory_group.id"), primary_key=True),
     
 )
 
@@ -95,6 +96,8 @@ class TaskTheoryGroupBD(Base):
 
 
 class TaskTheoryBD(Base):
+    __tablename__ = "task_theory"
+    
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)
     name: Mapped[str_256]
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_theory_group.id"))
