@@ -13,6 +13,13 @@ theory2theory_type = Table(
     Column("type_id", Integer, ForeignKey("theory_type.id"), primary_key=True),
 )
 
+task_theory2theory = Table(
+    "task_theory2theory",
+    Column("theory_id", Integer, ForeignKey("theory.id"), primary_key=True),
+    Column("type_id", Integer, ForeignKey(""))
+    
+)
+
 class TheorySubjectBD(Base):
     __tablename__ = "theory_subject"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -76,3 +83,12 @@ class TheoryBlockBD(Base):
         order_by="TheoryBlockBD.order"
     )
     parent: Mapped[Optional["TheoryBlockBD"]] = relationship(back_populates="children", remote_side=[id])
+    
+
+class TaskTheoryGroup(Base):
+    id: Mapped[Optional[int]]
+
+class TaskTheory(Base):
+    pass
+
+
