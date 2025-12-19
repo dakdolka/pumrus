@@ -35,3 +35,20 @@ class AllTheoryResponse(BaseModel):
     
 class TheoryId(BaseModel):
     theory_id: int
+
+class TheoryForTaskTheory(BaseModel):
+    id: int
+    name: str
+
+class TaskTheory(BaseModel):
+    id: int
+    name: str
+    theories: List[TheoryForTaskTheory]
+    
+class TaskGroup(BaseModel):
+    id: int
+    name: str
+    tasks: List[TaskTheory]
+    
+class TheoryTasksResponse(BaseModel):
+    groups: list[TaskGroup]
