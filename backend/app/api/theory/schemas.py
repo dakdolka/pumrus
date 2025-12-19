@@ -1,3 +1,4 @@
+from asyncio.base_tasks import _task_get_stack
 from pydantic import BaseModel
 from typing import List, Optional
 from app.core.theory.enums import BlockType, TheoryType, TheorySubject
@@ -37,17 +38,17 @@ class TheoryId(BaseModel):
     theory_id: int
 
 class TheoryForTaskTheory(BaseModel):
-    id: int
-    name: str
+    theory_id: int
+    theory_name: str
 
 class TaskTheory(BaseModel):
-    id: int
-    name: str
+    task_id: int
+    task_name: str
     theories: List[TheoryForTaskTheory]
     
 class TaskGroup(BaseModel):
-    id: int
-    name: str
+    task_group_id: int
+    group_name: str
     tasks: List[TaskTheory]
     
 class TheoryTasksResponse(BaseModel):
