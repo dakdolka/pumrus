@@ -3,12 +3,13 @@ from pprint import pprint
 from app.core.db import async_session_factory
 from app.core.theory.entities import Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
-from .models import TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD
+from .models import TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
 from sqlalchemy import insert, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 class TheoryRepositoryImpl(ITheoryRepository):
     async def create_theory_types_and_subjs(self, session: AsyncSession, subject2type_config: dict):
@@ -82,3 +83,6 @@ class TheoryRepositoryImpl(ITheoryRepository):
         result = await session.execute(stmt)
         res = result.scalars().all()
         return [(el.id, el.name, el.types) for el in res]
+    
+    # async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int):
+    #     stmt = select(TaskTheoryGroupBD)
