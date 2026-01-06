@@ -84,5 +84,5 @@ class TheoryRepositoryImpl(ITheoryRepository):
         res = result.scalars().all()
         return [(el.id, el.name, el.types) for el in res]
     
-    # async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int):
-    #     stmt = select(TaskTheoryGroupBD)
+    async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int):
+        stmt = select(TaskTheoryGroupBD)
