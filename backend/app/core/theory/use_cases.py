@@ -17,7 +17,7 @@ class CreateTheoryUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
 
-    async def execute(self, theory: Theory) -> Tuple[int, List[int]]:
+    async def execute(self, theory: Theory) -> Theory:
         async with async_session_factory() as session:
             async with session.begin():
                 await self.repo.create_theory(session, theory)
@@ -57,4 +57,22 @@ class GetAllTaskGroupsForSubjectUseCase:
     async def execute(self, subject_id) -> List[TaskTheoryGroup]:
         async with async_session_factory() as session:
             theories = await self.repo.get_all_task_groups_for_subject(session, subject_id)
+            return theories
+        
+class CreateTasksTheoryUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, task_theory_group: TaskTheoryGroup):
+         async with async_session_factory() as session:
+              async with session.begin():
+                  await self.repo.insert_task_theory_group(session, task_theory_group)
+    
+class GetTheoriesByNamesUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, names: List[str]):
+        async with async_session_factory() as session:
+            theories = await self.repo.get_theories_by_names(session, names)
             return theories

@@ -20,7 +20,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
                 session.add(TheoryTypeBD(name=typ, subject=subj))
         await session.commit()
         
-    async def create_theory(self, session: AsyncSession, theory: Theory):
+    async def create_theory(self, session: AsyncSession, theory: Theory) -> int:
         types = [
             (await session.scalars(
                 select(TheoryTypeBD).where(TheoryTypeBD.name == typ.name)
@@ -50,6 +50,10 @@ class TheoryRepositoryImpl(ITheoryRepository):
         bd_theory.blocks = [_map_blocks_to_bd(block) for block in theory.blocks]
 
         await session.commit()
+        return bd_theory
+    
+    async def insert_task_theory_group(self, session, task_theory_group):
+        pass
        
         
     async def get_all_theories_for_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
@@ -83,6 +87,12 @@ class TheoryRepositoryImpl(ITheoryRepository):
         result = await session.execute(stmt)
         res = result.scalars().all()
         return [(el.id, el.name, el.types) for el in res]
+    
+    async def get_theories_by_names(self, session: AsyncSession, names: List[str]) -> List[Theory]:
+        stmt = select(TheoryBD).where(TheoryBD.name.in_(names))
+        result = await session.execute(stmt)
+        res = result.scalars().all()
+        return res
     
     async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int):
         stmt = select(TaskTheoryGroupBD)

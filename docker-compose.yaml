@@ -29,7 +29,6 @@ services:
     command: python -m app
     ports:
     - "8000:8000"
-    restart: unless-stopped
     mem_limit: 512m
     extra_hosts:
       - "host.docker.internal:172.17.0.1"

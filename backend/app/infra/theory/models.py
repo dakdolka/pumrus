@@ -29,6 +29,9 @@ class TheorySubjectBD(Base):
     theories: Mapped[list["TheoryBD"]] = relationship(
         back_populates="subject"
     )
+    task_theory_groups: Mapped[List["TaskTheoryGroupBD"]] = relationship(
+        back_populates="subject"
+    )
     types: Mapped[list["TheoryTypeBD"]] = relationship(
         back_populates="subject"
     )
@@ -50,21 +53,20 @@ class TheoryBD(Base):
     __tablename__ = "theory"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str_256]
-    subject_id: Mapped[int] = mapped_column(ForeignKey("theory_subject.id"))
+    subject_id: Mapped[int | None] = mapped_column(ForeignKey("theory_subject.id"), nullable=True)
     subject: Mapped["TheorySubjectBD"] = relationship(
         back_populates="theories"
     )
-    types: Mapped[list["TheoryTypeBD"]] = relationship(
+    types: Mapped[List["TheoryTypeBD"]] = relationship(
         secondary=theory2theory_type,
         back_populates="theories"
     )
-
     blocks: Mapped[list["TheoryBlockBD"]] = relationship(
         back_populates='theory',
         order_by="TheoryBlockBD.id",
         cascade="all, delete-orphan"
     )
-    tasks: Mapped[Optional[List["TaskTheoryBD"]]] = relationship(
+    tasks: Mapped[List["TaskTheoryBD"]] = relationship(
         secondary=task_theory2theory,
         back_populates="theories"
     )
@@ -96,17 +98,22 @@ class TaskTheoryGroupBD(Base):
     
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)
     name: Mapped[str_256]
-    tasks: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
+    is_single: Mapped[bool]
+    subject_id: Mapped[int] = mapped_column(ForeignKey("theory_subject.id"), nullable=True)
+    subject: Mapped["TheorySubjectBD"] = relationship(
+        back_populates="task_theory_groups"
+    )
+    tasks_theories: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
 
 
 class TaskTheoryBD(Base):
     __tablename__ = "task_theory"
-    
+
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)
     name: Mapped[str_256]
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_theory_group.id"))
-    group: Mapped[Optional["TaskTheoryGroupBD"]] = relationship(back_populates="tasks")
-    theories: Mapped[Optional[List["TheoryBD"]]] = relationship(
+    group: Mapped[Optional["TaskTheoryGroupBD"]] = relationship(back_populates="tasks_theories")
+    theories: Mapped[List["TheoryBD"]] = relationship(
         secondary=task_theory2theory,
         back_populates="tasks"
     )

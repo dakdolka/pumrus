@@ -16,10 +16,10 @@ class TheoryBlock:
 @dataclass
 class Theory:
     name: str
-    types: List[TheoryType]
     subj: TheorySubject
     id: Optional[int] = None
     blocks: List[Optional[TheoryBlock]] = field(default_factory=list)
+    types: Optional[List[TheoryType]] = field(default_factory=list)
     
 @dataclass
 class AllTheory:
@@ -37,19 +37,16 @@ class TheoryType:
     name: TheoryType
     id: Optional[int] = None
 
-@dataclass
-class TheoryForTaskTheory:
-    theory_id: int
-    theory_name: str
 
 @dataclass
 class TaskTheory:
-    task_id: int
     task_name: str
-    theories: List[TheoryForTaskTheory]
+    theories: Optional[List[Theory]] = None
+    task_id: Optional[int] = None
     
 @dataclass
 class TaskTheoryGroup:
-    task_group_id: int
     group_name: str
-    tasks: List["TaskTheory"]
+    is_single: bool
+    tasks_theories: Optional[List["TaskTheory"]] = None
+    task_group_id: Optional[int] = None
