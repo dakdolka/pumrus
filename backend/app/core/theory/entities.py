@@ -41,12 +41,13 @@ class TheoryType:
 @dataclass
 class TaskTheory:
     task_name: str
-    theories: Optional[List[Theory]] = None
-    task_id: Optional[int] = None
+    theories: Optional[List[int]] = None
+    id: Optional[int] = None
     
 @dataclass
 class TaskTheoryGroup:
     group_name: str
     is_single: bool
+    subject: TheorySubject
     tasks_theories: Optional[List["TaskTheory"]] = None
-    task_group_id: Optional[int] = None
+    id: Optional[int] = None

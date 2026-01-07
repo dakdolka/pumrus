@@ -5,10 +5,10 @@ from typing import Optional
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 from app.infra.theory.models import TheoryBD, TheoryBlockBD
-from app.core.theory.entities import TaskTheory, TaskTheoryGroup, Theory, TheoryBlock
+from app.core.theory.entities import TaskTheory, TaskTheoryGroup, Theory, TheoryBlock, TheorySubject as TheorySubjectDTO
 from app.core.theory.enums import BlockType, TheoryType, TheorySubject
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import CreateTasksTheoryUseCase, CreateTheoryTypesAndSubjsUseCase, CreateTheoryUseCase, GetTheoriesByNamesUseCase
+from app.core.theory.use_cases import CreateTasksTheoryUseCase, CreateTheoryTypesAndSubjsUseCase, CreateTheoryUseCase, GetSubjectByIdUseCase, GetTheoriesByNamesUseCase
 import asyncio
 import os
 
@@ -171,7 +171,7 @@ async def create_tasks_theory(dir, subj):
     find_throries_by_name_usecase = GetTheoriesByNamesUseCase(repository)
     theory_insert_usecase = CreateTheoryUseCase(repository)
     task_theory_insert_usecase = CreateTasksTheoryUseCase(repository)
-    base_dir_path, subj, task_group, group_name = dir, subject_config[subj], None, None
+    base_dir_path, task_group, group_name = dir, None, None
     for dirpath, dirnames, filenames in os.walk(base_dir_path):
         if filenames == []:
             continue
@@ -181,6 +181,7 @@ async def create_tasks_theory(dir, subj):
                 await task_theory_insert_usecase.execute(task_group)
             group_name = parent_thing[0]
             task_group = TaskTheoryGroup(
+                subject=subj,
                 group_name=group_name,
                 is_single = True if len(parent_thing) == 1 else False,
                 tasks_theories = []
@@ -199,19 +200,27 @@ async def create_tasks_theory(dir, subj):
                         name=theory_name,
                         blocks=theory_blocks
                     )
-                    first_task_th = await theory_insert_usecase.execute(theory)
+                    first_task_th = await theory_insert_usecase.execute(theory, subject=subj)
                     task_theory.theories.append(first_task_th)
                 case 'links':
                     theories = await find_throries_by_name_usecase.execute(theory_blocks)
                     task_theory.theories += theories
         task_group.tasks_theories.append(task_theory)
+    if task_group:
+        await task_theory_insert_usecase.execute(task_group)
                     
     
 
 async def run_everything():
     await create_general_theory(BASE_DIR / 'app' / 'scripts' / 'txts' / 'general_theory')
-    await create_tasks_theory(BASE_DIR / 'app' / 'scripts' / 'txts' / '.tasks_theory' / 'rus', '0')
-    await create_tasks_theory(BASE_DIR / 'app' / 'scripts' / 'txts' / '.tasks_theory' / 'infa', '1')
+    repo = TheoryRepositoryImpl()
+    subjects = GetSubjectByIdUseCase(repo)
+    for subj in await subjects.execute(None):
+        theory_subject_dc = TheorySubjectDTO(
+            id=subj.id,
+            name=subj.name
+        )
+        await create_tasks_theory(BASE_DIR / 'app' / 'scripts' / 'txts' / '.tasks_theory' / theory_subject_dc.name.name, theory_subject_dc)
 
 if __name__ == "__main__":
     asyncio.run(create_general_theory())

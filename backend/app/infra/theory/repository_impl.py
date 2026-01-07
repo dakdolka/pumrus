@@ -1,12 +1,14 @@
 from ast import List
 from pprint import pprint
+
+import sqlalchemy
 from app.core.db import async_session_factory
-from app.core.theory.entities import Theory, TheoryBlock, TheoryType, TheorySubject
+from app.core.theory.entities import TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
-from .models import TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
+from .models import TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
-from sqlalchemy import insert, select
+from sqlalchemy import asc, insert, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,18 +22,19 @@ class TheoryRepositoryImpl(ITheoryRepository):
                 session.add(TheoryTypeBD(name=typ, subject=subj))
         await session.commit()
         
-    async def create_theory(self, session: AsyncSession, theory: Theory) -> int:
+    async def create_theory(self, session: AsyncSession, theory: Theory, subj: TheorySubject | None) -> int:
         types = [
             (await session.scalars(
                 select(TheoryTypeBD).where(TheoryTypeBD.name == typ.name)
             )).one() 
             for typ in theory.types
         ]
-        subj = (await session.scalars(
-            select(TheorySubjectBD).where(TheorySubjectBD.name == theory.subj.name)
-        )).one()
+        if subj is None:
+            subj = (await session.scalars(
+                select(TheorySubjectBD).where(TheorySubjectBD.name == theory.subj.name)
+            )).first()
         # Создаём верхний объект
-        bd_theory = TheoryBD(types=types, subject=subj, name=theory.name)
+        bd_theory = TheoryBD(types=types, subject_id=subj.id, name=theory.name)
         session.add(bd_theory)  # ORM теперь знает сессию для top-level
         # Рекурсивно создаём блоки
         def _map_blocks_to_bd(block: TheoryBlock, parent: Optional[TheoryBlockBD] = None) -> TheoryBlockBD:
@@ -52,15 +55,29 @@ class TheoryRepositoryImpl(ITheoryRepository):
         await session.commit()
         return bd_theory
     
-    async def insert_task_theory_group(self, session, task_theory_group):
-        pass
-       
-        
+    async def insert_task_theory_group(self, session, task_theory_group: TaskTheoryGroup):
+        group_bd = TaskTheoryGroupBD(
+            name=task_theory_group.group_name,
+            is_single=task_theory_group.is_single,
+            subject_id=task_theory_group.subject.id
+        )
+        for task_dto in task_theory_group.tasks_theories or []:
+            task_bd = TaskTheoryBD(
+                name=task_dto.task_name,
+            )
+            for theory_bd in task_dto.theories or []:
+                if theory_bd is not None:
+                    task_bd.theories.append(theory_bd)
+            group_bd.tasks_theories.append(task_bd)
+        session.add(group_bd)
+        await session.commit()
+        return group_bd
+
+
     async def get_all_theories_for_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
         stmt = select(TheoryBD).where(TheoryBD.subject_id == subject_id).options(selectinload(TheoryBD.types))
         result = await session.execute(stmt)
         res = result.scalars().all()
-        print(res)
         return res
     
     
@@ -94,5 +111,34 @@ class TheoryRepositoryImpl(ITheoryRepository):
         res = result.scalars().all()
         return res
     
-    async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int):
-        stmt = select(TaskTheoryGroupBD)
+    async def get_all_subjects(self, session: AsyncSession, subject_id: int | None) -> List[TheorySubject]:
+        if subject_id is None:
+            stmt = select(TheorySubjectBD)
+        else:
+            stmt = select(TheorySubjectBD).where(TheorySubjectBD.id==subject_id)
+        res = await session.execute(stmt)
+        res = res.scalars().all()
+        return res
+    
+    async def get_all_task_groups_for_subject(self, session: AsyncSession, subject_id: int) -> list[TaskTheoryGroupBD]:
+        stmt = (
+            select(TaskTheoryGroupBD)
+            .where(TaskTheoryGroupBD.subject_id == subject_id)
+            .options(
+                selectinload(TaskTheoryGroupBD.tasks_theories)
+                .selectinload(TaskTheoryBD.theories)
+            )
+        )
+        res = await session.execute(stmt)
+        groups: list[TaskTheoryGroupBD] = res.scalars().all()
+        def sort_task_group(group: TaskTheoryGroupBD):
+            group.tasks_theories.sort(key=lambda t: t.name)
+            for task in group.tasks_theories:
+                task.theories.sort(key=lambda th: th.name, reverse=True)
+        for group in groups:
+            sort_task_group(group)
+        groups.sort(key=lambda g: g.name)
+        return groups
+    
+#TODO подумать над сортировкой..
+        

@@ -1,4 +1,6 @@
 from pprint import pprint
+
+from app.api.theory.schemas import TaskGroupsResponse, TaskTheory, TheoryForTaskTheory
 from .repository import ITheoryRepository
 from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup
 from app.core.db import async_session_factory
@@ -17,11 +19,11 @@ class CreateTheoryUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
 
-    async def execute(self, theory: Theory) -> Theory:
+    async def execute(self, theory: Theory, subject: TheorySubject | None = None) -> int:
         async with async_session_factory() as session:
             async with session.begin():
-                await self.repo.create_theory(session, theory)
-
+                res = await self.repo.create_theory(session, theory, subject)
+                return res
 class GetAllTheoryDopInfoUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
@@ -66,13 +68,47 @@ class CreateTasksTheoryUseCase:
     async def execute(self, task_theory_group: TaskTheoryGroup):
          async with async_session_factory() as session:
               async with session.begin():
-                  await self.repo.insert_task_theory_group(session, task_theory_group)
+                  res = await self.repo.insert_task_theory_group(session, task_theory_group)
+                  return res
     
 class GetTheoriesByNamesUseCase:
     def __init__(self, repo: ITheoryRepository):
         self.repo = repo
         
-    async def execute(self, names: List[str]):
+    async def execute(self, names: List[str]) -> List[int]:
         async with async_session_factory() as session:
             theories = await self.repo.get_theories_by_names(session, names)
             return theories
+
+class GetAllTaskTheoryGroupsForSubjectUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+    
+    async def execute(self, subject_id: int) -> List[TaskGroupsResponse]:
+        async with async_session_factory() as session:
+            res = await self.repo.get_all_task_groups_for_subject(session, subject_id)
+            ans = []
+            for elem in res:
+                group = TaskGroupsResponse(
+                    task_group_id=elem.id,
+                    group_name=elem.name,
+                    tasks = []
+                )
+                for el in elem.tasks_theories:
+                    taskth = TaskTheory(
+                        task_id=el.id,
+                        task_name=el.name,
+                        theories=[TheoryForTaskTheory(theory_id=e.id, theory_name=e.name) for e in el.theories]
+                    )
+                    group.tasks.append(taskth)
+                ans.append(group)
+            return ans
+
+class GetSubjectByIdUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+    
+    async def execute(self, subject_id: int | None) -> List[TheorySubject]:
+        async with async_session_factory() as session:
+            all_subjs = await self.repo.get_all_subjects(session, subject_id)
+            return all_subjs
