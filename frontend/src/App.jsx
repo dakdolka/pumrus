@@ -71,7 +71,7 @@ function TheoryChoose({ object }) {
     []
   ); // * Долэжен быть fetch на получение имен
   useEffect(() => {
-    fetch(`http://localhost:8000/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+    fetch(`/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         // console.log(data)
@@ -81,7 +81,7 @@ function TheoryChoose({ object }) {
 
   const [tasks, setTasks] = useState([]);
   useEffect(() => {
-    fetch(`http://localhost:8000/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+    fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         setTasks(data)
@@ -199,7 +199,7 @@ function App() {
   const [object, chooseSubject] = useState();
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/theory/all_theory_dop_info")
+    fetch("/api/theory/all_theory_dop_info")
       .then(response => response.json())
       .then(data => {
         getSubjects(data)

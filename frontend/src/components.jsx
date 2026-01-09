@@ -4,7 +4,7 @@ import { useState } from 'react'
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
     async function getTheory() {
-        await fetch(`http://localhost:8000/api/theory/get_theory/${theory_id}`) //! Должно быть без localhost
+        await fetch(`/api/theory/get_theory/${theory_id}`) //! Должно быть без localhost
         .then(response => response.json())
         .then(data => {
             content.title = data.name

@@ -175,7 +175,7 @@ async def create_tasks_theory(dir, subj):
     for dirpath, dirnames, filenames in os.walk(base_dir_path):
         if filenames == []:
             continue
-        parent_thing = [elem for elem in str(dirpath)[len(str(base_dir_path))::].split('\\') if elem != '']
+        parent_thing = [elem for elem in str(dirpath)[len(str(base_dir_path))::].split('/') if elem != '']
         if group_name != parent_thing[0]:
             if task_group:
                 await task_theory_insert_usecase.execute(task_group)
