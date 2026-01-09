@@ -49,4 +49,5 @@ class TaskTheory(BaseModel):
 class TaskGroupsResponse(BaseModel):
     task_group_id: int
     group_name: str = Field(example="1-3 Мини-текст")
+    is_single: bool
     tasks: List[TaskTheory]

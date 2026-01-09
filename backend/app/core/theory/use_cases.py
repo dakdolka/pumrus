@@ -92,6 +92,7 @@ class GetAllTaskTheoryGroupsForSubjectUseCase:
                 group = TaskGroupsResponse(
                     task_group_id=elem.id,
                     group_name=elem.name,
+                    is_single=elem.is_single,
                     tasks = []
                 )
                 for el in elem.tasks_theories:
