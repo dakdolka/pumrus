@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, use } from 'react'
 import './General.css'
 import Chapter from './componentrs/Chapter/chapter.jsx'
-import { Element, Popup } from './components.jsx'
+import { Element, TaskElement, Popup } from './components.jsx'
 
 // const Names = [
 //   {
@@ -71,13 +71,46 @@ function TheoryChoose({ object }) {
     []
   ); // * Долэжен быть fetch на получение имен
   useEffect(() => {
-    fetch(`/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+    fetch(`http://localhost:8000/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
       .then(response => response.json())
       .then(data => {
         // console.log(data)
         setRules(data)
     })
   }, []);
+
+  const [tasks, setTasks] = useState([]);
+  useEffect(() => {
+    fetch(`http://localhost:8000/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+      .then(response => response.json())
+      .then(data => {
+        setTasks(data)
+      })
+  }, []);
+
+  // const [tasks, setTasks] = useState([
+  // {
+  //   "task_group_id": 0,
+  //   "group_name": "1-3 Мини-текст",
+  //   "tasks": [
+  //     {
+  //       "task_id": 0,
+  //       "task_name": "1 На месте пропуска...",
+  //       "theories": [
+  //         {
+  //           "theory_id": 0,
+  //           "theory_name": "Местоимения"
+  //         }
+  //       ]
+  //     },
+  //     {
+
+  //     }
+  //   ]
+  // }]);
+  // function getTask() {
+  //   // fetch(`http://localhost:8000/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+  // }
 
   console.log("-----< Правила >-----", rules); //! console.log
 
@@ -123,16 +156,12 @@ function TheoryChoose({ object }) {
       }
     }
   }
-
-
+  
   return (
     <>
       <div className="theoryChoose">
         <div ref={task} className={isTaskActive ? "theoryChoose__elem theoryChoose__task--active" : "theoryChoose__elem theoryChoose__task--hidden"} onClick={() => showContent("task")}>Задания</div>
         <div ref={theme} className={isThemeActive ? "theoryChoose__elem theoryChoose__theme--active" : "theoryChoose__elem theoryChoose__theme--hidden"} onClick={() => showContent("theme")}>Темы</div>
-      </div>
-      <div className={isTaskActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
-        Задания
       </div>
       <div className={isThemeActive ? "theoryChoose__block theoryChoose__block--active" : "theoryChoose__block--hidden"}>
         {object.types.map((item, index) => {
@@ -142,9 +171,15 @@ function TheoryChoose({ object }) {
         })}
       </div>
       <div className={isThemeActive ? "elementBlock elementBlock--small" : "elementBlock elementBlock--big"}>
-        {viewRules.map((item, index) => {
+        {isTaskActive === false 
+        ? viewRules.map((item, index) => {
           return (
             <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>{item.name}</Element>
+          )
+        })
+        : tasks.map((item, index) => {
+          return (
+            <TaskElement key={index} is_single={item.is_single} content={item.tasks} setPopup={setPopup} setContent={setContent}>{item.group_name}</TaskElement>
           )
         })}
       </div>
@@ -164,7 +199,7 @@ function App() {
   const [object, chooseSubject] = useState();
 
   useEffect(() => {
-    fetch("/api/theory/all_theory_dop_info")
+    fetch("http://localhost:8000/api/theory/all_theory_dop_info")
       .then(response => response.json())
       .then(data => {
         getSubjects(data)

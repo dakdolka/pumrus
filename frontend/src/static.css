@@ -51,4 +51,6 @@
     --go-icon: ">";
     --back-icon: "<";
     --close-icon: "⨯";
+    --open-group-icon: "▼";
+    --close-group-icon: "▲";  
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
     async function getTheory() {
-        await fetch(`/api/theory/get_theory/${theory_id}`)
+        await fetch(`http://localhost:8000/api/theory/get_theory/${theory_id}`) //! Должно быть без localhost
         .then(response => response.json())
         .then(data => {
             content.title = data.name
@@ -25,6 +25,98 @@ function Element({ theory_id, children, setPopup, setContent }) {
             {children}
         </div>
     )
+}
+
+
+function TaskElement( {is_single, content, children, setPopup, setContent} ) {
+    console.log("-----< Задания >-----", content); //! console.log
+    const [isTaskBlockOpen, openTaskBlock] = useState(false);
+
+    if (is_single) {
+        return (
+            <div className="task-theory-block">
+                <div className="element">
+                    <div 
+                        className={isTaskBlockOpen ? "element__name--open" : "element__name--close"}
+                        onClick={() => openTaskBlock(prev => {
+                            return !prev
+                        })}
+                    >
+                        {children}
+                    </div>
+                </div>
+                <div className={isTaskBlockOpen ? "task-theory-block__content" : "all--disabled"}>
+                    {
+                        content[0].theories.map((item) => {
+                            return (
+                                <Element 
+                                    key={item.theory_id}
+                                    theory_id={item.theory_id}
+                                    setPopup={setPopup}
+                                    setContent={setContent}
+                                >
+                                    {item.theory_name}
+                                </Element>
+                            )
+                        })
+                    }
+                </div>
+            </div>
+        )
+    } else {
+        return (
+            <div className="task-theory-block">
+                <div className="element">
+                    <div 
+                        className={isTaskBlockOpen ? "element__name--open" : "element__name--close"}
+                        onClick={() => openTaskBlock(prev => {
+                            return !prev
+                        })}
+                    >
+                        {children}
+                    </div>
+                </div>
+                <div className={isTaskBlockOpen ? "task-theory-block__content" : "all--disabled"}>
+                    {
+                        content.map((item) => {
+                            const [isTaskOpen, openTask] = useState(false);
+                            
+                            return (
+                                <div className="task-element-block" key={item.task_id}>
+                                    <div className="element">
+                                        <div
+                                            className={isTaskOpen ? "element__name--open" : "element__name--close"}
+                                            onClick={() => openTask(prev => {
+                                                return !prev
+                                            })}
+                                        >
+                                            {item.task_name}
+                                        </div>
+                                    </div>
+                                    <div className={isTaskOpen ? "task-element-block__content" : "all--disabled"}>
+                                        {
+                                            item.theories.map((item) => {
+                                                return (
+                                                    <Element 
+                                                        key={item.theory_id}
+                                                        theory_id={item.theory_id}
+                                                        setPopup={setPopup}
+                                                        setContent={setContent}
+                                                    >
+                                                        {item.theory_name}
+                                                    </Element>
+                                                )
+                                            })
+                                        }
+                                    </div>
+                                </div>
+                            )
+                        })
+                    }
+                </div>
+            </div>
+        )
+    }
 }
 
 
@@ -128,4 +220,4 @@ function Popup({ isPopup, setPopup, content }) {
 }
 
 
-export { Element, Popup }
+export { Element, TaskElement, Popup }

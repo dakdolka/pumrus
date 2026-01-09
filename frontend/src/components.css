@@ -18,8 +18,59 @@
     color: var(--text-color);
 }
 
+.element__name--close::before {
+    content: var(--open-group-icon);
+    padding: 0px 10px;
+    font-size: small;
+}
+
+.element__name--open::before {
+    content: var(--close-group-icon);
+    padding: 0px 10px;
+    font-size: small;
+}
+
 .element + .element {
     margin-top: 5px;
+}
+
+.task-theory-block {
+    width: 100%;
+    height: auto;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.task-theory-block + .task-theory-block {
+    margin-top: 10px;
+}
+
+.task-element-block + .task-element-block {
+    margin-top: 5px;
+}
+
+.task-theory-block__content {
+    width: calc(100% - 20px);
+    padding-left: 20px;
+    height: auto;
+}
+
+.task-element-block {
+    width: 100%;
+    height: auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.task-element-block__content {
+    width: calc(100% - 20px);
+    padding-left: 20px;
+    height: auto;
 }
 
 .popup {
@@ -127,20 +178,16 @@
     align-items: center;
 }
 
-.group--open {
-    &::before {
-        content: '▲';
-        padding: 0px 10px;
-        font-size: small;
-    }
+.group--open::before {
+    content: var(--close-group-icon);
+    padding: 0px 10px;
+    font-size: small;
 }
 
-.group--close {
-    &::before {
-        content: '▼';
-        padding: 0px 10px;
-        font-size: small;
-    }
+.group--close::before {
+    content: var(--open-group-icon);
+    padding: 0px 10px;
+    font-size: small;
 }
 
 .theory--children {
