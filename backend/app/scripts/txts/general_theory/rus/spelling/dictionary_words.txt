@@ -1,4 +1,0 @@
-%1 Словарные слова
-%2 Тренажёр: https://dakdolka.github.io/dictionary-words/
-
-%0 2 0
