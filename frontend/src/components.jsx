@@ -129,10 +129,8 @@ function TheoryElem({ item }) {
                 return <b key={i}>{part.slice(2, -2)}</b>;
             } if (part.startsWith("*") && part.endsWith("*")) {
                 return <i key={i}>{part.slice(1, -1)}</i>;
-            } if (part.startsWith("\n") && part.endsWith("\n")) {
-                return <br key={i}/>;
             }
-            return <span key={i}>{part}</span>;
+            return <pre key={i}>{part}</pre>;
         });
     }
 
