@@ -129,6 +129,8 @@ function TheoryElem({ item }) {
                 return <b key={i}>{part.slice(2, -2)}</b>;
             } if (part.startsWith("*") && part.endsWith("*")) {
                 return <i key={i}>{part.slice(1, -1)}</i>;
+            } if (part.startsWith("\n") && part.endsWith("\n")) {
+                return <br key={i}/>;
             }
             return <span key={i}>{part}</span>;
         });
@@ -160,20 +162,20 @@ function TheoryElem({ item }) {
 
     switch (item.type) {
         case "text":
-            return <pre className="theory--visual theory__text">{Content}</pre>;
+            return <div className="theory--visual theory__text">{Content}</div>;
 
         case "rule":
-            return <pre className="theory--visual theory__rule">{Content}</pre>;
+            return <div className="theory--visual theory__rule">{Content}</div>;
 
         case "subtitle":
-            return <pre className="theory--visual theory__subtitle">{Content}</pre>;
+            return <div className="theory--visual theory__subtitle">{Content}</div>;
 
         case "example":
             return (
                 <div className="example__block">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Пример</legend>
-                        <pre className="theory--visual">{Content}</pre>
+                        <div className="theory--visual">{Content}</div>
                     </fieldset>
                 </div>
             );
@@ -183,7 +185,7 @@ function TheoryElem({ item }) {
                 <div className="example__block important">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Важно</legend>
-                        <pre className="theory--visual">{Content}</pre>
+                        <div className="theory--visual">{Content}</div>
                     </fieldset>
                 </div>
             );
@@ -193,7 +195,7 @@ function TheoryElem({ item }) {
                 <div className="example__block exception">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Исключение</legend>
-                        <pre className="theory--visual">{Content}</pre>
+                        <div className="theory--visual">{Content}</div>
                     </fieldset>
                 </div>
             );
