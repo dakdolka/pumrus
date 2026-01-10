@@ -8,7 +8,7 @@ from app.core.theory.repository import ITheoryRepository
 from .models import TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
-from sqlalchemy import asc, insert, select
+from sqlalchemy import and_, asc, insert, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,7 +75,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
 
 
     async def get_all_theories_for_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
-        stmt = select(TheoryBD).where(TheoryBD.subject_id == subject_id).options(selectinload(TheoryBD.types))
+        stmt = select(TheoryBD).where(and_(TheoryBD.subject_id == subject_id, TheoryBD.types.any())).options(selectinload(TheoryBD.types))
         result = await session.execute(stmt)
         res = result.scalars().all()
         return res
@@ -132,12 +132,12 @@ class TheoryRepositoryImpl(ITheoryRepository):
         res = await session.execute(stmt)
         groups: list[TaskTheoryGroupBD] = res.scalars().all()
         def sort_task_group(group: TaskTheoryGroupBD):
-            group.tasks_theories.sort(key=lambda t: t.name)
+            group.tasks_theories.sort(key=lambda t: int(t.name.replace('-', ' ').split()[0]))
             for task in group.tasks_theories:
-                task.theories.sort(key=lambda th: th.name, reverse=True)
+                task.theories.sort(key=lambda th: th.name)
         for group in groups:
             sort_task_group(group)
-        groups.sort(key=lambda g: g.name)
+        groups.sort(key=lambda g: int(g.name.replace('-', ' ').split()[0]))
         return groups
     
 #TODO подумать над сортировкой..
