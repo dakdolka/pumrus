@@ -152,6 +152,9 @@
     font-family: var(--text-font);
     color: var(--text-color);
     font-size: large;
+
+    white-space: pre-wrap;
+    word-wrap: break-word;
 }
 
 .theory--group {
