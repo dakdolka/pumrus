@@ -163,17 +163,17 @@ function TheoryElem({ item }) {
             return <pre className="theory--visual theory__text">{Content}</pre>;
 
         case "rule":
-            return <div className="theory--visual theory__rule">{Content}</div>;
+            return <pre className="theory--visual theory__rule">{Content}</pre>;
 
         case "subtitle":
-            return <div className="theory--visual theory__subtitle">{Content}</div>;
+            return <pre className="theory--visual theory__subtitle">{Content}</pre>;
 
         case "example":
             return (
                 <div className="example__block">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Пример</legend>
-                        <div className="theory--visual">{Content}</div>
+                        <pre className="theory--visual">{Content}</pre>
                     </fieldset>
                 </div>
             );
@@ -183,7 +183,7 @@ function TheoryElem({ item }) {
                 <div className="example__block important">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Важно</legend>
-                        <div className="theory--visual">{Content}</div>
+                        <pre className="theory--visual">{Content}</pre>
                     </fieldset>
                 </div>
             );
@@ -193,7 +193,7 @@ function TheoryElem({ item }) {
                 <div className="example__block exception">
                     <fieldset className="theory__example--fieldset">
                         <legend className="theory__example--legend">Исключение</legend>
-                        <div className="theory--visual">{Content}</div>
+                        <pre className="theory--visual">{Content}</pre>
                     </fieldset>
                 </div>
             );
