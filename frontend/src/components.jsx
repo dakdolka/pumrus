@@ -1,5 +1,6 @@
 import './components.css'
 import { useState } from 'react'
+import React from 'react'
 
 function Element({ theory_id, children, setPopup, setContent }) {
     var content = {};
@@ -122,15 +123,26 @@ function TaskElement( {is_single, content, children, setPopup, setContent} ) {
 
 function TheoryElem({ item }) {
     function parseBold(text) {
-        const parts = text.split(/(\*\*.*?\*\*)/g); 
+        const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
 
-        return parts.map((part, i) => {
+        return parts.flatMap((part, i) => {
+            // ЖИРНЫЙ
             if (part.startsWith("**") && part.endsWith("**")) {
-                return <b key={i}>{part.slice(2, -2)}</b>;
-            } if (part.startsWith("*") && part.endsWith("*")) {
-                return <i key={i}>{part.slice(1, -1)}</i>;
+            return <b key={i}>{part.slice(2, -2)}</b>;
             }
-            return <span style={{ whiteSpace: "pre-line" }} key={i}>{part}</span>;
+
+            // КУРСИВ
+            if (part.startsWith("*") && part.endsWith("*")) {
+            return <i key={i}>{part.slice(1, -1)}</i>;
+            }
+
+            // ОБЫЧНЫЙ ТЕКСТ → только тут режем \n
+            return part.split("\\n").map((line, j, arr) => (
+            <React.Fragment key={`${i}-${j}`}>
+                {line}
+                {j < arr.length - 1 && <br />}
+            </React.Fragment>
+            ));
         });
     }
 

@@ -152,8 +152,6 @@
     font-family: var(--text-font);
     color: var(--text-color);
     font-size: large;
-
-    white-space: pre-line;
 }
 
 .theory--group {
@@ -214,7 +212,7 @@
     font-size: large;
     font-family: var(--text-font);
 
-    text-align: justify;
+    /* text-align: justify; */
 }
 
 .theory__rule {
@@ -230,7 +228,7 @@
     padding: 5px 10px;
     border-radius: var(--border-size);
 
-    text-align: justify;
+    /* text-align: justify; */
 }
 
 .theory__subtitle {
@@ -273,7 +271,7 @@
 
 .theory__example--fieldset {
     margin: 5px 0px; 
-    width: calc(80% - 20px);
+    width: calc(100% - 20px);
     padding: 10px 10px;
 
     border: 3px solid var(--text-color);
