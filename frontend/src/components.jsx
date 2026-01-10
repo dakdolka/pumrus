@@ -130,7 +130,7 @@ function TheoryElem({ item }) {
             } if (part.startsWith("*") && part.endsWith("*")) {
                 return <i key={i}>{part.slice(1, -1)}</i>;
             }
-            return <span key={i}>{part}</span>;
+            return <span style={{ whiteSpace: "pre-line" }} key={i}>{part}</span>;
         });
     }
 
