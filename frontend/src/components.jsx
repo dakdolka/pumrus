@@ -160,7 +160,7 @@ function TheoryElem({ item }) {
 
     switch (item.type) {
         case "text":
-            return <div className="theory--visual theory__text">{Content}</div>;
+            return <pre className="theory--visual theory__text">{Content}</pre>;
 
         case "rule":
             return <div className="theory--visual theory__rule">{Content}</div>;
