@@ -1,0 +1,243 @@
+@import url('/src/static.css');
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.form-root {
+  width: 100%;
+  height: 100vh;
+  background-color: var(--main-color);
+  color: var(--text-color);
+  font-family: var(--text-font);
+  padding: 10px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* шапка */
+
+.form-header {
+  margin-bottom: 10px;
+}
+
+.form-header h1 {
+  margin: 0;
+  font-family: var(--chapter-text);
+  letter-spacing: 2px;
+}
+
+/* верхняя панель: предмет + теория */
+
+.form-top {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.form-top__group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-top__group label {
+  min-width: 70px;
+}
+
+.form-top__group select {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: var(--block-color);
+  color: var(--text-color);
+  font-family: var(--text-font);
+}
+
+.form-top__group button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  background-color: var(--active-color);
+  color: var(--text-color);
+  font-family: var(--chapter-text);
+  cursor: pointer;
+}
+
+/* основная область: дерево + редактор */
+
+.form-main {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  min-height: 0; /* важно для вложенного скролла */
+}
+
+/* слева: дерево */
+
+.form-tree {
+  flex: 1;
+  background-color: var(--block-color);
+  border-radius: var(--border-size);
+  padding: 8px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.form-tree__header {
+  font-family: var(--chapter-text);
+  margin-bottom: 6px;
+}
+
+/* скролл только внутри списка блоков */
+
+.form-tree__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* элементы дерева */
+
+.form-tree__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.form-tree__item:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.form-tree__item--active {
+  background-color: var(--active-color);
+  color: var(--main-color);
+}
+
+.form-tree__order {
+  font-family: var(--chapter-text);
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.form-tree__type {
+  font-family: var(--chapter-text);
+}
+
+.form-tree__content {
+  flex: 1;
+  opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.form-tree__add {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  background-color: var(--active-color);
+  color: var(--text-color);
+  font-family: var(--chapter-text);
+  cursor: pointer;
+}
+
+/* справа: редактор */
+
+.form-editor {
+  flex: 1;
+  background-color: var(--block-color);
+  border-radius: var(--border-size);
+  padding: 8px;
+  box-sizing: border-box;
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.form-editor__header {
+  font-family: var(--chapter-text);
+  margin-bottom: 6px;
+}
+
+.form-editor__field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.form-editor__field label {
+  min-width: 90px;
+}
+
+.form-editor__field input {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: transparent;
+  color: var(--text-color);
+  font-family: var(--text-font);
+}
+
+.form-editor__field--textarea {
+  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+}
+
+.form-editor__field--textarea textarea {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  resize: vertical;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: transparent;
+  color: var(--text-color);
+  font-family: var(--text-font);
+}
+
+/* кнопки редактора */
+
+.form-editor__actions {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.form-editor__actions button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: none;
+  font-family: var(--chapter-text);
+  cursor: pointer;
+  background-color: var(--active-color);
+  color: var(--text-color);
+}
+
+.form-editor__delete {
+  background-color: #b00020;
+}

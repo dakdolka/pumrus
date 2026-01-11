@@ -1,16 +1,23 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { resolve } from 'path'
 
-// https://vite.dev/config/
 export default defineConfig({
-   plugins: [react()],
-    server: {
-    host: "0.0.0.0",         // чтобы Vite был доступен извне
+  plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        form: resolve(__dirname, 'form.html'),
+      },
+    },
+  },
+  server: {
+    host: "0.0.0.0",
     port: 3000,
     strictPort: true,
     allowedHosts: ['localhost', '127.0.0.1', 'bestgreen.ru'],
-    https: false,             // SSL делаем на Nginx, dev-server работает HTTP
-    // hmr: false,
+    https: false,
     proxy: {
       "/api": {
         target: "http://127.0.0.1:8000",
