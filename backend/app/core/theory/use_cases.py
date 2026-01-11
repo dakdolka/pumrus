@@ -87,23 +87,36 @@ class GetAllTaskTheoryGroupsForSubjectUseCase:
     async def execute(self, subject_id: int) -> List[TaskGroupsResponse]:
         async with async_session_factory() as session:
             res = await self.repo.get_all_task_groups_for_subject(session, subject_id)
-            ans = []
+            ans: list[TaskGroupsResponse] = []
+
             for elem in res:
                 group = TaskGroupsResponse(
                     task_group_id=elem.id,
                     group_name=elem.name,
                     is_single=elem.is_single,
-                    tasks = []
+                    tasks=[]
                 )
+
                 for el in elem.tasks_theories:
+                    # associations уже отсортированы по order в репозитории
+                    theories = [
+                        TheoryForTaskTheory(
+                            theory_id=assoc.theory.id,
+                            theory_name=assoc.theory.name
+                        )
+                        for assoc in el.theory_associations
+                    ]
+
                     taskth = TaskTheory(
                         task_id=el.id,
                         task_name=el.name,
-                        theories=[TheoryForTaskTheory(theory_id=e.id, theory_name=e.name) for e in el.theories]
+                        theories=theories
                     )
                     group.tasks.append(taskth)
+
                 ans.append(group)
             return ans
+
 
 class GetSubjectByIdUseCase:
     def __init__(self, repo: ITheoryRepository):

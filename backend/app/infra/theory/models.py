@@ -117,7 +117,3 @@ class TaskTheoryBD(Base):
         back_populates="task",
         cascade="all, delete-orphan"
     )
-    theories: Mapped[List["TheoryBD"]] = relationship(
-        secondary=TaskTheoryAssociation.__table__,
-        back_populates="tasks"
-    )

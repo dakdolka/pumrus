@@ -5,7 +5,7 @@ import sqlalchemy
 from app.core.db import async_session_factory
 from app.core.theory.entities import TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
-from .models import TaskTheoryAssociation, TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD, task_theory2theory
+from .models import TaskTheoryAssociation, TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
 from sqlalchemy import and_, asc, insert, select
@@ -89,16 +89,16 @@ class TheoryRepositoryImpl(ITheoryRepository):
         session.add(group_bd)
         await session.flush()
         
-        # Вставляем в M2M с order ТЕОРИЙ
+        # Вставляем Association Objects с order
         for task_dto in task_theory_group.tasks_theories or []:
             task_bd = group_bd.tasks_theories[task_theory_group.tasks_theories.index(task_dto)]
             for theory_with_order in task_dto.theories or []:
-                stmt = insert(task_theory2theory).values(
+                association = TaskTheoryAssociation(
                     theory_id=theory_with_order.theory.id,
                     task_theory_id=task_bd.id,
-                    order=theory_with_order.order  # ← только order теорий
+                    order=theory_with_order.order
                 )
-                await session.execute(stmt)
+                session.add(association)
         
         await session.commit()
         return group_bd
@@ -164,16 +164,14 @@ class TheoryRepositoryImpl(ITheoryRepository):
         )
         res = await session.execute(stmt)
         groups: list[TaskTheoryGroupBD] = res.scalars().all()
-        
         def sort_task_group(group: TaskTheoryGroupBD):
             group.tasks_theories.sort(key=lambda t: int(t.name.replace('-', ' ').split()[0]))
             for task in group.tasks_theories:
-                # Сортируем по order в association
                 task.theory_associations.sort(key=lambda a: a.order)
-        
         for group in groups:
             sort_task_group(group)
         groups.sort(key=lambda g: int(g.name.replace('-', ' ').split()[0]))
         return groups
+
 
         
