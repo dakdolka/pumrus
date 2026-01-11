@@ -6,6 +6,7 @@ html, body {
   height: 100%;
 }
 
+/* корень формы */
 .form-root {
   width: 100%;
   height: 100vh;
@@ -14,13 +15,11 @@ html, body {
   font-family: var(--text-font);
   padding: 10px;
   box-sizing: border-box;
-
   display: flex;
   flex-direction: column;
 }
 
 /* шапка */
-
 .form-header {
   margin-bottom: 10px;
 }
@@ -31,8 +30,7 @@ html, body {
   letter-spacing: 2px;
 }
 
-/* верхняя панель: предмет + теория */
-
+/* верхняя панель: предмет + типы + теория */
 .form-top {
   display: flex;
   flex-direction: column;
@@ -61,18 +59,23 @@ html, body {
   font-family: var(--text-font);
 }
 
+/* КНОПКИ СВЕРХУ: тёмный текст на жёлтом фоне */
 .form-top__group button {
   padding: 4px 8px;
   border-radius: 6px;
   border: none;
-  background-color: var(--active-color);
-  color: var(--text-color);
+  background-color: var(--active-color); /* жёлтый фон */
+  color: #1b1b1b;                        /* жёстко тёмный текст */
   font-family: var(--chapter-text);
   cursor: pointer;
 }
 
-/* основная область: дерево + редактор */
+/* на всякий случай перебиваем возможные глобальные стили */
+.form-top__group button * {
+  color: #1b1b1b !important;
+}
 
+/* основная область: дерево + редактор */
 .form-main {
   flex: 1;
   display: flex;
@@ -82,14 +85,12 @@ html, body {
 }
 
 /* слева: дерево */
-
 .form-tree {
   flex: 1;
   background-color: var(--block-color);
   border-radius: var(--border-size);
   padding: 8px;
   box-sizing: border-box;
-
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -101,7 +102,6 @@ html, body {
 }
 
 /* скролл только внутри списка блоков */
-
 .form-tree__scroll {
   flex: 1;
   min-height: 0;
@@ -109,7 +109,6 @@ html, body {
 }
 
 /* элементы дерева */
-
 .form-tree__item {
   display: flex;
   flex-direction: row;
@@ -148,26 +147,29 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* КНОПКИ ДОБАВЛЕНИЯ В ДЕРЕВЕ: тёмный текст на жёлтом */
 .form-tree__add {
   margin-top: 8px;
   padding: 4px 8px;
   border-radius: 6px;
   border: none;
-  background-color: var(--active-color);
-  color: var(--text-color);
+  background-color: var(--active-color); /* жёлтый */
+  color: #1b1b1b;                        /* тёмный текст */
   font-family: var(--chapter-text);
   cursor: pointer;
 }
 
-/* справа: редактор */
+.form-tree__add * {
+  color: #1b1b1b !important;
+}
 
+/* справа: редактор */
 .form-editor {
   flex: 1;
   background-color: var(--block-color);
   border-radius: var(--border-size);
   padding: 8px;
   box-sizing: border-box;
-
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -219,8 +221,7 @@ html, body {
   font-family: var(--text-font);
 }
 
-/* кнопки редактора */
-
+/* КНОПКИ РЕДАКТОРА: тёмный текст на жёлтом */
 .form-editor__actions {
   margin-top: 8px;
   display: flex;
@@ -234,10 +235,15 @@ html, body {
   border: none;
   font-family: var(--chapter-text);
   cursor: pointer;
-  background-color: var(--active-color);
-  color: var(--text-color);
+  background-color: var(--active-color); /* жёлтый */
+  color: #1b1b1b;                        /* тёмный текст */
+}
+
+.form-editor__actions button * {
+  color: #1b1b1b !important;
 }
 
 .form-editor__delete {
   background-color: #b00020;
+  color: #ffffff;
 }

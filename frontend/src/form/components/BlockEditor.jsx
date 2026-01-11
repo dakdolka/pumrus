@@ -1,85 +1,91 @@
 import React from "react";
 
+const BLOCK_TYPES = [
+  { value: "title", label: "Заголовок" },
+  { value: "subtitle", label: "Подзаголовок" },
+  { value: "rule", label: "Правило" },
+  { value: "example", label: "Пример" },
+  { value: "exception", label: "Исключение" },
+  { value: "important", label: "Важно" },
+  { value: "text", label: "Текст" },
+  { value: "svg", label: "Схема (SVG)" },
+  { value: "group", label: "Группа (контейнер)" },
+];
+
 export function BlockEditor({
   selectedBlockId,
   blockDraft,
   setBlockDraft,
-  canCreate,
   canSave,
-  onCreateBlock,
   onSaveBlock,
   onDeleteBlock,
 }) {
+  const handleChange = (field) => (e) => {
+    setBlockDraft((prev) => ({
+      ...prev,
+      [field]: e.target.value,
+    }));
+  };
+
   return (
-    <div className="form-editor">
-      <div className="form-editor__header">
-        Редактор блока {selectedBlockId ? `#${selectedBlockId}` : "(новый)"}
+    <>
+      {/* Заголовок редактора */}
+      <div className="form-editor__field">
+        <label style={{ minWidth: 0 }}>Блок</label>
       </div>
 
+      {/* Тип и порядок в одной строке */}
       <div className="form-editor__field">
-        <label>Тип:</label>
-        <input
-          type="text"
+        <label>Тип</label>
+        <select
           value={blockDraft.type}
-          onChange={(e) =>
-            setBlockDraft((prev) => ({ ...prev, type: e.target.value }))
-          }
-        />
-      </div>
+          onChange={handleChange("type")}
+          style={{ flex: 1 }}
+        >
+          {BLOCK_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
 
-      <div className="form-editor__field">
-        <label>Parent ID:</label>
-        <input
-          type="number"
-          value={blockDraft.parent_id ?? ""}
-          onChange={(e) =>
-            setBlockDraft((prev) => ({
-              ...prev,
-              parent_id: e.target.value ? Number(e.target.value) : null,
-            }))
-          }
-        />
-      </div>
-
-      <div className="form-editor__field">
-        <label>Order:</label>
+        <label style={{ minWidth: 70, textAlign: "right" }}>Порядок</label>
         <input
           type="number"
           value={blockDraft.order}
           onChange={(e) =>
             setBlockDraft((prev) => ({
               ...prev,
-              order: Number(e.target.value) || 0,
+              order: Number(e.target.value),
             }))
           }
+          style={{ width: 80 }}
         />
       </div>
 
+      {/* Подпись и содержимое на всю ширину */}
+      <div className="form-editor__field">
+        <label>Содержимое</label>
+      </div>
       <div className="form-editor__field form-editor__field--textarea">
-        <label>Markdown:</label>
         <textarea
           value={blockDraft.content}
-          onChange={(e) =>
-            setBlockDraft((prev) => ({ ...prev, content: e.target.value }))
-          }
+          onChange={handleChange("content")}
         />
       </div>
 
       <div className="form-editor__actions">
-        <button onClick={onCreateBlock} disabled={!canCreate}>
-          Сохранить как новый блок
-        </button>
         <button onClick={onSaveBlock} disabled={!canSave}>
-          Сохранить изменения блока
+          Сохранить
         </button>
         <button
-          onClick={onDeleteBlock}
-          disabled={!canSave}
           className="form-editor__delete"
+          onClick={onDeleteBlock}
+          disabled={!selectedBlockId}
         >
-          Удалить блок
+          Удалить
         </button>
       </div>
-    </div>
+    </>
   );
 }
