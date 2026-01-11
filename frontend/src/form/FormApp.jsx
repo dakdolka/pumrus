@@ -24,7 +24,6 @@ function FormApp() {
   });
 
   const [selectedTheoryTypeIds, setSelectedTheoryTypeIds] = useState([]);
-
   const [isCreatingTheory, setIsCreatingTheory] = useState(false);
   const [newTheoryName, setNewTheoryName] = useState("");
 
@@ -43,34 +42,55 @@ function FormApp() {
     });
   }
 
-  // --- утилита: плоский список блоков с parent_id на основе children ---
-  function getFlatBlocksFromTheory(theoryData) {
-    if (!theoryData || !Array.isArray(theoryData.blocks)) return [];
-    const flatten = (nodes, parentId = null) => {
-      const res = [];
-      nodes.forEach((n) => {
-        res.push({ ...n, parent_id: n.parent_id ?? parentId });
+  // плоский список ТОЛЬКО для поиска блока по id
+  function flattenBlocks(nodes) {
+    if (!Array.isArray(nodes)) return [];
+    const res = [];
+    const walk = (arr) => {
+      arr.forEach((n) => {
+        res.push(n);
         if (Array.isArray(n.children) && n.children.length) {
-          res.push(...flatten(n.children, n.id));
+          walk(n.children);
         }
       });
-      return res;
     };
-    return flatten(theoryData.blocks);
+    walk(nodes);
+    return res;
   }
 
-  // --- API-хелпер: создать блок в корне или группе и вернуть обновлённую теорию ---
-  async function createBlockAt(theoryId, parentId) {
-    // 1. свежая теория
-    const theoryData = await fetch(
-      `/api/theory/get_theory/${theoryId}`
-    ).then((r) => r.json());
-    const all = getFlatBlocksFromTheory(theoryData);
+  // собрать детей конкретного родителя по дереву:
+  // - parentId == null -> корневые блоки (theory.blocks)
+  // - иначе -> children найденной группы
+  function collectChildrenForParent(blocks, parentId) {
+    if (parentId == null) {
+      return blocks || [];
+    }
 
-    // 2. считаем order среди соседей
-    const siblings = all.filter((b) =>
-      parentId == null ? b.parent_id == null : b.parent_id === parentId
-    );
+    const res = [];
+
+    const walk = (nodes) => {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach((n) => {
+        if (n.id === parentId) {
+          if (Array.isArray(n.children)) {
+            res.push(...n.children);
+          }
+        } else if (Array.isArray(n.children) && n.children.length) {
+          walk(n.children);
+        }
+      });
+    };
+
+    walk(blocks || []);
+    return res;
+  }
+
+  // создать блок в корне или группе и вернуть обновлённую теорию
+  async function createBlockAt(theoryId, parentId) {
+    const currentTheory = theory;
+    const blocks = currentTheory?.blocks || [];
+
+    const siblings = collectChildrenForParent(blocks, parentId);
     let order = 0;
     if (siblings.length > 0) {
       const sorted = [...siblings].sort(
@@ -80,22 +100,33 @@ function FormApp() {
       order = (last.order ?? 0) + 1;
     }
 
-    // 3. POST блока
     await fetch(`/api/theory/${theoryId}/blocks`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         type: "text",
         content: "",
-        parent_id: parentId,
-        order,
+        parent_id: parentId, // null для корня, id группы для вложения
+        order,               // обязателен по схеме
       }),
     });
 
-    // 4. обновлённая теория
     const updatedTheory = await fetch(
       `/api/theory/get_theory/${theoryId}`
     ).then((r) => r.json());
+
+    // выбираем только что добавленный блок как активный
+    const flat = flattenBlocks(updatedTheory.blocks || []);
+    if (flat.length > 0) {
+      const maxIdBlock = flat.reduce((acc, b) =>
+        !acc || b.id > acc.id ? b : acc
+      , null);
+      if (maxIdBlock) {
+        setSelectedBlockId(maxIdBlock.id);
+      }
+    }
 
     return updatedTheory;
   }
@@ -108,9 +139,10 @@ function FormApp() {
       .catch(console.error);
   }, []);
 
-  // 2. выбор предмета -> загрузка теорий по предмету (с типами)
+  // 2. выбор предмета -> загрузка теорий по предмету
   useEffect(() => {
     if (!selectedSubjectId) return;
+
     fetch(`/api/theory/all_theory_for_subject/${selectedSubjectId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -160,32 +192,24 @@ function FormApp() {
   useEffect(() => {
     if (!theory || !selectedBlockId) return;
 
-    const allBlocks = getFlatBlocksFromTheory(theory);
+    const allBlocks = flattenBlocks(theory.blocks || []);
     const block = allBlocks.find((b) => b.id === selectedBlockId);
     if (!block) return;
 
     setBlockDraft({
       type: block.type,
       content: block.content,
-      parent_id: block.parent_id ?? null,
-      order: block.order,
+      parent_id: null,          // вложенность не трогаем
+      order: block.order ?? 0,
     });
   }, [selectedBlockId, theory]);
 
   // --- handlers теории ---
-
   function handleStartCreateTheory() {
     resetTheoryState();
     setSelectedTheoryTypeIds([]);
-    setIsCreatingTheory(false);
-    setNewTheoryName("");
-
-    const name = window.prompt("Название новой теории:");
-    if (!name) {
-      return;
-    }
-    setNewTheoryName(name);
     setIsCreatingTheory(true);
+    setNewTheoryName("");
   }
 
   function handleSaveNewTheory() {
@@ -195,7 +219,9 @@ function FormApp() {
 
     fetch("/api/theory/", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         name: newTheoryName.trim(),
         subject: subjectObj?.subject,
@@ -226,12 +252,13 @@ function FormApp() {
 
   function handleUpdateTheoryTypes(newTypeIds) {
     setSelectedTheoryTypeIds(newTypeIds);
-
     if (!selectedTheoryId) return;
 
     fetch(`/api/theory/${selectedTheoryId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         type_ids: newTypeIds,
       }),
@@ -253,30 +280,15 @@ function FormApp() {
       .catch(console.error);
   }
 
-  // --- handlers блоков (через форму) ---
-
-  function handleCreateBlock() {
-    if (!selectedTheoryId) return;
-    fetch(`/api/theory/${selectedTheoryId}/blocks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(blockDraft),
-    })
-      .then((r) => r.json())
-      .then(() =>
-        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) =>
-          r.json()
-        )
-      )
-      .then(setTheory)
-      .catch(console.error);
-  }
-
+  // --- блоки: только обновление/удаление через форму ---
   function handleSaveBlock() {
     if (!selectedBlockId) return;
+
     fetch(`/api/theory/blocks/${selectedBlockId}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(blockDraft),
     })
       .then((r) => r.json())
@@ -314,6 +326,8 @@ function FormApp() {
       .catch(console.error);
   }
 
+  const canSaveBlock = !!selectedBlockId;
+
   return (
     <div className="form-root">
       <div className="form-header">
@@ -321,139 +335,95 @@ function FormApp() {
       </div>
 
       <div className="form-top">
-        <SubjectSelect
-          subjects={subjects}
-          selectedSubjectId={selectedSubjectId}
-          onChange={(id) => {
-            setSelectedSubjectId(id);
-            resetTheoryState();
-            setSelectedTheoryTypeIds([]);
-            setIsCreatingTheory(false);
-            setNewTheoryName("");
-          }}
-        />
-
-        <TheoryTypeSelect
-          availableTypes={availableTheoryTypes}
-          selectedTypeIds={selectedTheoryTypeIds}
-          onChange={handleUpdateTheoryTypes}
-          disabled={!selectedSubjectId}
-        />
+        <div className="form-top__group">
+          <label>Предмет:</label>
+          <SubjectSelect
+            subjects={subjects}
+            selectedSubjectId={selectedSubjectId}
+            onChange={setSelectedSubjectId}
+          />
+        </div>
 
         <div className="form-top__group">
           <label>Теория:</label>
-          {isCreatingTheory ? (
-            <>
-              <input
-                type="text"
-                value={newTheoryName}
-                onChange={(e) => setNewTheoryName(e.target.value)}
-                placeholder="Название новой теории"
-              />
-              <button
-                style={{ backgroundColor: "#2e7d32" }}
-                onClick={handleSaveNewTheory}
-                disabled={!newTheoryName.trim() || !selectedSubjectId}
-              >
-                Сохранить теорию
-              </button>
-            </>
-          ) : (
-            <>
-              <TheorySelect
-                theories={theories}
-                selectedTheoryId={selectedTheoryId}
-                onChange={setSelectedTheoryId}
-                disabled={!selectedSubjectId}
-              />
-              <button
-                onClick={handleStartCreateTheory}
-                disabled={!selectedSubjectId}
-              >
-                Создать новую теорию
-              </button>
-            </>
-          )}
+          <TheorySelect
+            theories={theories}
+            selectedTheoryId={selectedTheoryId}
+            onChange={(id) => {
+              setSelectedTheoryId(id);
+              setIsCreatingTheory(false);
+              setNewTheoryName("");
+            }}
+            onCreateNew={handleStartCreateTheory}
+            disabled={!selectedSubjectId}
+          />
         </div>
+
+        {isCreatingTheory && (
+          <div className="form-top__group">
+            <label>Новая:</label>
+            <input
+              type="text"
+              className="form-input"
+              value={newTheoryName}
+              onChange={(e) => setNewTheoryName(e.target.value)}
+              placeholder="Название теории"
+            />
+            <button
+              className="form-button form-button--save-theory"
+              onClick={handleSaveNewTheory}
+            >
+              Сохранить теорию
+            </button>
+          </div>
+        )}
+
+        {selectedSubjectId && (
+          <TheoryTypeSelect
+            availableTypes={availableTheoryTypes}
+            selectedTypeIds={selectedTheoryTypeIds}
+            onChange={handleUpdateTheoryTypes}
+            disabled={!selectedTheoryId && !isCreatingTheory}
+          />
+        )}
       </div>
 
       <div className="form-main">
         <div className="form-tree">
-          <div className="form-tree__header">Блоки теории</div>
-
-          {theory ? (
-            <BlocksTree
-                blocks={theory.blocks || []}
-                selectedBlockId={selectedBlockId}
-                onSelectBlock={setSelectedBlockId}
-                onAddRootBlock={async () => {
-                if (!selectedTheoryId) return;
-                const updatedTheory = await createBlockAt(selectedTheoryId, null);
-
-                // найдём только что созданный корневой блок
-                const all = getFlatBlocksFromTheory(updatedTheory);
-                const roots = all.filter((b) => b.parent_id == null);
-                let newBlock = null;
-                if (roots.length > 0) {
-                    const sorted = [...roots].sort(
-                    (a, b) => (a.order ?? 0) - (b.order ?? 0)
-                    );
-                    newBlock = sorted[sorted.length - 1];
-                }
-
-                setTheory(updatedTheory);
-                setSelectedBlockId(newBlock ? newBlock.id : null);
-                setBlockDraft({
-                    type: "text",
-                    content: "",
-                    parent_id: null,
-                    order: 0,
-                });
-                }}
-                onAddBlockInGroup={async (groupId) => {
-                if (!selectedTheoryId) return;
-                const updatedTheory = await createBlockAt(selectedTheoryId, groupId);
-
-                // найдём только что созданного ребёнка этой группы
-                const all = getFlatBlocksFromTheory(updatedTheory);
-                const children = all.filter((b) => b.parent_id === groupId);
-                let newBlock = null;
-                if (children.length > 0) {
-                    const sorted = [...children].sort(
-                    (a, b) => (a.order ?? 0) - (b.order ?? 0)
-                    );
-                    newBlock = sorted[sorted.length - 1];
-                }
-
-                setTheory(updatedTheory);
-                setSelectedBlockId(newBlock ? newBlock.id : null);
-                setBlockDraft({
-                    type: "text",
-                    content: "",
-                    parent_id: null,
-                    order: 0,
-                });
-                }}
-            />
-            ) : (
-            <div className="form-tree__scroll">
-                <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>
-                Выберите или создайте теорию
-                </div>
-            </div>
-            )}
+          <h2 className="form-tree__header">Структура блоков</h2>
+          <BlocksTree
+            blocks={theory?.blocks || []}
+            selectedBlockId={selectedBlockId}
+            onSelectBlock={setSelectedBlockId}
+            onAddRootBlock={async () => {
+              if (!selectedTheoryId) return;
+              const updated = await createBlockAt(selectedTheoryId, null);
+              setTheory(updated);
+            }}
+            onAddBlockInGroup={async (groupId) => {
+              if (!selectedTheoryId) return;
+              const updated = await createBlockAt(selectedTheoryId, groupId);
+              setTheory(updated);
+            }}
+          />
         </div>
 
         <div className="form-editor">
-          <div className="form-editor__header">Редактор блока</div>
-          <BlockEditor
-            selectedBlockId={selectedBlockId}
-            blockDraft={blockDraft}
-            setBlockDraft={setBlockDraft}
-            canSave={!!selectedBlockId}
-            onSaveBlock={handleSaveBlock}
-            onDeleteBlock={handleDeleteBlock}
-        />
+          <h2 className="form-editor__header">Редактор блока</h2>
+          {theory ? (
+            <BlockEditor
+              selectedBlockId={selectedBlockId}
+              blockDraft={blockDraft}
+              setBlockDraft={setBlockDraft}
+              canSave={canSaveBlock}
+              onSaveBlock={handleSaveBlock}
+              onDeleteBlock={handleDeleteBlock}
+            />
+          ) : (
+            <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>
+              Выберите или создайте теорию, чтобы работать с блоками
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -247,3 +247,12 @@ html, body {
   background-color: #b00020;
   color: #ffffff;
 }
+
+.form-button--save-theory {
+  background-color: #2e7d32; /* зелёный */
+  color: #ffffff;
+}
+
+.form-button--save-theory * {
+  color: #ffffff !important;
+}

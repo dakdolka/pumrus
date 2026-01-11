@@ -1,5 +1,22 @@
 import React from "react";
 
+function collectAllChildIds(blocks) {
+  const ids = new Set();
+
+  const walk = (nodes) => {
+    if (!Array.isArray(nodes)) return;
+    nodes.forEach((n) => {
+      if (Array.isArray(n.children) && n.children.length) {
+        n.children.forEach((ch) => ids.add(ch.id));
+        walk(n.children);
+      }
+    });
+  };
+
+  walk(blocks);
+  return ids;
+}
+
 function TreeNode({
   node,
   level,
@@ -32,9 +49,7 @@ function TreeNode({
         <span className="form-tree__type">
           {node.type === "group" ? "ГРУППА" : node.type}
         </span>
-        <span className="form-tree__content">
-          {preview || "(пусто)"}
-        </span>
+        <span className="form-tree__content">{preview || "(пусто)"}</span>
       </div>
 
       {children.map((child) => (
@@ -74,7 +89,7 @@ export function BlocksTree({
   blocks,
   selectedBlockId,
   onSelectBlock,
-  onAddRootBlock,    // () => void
+  onAddRootBlock, // () => void
   onAddBlockInGroup, // (groupId) => void
 }) {
   if (!blocks || blocks.length === 0) {
@@ -94,9 +109,13 @@ export function BlocksTree({
     );
   }
 
-  const roots = [...blocks].sort(
-    (a, b) => (a.order ?? 0) - (b.order ?? 0)
-  );
+  // собираем все id, которые уже чьи‑то children
+  const childIds = collectAllChildIds(blocks);
+
+  // в корне рисуем только те, кто не является ничьим ребёнком
+  const roots = [...blocks]
+    .filter((b) => !childIds.has(b.id))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   return (
     <div className="form-tree__scroll">
