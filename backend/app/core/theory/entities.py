@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 import types
-from typing import Optional, List
+from typing import Any, Optional, List
 from .enums import BlockType, TheoryType, TheorySubject
 
 @dataclass
@@ -37,11 +37,15 @@ class TheoryType:
     name: TheoryType
     id: Optional[int] = None
 
+@dataclass
+class TaskTheoryWithOrder:
+    theory: Any
+    order: int
 
 @dataclass
 class TaskTheory:
     task_name: str
-    theories: Optional[List[int]] = None
+    theories: Optional[List[TaskTheoryWithOrder]] = None  # ← с порядком
     id: Optional[int] = None
     
 @dataclass

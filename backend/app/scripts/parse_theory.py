@@ -5,7 +5,7 @@ from typing import Optional
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 from app.infra.theory.models import TheoryBD, TheoryBlockBD
-from app.core.theory.entities import TaskTheory, TaskTheoryGroup, Theory, TheoryBlock, TheorySubject as TheorySubjectDTO
+from app.core.theory.entities import TaskTheory, TaskTheoryGroup, TaskTheoryWithOrder, Theory, TheoryBlock, TheorySubject as TheorySubjectDTO
 from app.core.theory.enums import BlockType, TheoryType, TheorySubject
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from app.core.theory.use_cases import CreateTasksTheoryUseCase, CreateTheoryTypesAndSubjsUseCase, CreateTheoryUseCase, GetSubjectByIdUseCase, GetTheoriesByNamesUseCase
@@ -79,6 +79,21 @@ async def find_tasks_theory_blocks(dirpath, filename) -> tuple[list[str], str]:
             return theory_blocks, 'self theory'
         case -1:
             return [elem.strip() for elem in text.split(',')], 'links'
+        
+async def find_tasks_theory_blocks(dirpath, filename) -> tuple[list[tuple[int, str]], str]:
+    full_path = os.path.join(dirpath, filename)
+    with open(full_path, encoding='utf-8') as f:
+        text = f.read()
+    match text.find('%'):
+        case 0:
+            blocks = [elem.strip() for elem in text.split('%') if elem.strip()]
+            return blocks, 'self theory'
+        case -1:
+            # linked theories — порядок важен
+            theories = [elem.strip() for elem in text.split(',') if elem.strip()]
+            return [(i, theory) for i, theory in enumerate(theories)], 'links'  # ← (order, name)
+
+
     
 
 def split_multiline_block(block: str) -> list[tuple[int, str]]:
@@ -168,7 +183,7 @@ async def create_general_theory(dir):
 
 async def create_tasks_theory(dir, subj):
     repository = TheoryRepositoryImpl()
-    find_throries_by_name_usecase = GetTheoriesByNamesUseCase(repository)
+    find_theory_by_name_usecase = GetTheoriesByNamesUseCase(repository)
     theory_insert_usecase = CreateTheoryUseCase(repository)
     task_theory_insert_usecase = CreateTasksTheoryUseCase(repository)
     base_dir_path, task_group, group_name = dir, None, None
@@ -201,10 +216,16 @@ async def create_tasks_theory(dir, subj):
                         blocks=theory_blocks
                     )
                     first_task_th = await theory_insert_usecase.execute(theory, subject=subj)
-                    task_theory.theories.append(first_task_th)
+                    task_theory.theories.append(
+                        TaskTheoryWithOrder(theory=first_task_th, order=0)  # ← всегда 0
+                    )   
                 case 'links':
-                    theories = await find_throries_by_name_usecase.execute(theory_blocks)
-                    task_theory.theories += theories
+                    for order, theory_name in theory_blocks:  # ← распаковываешь (order, name)
+                        theories_bd = await find_theory_by_name_usecase.execute([theory_name])
+                        if theories_bd:
+                            task_theory.theories.append(
+                                TaskTheoryWithOrder(theory=theories_bd[0], order=order + 1)  # ← +1 потому что 0 занята self theory
+                            )
         task_group.tasks_theories.append(task_theory)
     if task_group:
         await task_theory_insert_usecase.execute(task_group)

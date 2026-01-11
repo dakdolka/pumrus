@@ -5,7 +5,7 @@ import sqlalchemy
 from app.core.db import async_session_factory
 from app.core.theory.entities import TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
-from .models import TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
+from .models import TaskTheoryAssociation, TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD, task_theory2theory
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
 from sqlalchemy import and_, asc, insert, select
@@ -72,6 +72,38 @@ class TheoryRepositoryImpl(ITheoryRepository):
         session.add(group_bd)
         await session.commit()
         return group_bd
+    
+    async def insert_task_theory_group(self, session, task_theory_group: TaskTheoryGroup):
+        group_bd = TaskTheoryGroupBD(
+            name=task_theory_group.group_name,
+            is_single=task_theory_group.is_single,
+            subject_id=task_theory_group.subject.id
+        )
+        
+        for task_dto in task_theory_group.tasks_theories or []:
+            task_bd = TaskTheoryBD(
+                name=task_dto.task_name
+            )
+            group_bd.tasks_theories.append(task_bd)
+        
+        session.add(group_bd)
+        await session.flush()
+        
+        # Вставляем в M2M с order ТЕОРИЙ
+        for task_dto in task_theory_group.tasks_theories or []:
+            task_bd = group_bd.tasks_theories[task_theory_group.tasks_theories.index(task_dto)]
+            for theory_with_order in task_dto.theories or []:
+                stmt = insert(task_theory2theory).values(
+                    theory_id=theory_with_order.theory.id,
+                    task_theory_id=task_bd.id,
+                    order=theory_with_order.order  # ← только order теорий
+                )
+                await session.execute(stmt)
+        
+        await session.commit()
+        return group_bd
+
+
 
 
     async def get_all_theories_for_subject(self, session: AsyncSession, subject_id: int) -> List[tuple[int, str]]:
@@ -105,7 +137,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
         res = result.scalars().all()
         return [(el.id, el.name, el.types) for el in res]
     
-    async def get_theories_by_names(self, session: AsyncSession, names: List[str]) -> List[Theory]:
+    async def get_theories_by_names(self, session: AsyncSession, names: List[str]) -> List[TheoryBD]:
         stmt = select(TheoryBD).where(TheoryBD.name.in_(names))
         result = await session.execute(stmt)
         res = result.scalars().all()
@@ -126,20 +158,22 @@ class TheoryRepositoryImpl(ITheoryRepository):
             .where(TaskTheoryGroupBD.subject_id == subject_id)
             .options(
                 selectinload(TaskTheoryGroupBD.tasks_theories)
-                .selectinload(TaskTheoryBD.theories)
+                .selectinload(TaskTheoryBD.theory_associations)
+                .selectinload(TaskTheoryAssociation.theory)
             )
         )
         res = await session.execute(stmt)
         groups: list[TaskTheoryGroupBD] = res.scalars().all()
+        
         def sort_task_group(group: TaskTheoryGroupBD):
             group.tasks_theories.sort(key=lambda t: int(t.name.replace('-', ' ').split()[0]))
             for task in group.tasks_theories:
-                task.theories.sort(key=lambda th: th.name)
-        #TODO перенести сортировку в юзкейс
+                # Сортируем по order в association
+                task.theory_associations.sort(key=lambda a: a.order)
+        
         for group in groups:
             sort_task_group(group)
         groups.sort(key=lambda g: int(g.name.replace('-', ' ').split()[0]))
         return groups
-    
-#TODO подумать над сортировкой..
+
         

@@ -13,13 +13,15 @@ theory2theory_type = Table(
     Column("type_id", Integer, ForeignKey("theory_type.id"), primary_key=True),
 )
 
-task_theory2theory = Table(
-    "task_theory2theory",
-    Base.metadata,
-    Column("theory_id", Integer, ForeignKey("theory.id"), primary_key=True),
-    Column("task_theory_id", Integer, ForeignKey("task_theory.id"), primary_key=True),
+class TaskTheoryAssociation(Base):
+    __tablename__ = "task_theory2theory"
     
-)
+    theory_id: Mapped[int] = mapped_column(ForeignKey("theory.id"), primary_key=True)
+    task_theory_id: Mapped[int] = mapped_column(ForeignKey("task_theory.id"), primary_key=True)
+    order: Mapped[int] = mapped_column(default=0)
+    
+    theory: Mapped["TheoryBD"] = relationship(back_populates="task_associations")
+    task: Mapped["TaskTheoryBD"] = relationship(back_populates="theory_associations")
 
 class TheorySubjectBD(Base):
     __tablename__ = "theory_subject"
@@ -65,9 +67,8 @@ class TheoryBD(Base):
         order_by="TheoryBlockBD.id",
         cascade="all, delete-orphan"
     )
-    tasks: Mapped[List["TaskTheoryBD"]] = relationship(
-        secondary=task_theory2theory,
-        back_populates="theories"
+    task_associations: Mapped[List["TaskTheoryAssociation"]] = relationship(
+        back_populates="theory"
     )
 
 
@@ -112,8 +113,11 @@ class TaskTheoryBD(Base):
     name: Mapped[str_256]
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_theory_group.id"))
     group: Mapped[Optional["TaskTheoryGroupBD"]] = relationship(back_populates="tasks_theories")
+    theory_associations: Mapped[List["TaskTheoryAssociation"]] = relationship(
+        back_populates="task",
+        cascade="all, delete-orphan"
+    )
     theories: Mapped[List["TheoryBD"]] = relationship(
-        secondary=task_theory2theory,
+        secondary=TaskTheoryAssociation.__table__,
         back_populates="tasks"
     )
-
