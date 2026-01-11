@@ -1,10 +1,11 @@
 from pprint import pprint
 
 from app.api.theory.schemas import TaskGroupsResponse, TaskTheory, TheoryForTaskTheory
+from app.core.theory.enums import BlockType
 from .repository import ITheoryRepository
 from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup
 from app.core.db import async_session_factory
-from typing import Tuple, List
+from typing import Optional, Tuple, List
 
 class CreateTheoryTypesAndSubjsUseCase:
     def __init__(self, repo: ITheoryRepository):
@@ -126,3 +127,42 @@ class GetSubjectByIdUseCase:
         async with async_session_factory() as session:
             all_subjs = await self.repo.get_all_subjects(session, subject_id)
             return all_subjs
+        
+class CreateTheoryBaseUseCase:
+    def __init__(self, repo: ITheoryRepository): self.repo = repo
+    async def execute(self, name: str, subject: TheorySubject, type_ids: list[int]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.create_theory_base(session, name, subject, type_ids)
+
+
+class UpdateTheoryBaseUseCase:
+    def __init__(self, repo: ITheoryRepository): self.repo = repo
+    async def execute(self, theory_id: int, name: Optional[str], subject: Optional[TheorySubject], type_ids: Optional[list[int]]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.update_theory_base(session, theory_id, name, subject, type_ids)
+
+
+class CreateTheoryBlockUseCase:
+    def __init__(self, repo: ITheoryRepository): self.repo = repo
+    async def execute(self, theory_id: int, type: BlockType, content: str, parent_id: Optional[int], order: int):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.create_block(session, theory_id, type, content, parent_id, order)
+
+
+class UpdateTheoryBlockUseCase:
+    def __init__(self, repo: ITheoryRepository): self.repo = repo
+    async def execute(self, block_id: int, type: Optional[BlockType], content: Optional[str], parent_id: Optional[int], order: Optional[int]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.update_block(session, block_id, type, content, parent_id, order)
+
+
+class DeleteTheoryBlockUseCase:
+    def __init__(self, repo: ITheoryRepository): self.repo = repo
+    async def execute(self, block_id: int):
+        async with async_session_factory() as session:
+            async with session.begin():
+                await self.repo.delete_block(session, block_id)

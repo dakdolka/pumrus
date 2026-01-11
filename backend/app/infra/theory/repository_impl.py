@@ -5,10 +5,11 @@ import sqlalchemy
 from app.core.db import async_session_factory
 from app.core.theory.entities import TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
+from app.core.theory.enums import BlockType
 from .models import TaskTheoryAssociation, TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
 from app.core.db import async_session_factory
 from typing import List, Optional, Tuple
-from sqlalchemy import and_, asc, insert, select
+from sqlalchemy import and_, asc, delete, insert, select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -172,6 +173,58 @@ class TheoryRepositoryImpl(ITheoryRepository):
             sort_task_group(group)
         groups.sort(key=lambda g: int(g.name.replace('-', ' ').split()[0]))
         return groups
+    
+    ##Форма
+    
+    async def create_theory_base(self, session: AsyncSession, name: str, subject: TheorySubject, type_ids: list[int]) -> TheoryBD:
+        subj_bd = (await session.execute(select(TheorySubjectBD).where(TheorySubjectBD.name == subject))).scalars().one()
+        if type_ids:
+            types_bd = (await session.execute(select(TheoryTypeBD).where(TheoryTypeBD.id.in_(type_ids)))).scalars().all()
+        else:
+            types_bd = []
+        theory_bd = TheoryBD(name=name, subject=subj_bd, types=list(types_bd))
+        session.add(theory_bd)
+        await session.flush()
+        return theory_bd
 
+    async def update_theory_base(self, session: AsyncSession, theory_id: int, name: Optional[str], subject: Optional[TheorySubject], type_ids: Optional[list[int]]) -> TheoryBD:
+        res = await session.execute(select(TheoryBD).where(TheoryBD.id == theory_id).options(selectinload(TheoryBD.types), selectinload(TheoryBD.subject)))
+        theory_bd = res.scalars().one_or_none()
+        if theory_bd is None:
+            raise ValueError("Theory not found")
+        if name is not None:
+            theory_bd.name = name
+        if subject is not None:
+            subj_bd = (await session.execute(select(TheorySubjectBD).where(TheorySubjectBD.name == subject))).scalars().one()
+            theory_bd.subject = subj_bd
+        if type_ids is not None:
+            types_bd = (await session.execute(select(TheoryTypeBD).where(TheoryTypeBD.id.in_(type_ids)))).scalars().all()
+            theory_bd.types = list(types_bd)
+        await session.flush()
+        return theory_bd
 
-        
+    async def create_block(self, session: AsyncSession, theory_id: int, type: BlockType, content: str, parent_id: Optional[int], order: int) -> TheoryBlockBD:
+        block_bd = TheoryBlockBD(content=content, type=type, theory_id=theory_id, parent_id=parent_id, order=order)
+        session.add(block_bd)
+        await session.flush()
+        return block_bd
+
+    async def update_block(self, session: AsyncSession, block_id: int, type: Optional[BlockType], content: Optional[str], parent_id: Optional[int], order: Optional[int]) -> TheoryBlockBD:
+        res = await session.execute(select(TheoryBlockBD).where(TheoryBlockBD.id == block_id))
+        block_bd = res.scalars().one_or_none()
+        if block_bd is None:
+            raise ValueError("Block not found")
+        if type is not None:
+            block_bd.type = type
+        if content is not None:
+            block_bd.content = content
+        if parent_id is not None:
+            block_bd.parent_id = parent_id
+        if order is not None:
+            block_bd.order = order
+        await session.flush()
+        return block_bd
+
+    async def delete_block(self, session: AsyncSession, block_id: int) -> None:
+        await session.execute(delete(TheoryBlockBD).where(TheoryBlockBD.id == block_id))
+

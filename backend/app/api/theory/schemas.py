@@ -51,3 +51,30 @@ class TaskGroupsResponse(BaseModel):
     group_name: str = Field(example="1-3 Мини-текст")
     is_single: bool
     tasks: List[TaskTheory]
+    
+### Форма
+
+class TheoryCreateRequest(BaseModel):
+    name: str
+    subject: TheorySubject
+    type_ids: list[int]  # id типов теории
+
+
+class TheoryUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    subject: Optional[TheorySubject] = None
+    type_ids: Optional[list[int]] = None
+
+
+class TheoryBlockCreateRequest(BaseModel):
+    type: BlockType
+    content: str
+    parent_id: Optional[int] = None
+    order: int
+
+
+class TheoryBlockUpdateRequest(BaseModel):
+    type: Optional[BlockType] = None
+    content: Optional[str] = None
+    order: Optional[int] = None
+    parent_id: Optional[int] = None
