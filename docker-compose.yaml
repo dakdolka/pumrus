@@ -4,15 +4,8 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
-    working_dir: /app
-    command: npm run dev -- --host 0.0.0.0
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-    mem_limit: 512m
-    networks:
-      - appnet
+    volumes:
+      - ./frontend:/app
     
 
   backend:
