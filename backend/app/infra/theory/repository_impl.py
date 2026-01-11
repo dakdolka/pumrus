@@ -135,6 +135,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
             group.tasks_theories.sort(key=lambda t: int(t.name.replace('-', ' ').split()[0]))
             for task in group.tasks_theories:
                 task.theories.sort(key=lambda th: th.name)
+        #TODO перенести сортировку в юзкейс
         for group in groups:
             sort_task_group(group)
         groups.sort(key=lambda g: int(g.name.replace('-', ' ').split()[0]))
