@@ -58,12 +58,29 @@ function FormApp() {
     return res;
   }
 
+  // собрать id всех детей (для фильтрации "грязных" корней)
+  function collectAllChildIds(blocks) {
+    const ids = new Set();
+    const walk = (nodes) => {
+      if (!Array.isArray(nodes)) return;
+      nodes.forEach((n) => {
+        if (Array.isArray(n.children) && n.children.length) {
+          n.children.forEach((ch) => ids.add(ch.id));
+          walk(n.children);
+        }
+      });
+    };
+    walk(blocks || []);
+    return ids;
+  }
+
   // собрать детей конкретного родителя по дереву:
-  // - parentId == null -> корневые блоки (theory.blocks)
+  // - parentId == null -> корневые блоки, КОТОРЫЕ НЕ являются ничьими детьми
   // - иначе -> children найденной группы
   function collectChildrenForParent(blocks, parentId) {
     if (parentId == null) {
-      return blocks || [];
+      const childIds = collectAllChildIds(blocks);
+      return (blocks || []).filter((b) => !childIds.has(b.id));
     }
 
     const res = [];
@@ -120,9 +137,10 @@ function FormApp() {
     // выбираем только что добавленный блок как активный
     const flat = flattenBlocks(updatedTheory.blocks || []);
     if (flat.length > 0) {
-      const maxIdBlock = flat.reduce((acc, b) =>
-        !acc || b.id > acc.id ? b : acc
-      , null);
+      const maxIdBlock = flat.reduce(
+        (acc, b) => (!acc || b.id > acc.id ? b : acc),
+        null
+      );
       if (maxIdBlock) {
         setSelectedBlockId(maxIdBlock.id);
       }
