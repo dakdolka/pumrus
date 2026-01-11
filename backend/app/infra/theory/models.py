@@ -4,8 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
 from app.core.db import Base, str_256
-from app.core.theory.entities import BlockType
-from app.core.theory.enums import TheoryType, TheorySubject
+from app.core.theory.enums import TheoryType, TheorySubject, BlockType
 
 theory2theory_type = Table(
     "theory2theory_type",
