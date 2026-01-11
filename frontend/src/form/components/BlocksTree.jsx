@@ -23,6 +23,7 @@ function TreeNode({
   selectedBlockId,
   onSelectBlock,
   onAddBlockInGroup, // (groupId) => void
+  onMoveBlock,       // (blockId, direction) => void
 }) {
   const paddingLeft = 8 + level * 20;
 
@@ -45,6 +46,31 @@ function TreeNode({
         style={{ paddingLeft }}
         onClick={() => onSelectBlock(node.id)}
       >
+        <div className="form-tree__controls">
+          <button
+            type="button"
+            className="form-tree__move"
+            onClick={(e) => {
+              e.stopPropagation();      // важно
+              onMoveBlock(node.id, "up");
+            }}
+            title="Переместить выше"
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="form-tree__move"
+            onClick={(e) => {
+              e.stopPropagation();      // важно
+              onMoveBlock(node.id, "down");
+            }}
+            title="Переместить ниже"
+          >
+            ↓
+          </button>
+        </div>
+
         <span className="form-tree__order">{node.order}</span>
         <span className="form-tree__type">
           {node.type === "group" ? "ГРУППА" : node.type}
@@ -60,6 +86,7 @@ function TreeNode({
           selectedBlockId={selectedBlockId}
           onSelectBlock={onSelectBlock}
           onAddBlockInGroup={onAddBlockInGroup}
+          onMoveBlock={onMoveBlock}
         />
       ))}
 
@@ -91,6 +118,7 @@ export function BlocksTree({
   onSelectBlock,
   onAddRootBlock, // () => void
   onAddBlockInGroup, // (groupId) => void
+  onMoveBlock,       // (blockId, direction) => void
 }) {
   if (!blocks || blocks.length === 0) {
     return (
@@ -109,10 +137,8 @@ export function BlocksTree({
     );
   }
 
-  // собираем все id, которые уже чьи‑то children
   const childIds = collectAllChildIds(blocks);
 
-  // в корне рисуем только те, кто не является ничьим ребёнком
   const roots = [...blocks]
     .filter((b) => !childIds.has(b.id))
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -127,6 +153,7 @@ export function BlocksTree({
           selectedBlockId={selectedBlockId}
           onSelectBlock={onSelectBlock}
           onAddBlockInGroup={onAddBlockInGroup}
+          onMoveBlock={onMoveBlock}
         />
       ))}
 

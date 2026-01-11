@@ -132,16 +132,19 @@ html, body {
 .form-tree__order {
   font-family: var(--chapter-text);
   font-size: 0.8rem;
-  opacity: 0.8;
+  opacity: 0.6;
 }
 
 .form-tree__type {
   font-family: var(--chapter-text);
+  font-size: 0.8rem;
+  opacity: 0.6;           /* блеклый тип */
+  margin-right: 4px;
 }
 
 .form-tree__content {
   flex: 1;
-  opacity: 0.9;
+  opacity: 1;             /* яркое содержимое */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -248,11 +251,92 @@ html, body {
   color: #ffffff;
 }
 
+.form-tree__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.form-tree__move {
+  padding: 0 4px;
+  border: none;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+
+.form-tree__move:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+
+/* зелёная кнопка "Сохранить теорию" */
 .form-button--save-theory {
-  background-color: #2e7d32; /* зелёный */
-  color: #ffffff;
+  background-color: #2e7d32 !important; /* зелёный */
+  color: #ffffff !important;
 }
 
 .form-button--save-theory * {
   color: #ffffff !important;
+}
+
+/* выпадающий список типов теории / блоков */
+.form-types-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.form-types-select__chip {
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--text-color);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.form-types-select__chip--active {
+  background-color: var(--active-color);
+  color: #1b1b1b;
+  border-color: var(--active-color);
+}
+
+.form-types-select__chip--disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+
+.form-editor .form-types-select {
+  justify-content: flex-start;
+}
+
+.form-editor .form-types-select__chip {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+}
+
+
+.form-editor__bold-btn {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: transparent;
+  color: var(--text-color);
+  font-weight: 700;
+  font-family: var(--chapter-text);
+  cursor: pointer;
+  text-align: center;
+  /* главное: не задаём width: 100% */
+  width: auto;
+}
+
+.form-editor__bold-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }

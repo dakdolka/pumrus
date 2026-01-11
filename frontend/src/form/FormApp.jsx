@@ -149,6 +149,86 @@ function FormApp() {
     return updatedTheory;
   }
 
+  // --- перемещение блока вверх/вниз ---
+  async function moveBlock(blockId, direction) {
+    if (!theory || !selectedTheoryId) return;
+
+    const blocks = theory.blocks || [];
+    const all = flattenBlocks(blocks);
+    const target = all.find((b) => b.id === blockId);
+    if (!target) return;
+
+    // определяем parent: null или id группы
+    let parentId = null;
+
+    const findParent = (nodes, parent) => {
+      if (!Array.isArray(nodes)) return;
+      for (const n of nodes) {
+        if (n.id === blockId) {
+          parentId = parent;
+          return;
+        }
+        if (Array.isArray(n.children) && n.children.length) {
+          findParent(n.children, n.id);
+        }
+      }
+    };
+
+    findParent(blocks, null);
+
+    const siblings = collectChildrenForParent(blocks, parentId);
+    if (siblings.length <= 1) return;
+
+    const sorted = [...siblings].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
+    const index = sorted.findIndex((b) => b.id === blockId);
+    if (index === -1) return;
+
+    let neighborIndex =
+      direction === "up" ? index - 1 : index + 1;
+
+    // нельзя выйти за пределы: если сосед вне диапазона — ничего не делаем
+    if (neighborIndex < 0 || neighborIndex >= sorted.length) {
+      return;
+    }
+
+    const current = sorted[index];
+    const neighbor = sorted[neighborIndex];
+
+    const currentOrder = current.order ?? 0;
+    const neighborOrder = neighbor.order ?? 0;
+
+    // два PUT с обменом order
+    await fetch(`/api/theory/blocks/${current.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: current.type,
+        content: current.content,
+        parent_id: parentId,
+        order: neighborOrder,
+      }),
+    });
+
+    await fetch(`/api/theory/blocks/${neighbor.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: neighbor.type,
+        content: neighbor.content,
+        parent_id: parentId,
+        order: currentOrder,
+      }),
+    });
+
+    const updatedTheory = await fetch(
+      `/api/theory/get_theory/${selectedTheoryId}`
+    ).then((r) => r.json());
+
+    setTheory(updatedTheory);
+  }
+
   // 1. загрузка предметов + типов
   useEffect(() => {
     fetch("/api/theory/all_theory_dop_info")
@@ -214,11 +294,19 @@ function FormApp() {
     const block = allBlocks.find((b) => b.id === selectedBlockId);
     if (!block) return;
 
+    let content = block.content;
+    if (typeof content === "string") {
+        // сначала одинарный \n, потом экранированный \\n
+        content = content.replace(/\r\n/g, "\n");
+        content = content.replace(/\\n/g, "\n");
+        content = content.replace(/\n/g, "\n");
+    }
+
     setBlockDraft({
-      type: block.type,
-      content: block.content,
-      parent_id: null,          // вложенность не трогаем
-      order: block.order ?? 0,
+        type: block.type,
+        content,
+        parent_id: null,
+        order: block.order ?? 0,
     });
   }, [selectedBlockId, theory]);
 
@@ -302,47 +390,105 @@ function FormApp() {
   function handleSaveBlock() {
     if (!selectedBlockId) return;
 
-    fetch(`/api/theory/blocks/${selectedBlockId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(blockDraft),
-    })
-      .then((r) => r.json())
-      .then(() =>
-        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) =>
-          r.json()
-        )
-      )
-      .then(setTheory)
-      .catch(console.error);
-  }
+    const normalizedDraft = {
+        ...blockDraft,
+        content:
+        typeof blockDraft.content === "string"
+            // реальные переводы строк → литерал \n
+            ? blockDraft.content.replace(/\r\n/g, "\n").replace(/\n/g, "\\n")
+            : blockDraft.content,
+    };
 
+    fetch(`/api/theory/blocks/${selectedBlockId}`, {
+        method: "PUT",
+        headers: {
+        "Content-Type": "application/json",
+        },
+        body: JSON.stringify(normalizedDraft),
+    })
+        .then((r) => r.json())
+        .then(() =>
+        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) =>
+            r.json()
+        )
+        )
+        .then(setTheory)
+        .catch(console.error);
+    }   
   function handleDeleteBlock() {
     if (!selectedBlockId) return;
     if (!window.confirm("Удалить блок?")) return;
 
+    // найдём удаляемый блок и его parent_id
+    if (!theory) return;
+    const blocks = theory.blocks || [];
+    const all = flattenBlocks(blocks);
+    const target = all.find((b) => b.id === selectedBlockId);
+    if (!target) return;
+
+    let parentId = null;
+    const findParent = (nodes, parent) => {
+        if (!Array.isArray(nodes)) return;
+        for (const n of nodes) {
+        if (n.id === selectedBlockId) {
+            parentId = parent;
+            return;
+        }
+        if (Array.isArray(n.children) && n.children.length) {
+            findParent(n.children, n.id);
+        }
+        }
+    };
+    findParent(blocks, null);
+
+    // сначала удаляем блок
     fetch(`/api/theory/blocks/${selectedBlockId}`, {
-      method: "DELETE",
+        method: "DELETE",
     })
-      .then(() =>
+        .then(() =>
         fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) =>
-          r.json()
+            r.json()
         )
-      )
-      .then((data) => {
-        setTheory(data);
+        )
+        .then(async (data) => {
+        // пересчитываем order среди соседей
+        const newBlocks = data.blocks || [];
+        const siblings = collectChildrenForParent(newBlocks, parentId)
+            .slice() // копия
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        // перенумеруем 0..N-1 и отправим PUT только тем, у кого order изменился
+        for (let i = 0; i < siblings.length; i++) {
+            const b = siblings[i];
+            if ((b.order ?? 0) === i) continue;
+            await fetch(`/api/theory/blocks/${b.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                type: b.type,
+                content: b.content,
+                parent_id: parentId,
+                order: i,
+            }),
+            });
+        }
+
+        // забираем свежую теорию ещё раз
+        const finalTheory = await fetch(
+            `/api/theory/get_theory/${selectedTheoryId}`
+        ).then((r) => r.json());
+
+        setTheory(finalTheory);
         setSelectedBlockId(null);
         setBlockDraft({
-          type: "text",
-          content: "",
-          parent_id: null,
-          order: 0,
+            type: "text",
+            content: "",
+            parent_id: null,
+            order: 0,
         });
-      })
-      .catch(console.error);
-  }
+        })
+        .catch(console.error);
+    }
 
   const canSaveBlock = !!selectedBlockId;
 
@@ -378,22 +524,22 @@ function FormApp() {
         </div>
 
         {isCreatingTheory && (
-          <div className="form-top__group">
-            <label>Новая:</label>
-            <input
-              type="text"
-              className="form-input"
-              value={newTheoryName}
-              onChange={(e) => setNewTheoryName(e.target.value)}
-              placeholder="Название теории"
-            />
-            <button
-              className="form-button form-button--save-theory"
-              onClick={handleSaveNewTheory}
-            >
-              Сохранить теорию
-            </button>
-          </div>
+            <div className="form-top__group">
+                <label>Новая:</label>
+                <input
+                type="text"
+                className="form-input"
+                value={newTheoryName}
+                onChange={(e) => setNewTheoryName(e.target.value)}
+                placeholder="Название теории"
+                />
+                <button
+                className="form-button form-button--save-theory"
+                onClick={handleSaveNewTheory}
+                >
+                Сохранить теорию
+                </button>
+            </div>
         )}
 
         {selectedSubjectId && (
@@ -423,6 +569,7 @@ function FormApp() {
               const updated = await createBlockAt(selectedTheoryId, groupId);
               setTheory(updated);
             }}
+            onMoveBlock={moveBlock}
           />
         </div>
 

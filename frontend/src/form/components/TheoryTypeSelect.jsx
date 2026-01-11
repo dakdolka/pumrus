@@ -6,28 +6,44 @@ export function TheoryTypeSelect({
   onChange,
   disabled,
 }) {
-  const handleChange = (e) => {
-    const options = Array.from(e.target.selectedOptions);
-    const ids = options.map((o) => Number(o.value));
-    onChange(ids);
+  const toggleType = (id) => {
+    if (disabled) return;
+    const isSelected = selectedTypeIds.includes(id);
+    const next = isSelected
+      ? selectedTypeIds.filter((x) => x !== id)
+      : [...selectedTypeIds, id];
+    onChange(next);
   };
+
+  if (!availableTypes || availableTypes.length === 0) {
+    return null;
+  }
 
   return (
     <div className="form-top__group">
       <label>Типы:</label>
-      <select
-        multiple
-        value={selectedTypeIds}
-        onChange={handleChange}
-        disabled={disabled}
-        style={{ minHeight: 60 }}
-      >
-        {availableTypes.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+      <div className="form-types-select">
+        {availableTypes.map((t) => {
+          const active = selectedTypeIds.includes(t.id);
+          const className = [
+            "form-types-select__chip",
+            active ? "form-types-select__chip--active" : "",
+            disabled ? "form-types-select__chip--disabled" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <div
+              key={t.id}
+              className={className}
+              onClick={() => toggleType(t.id)}
+            >
+              {t.name}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
