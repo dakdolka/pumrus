@@ -1,11 +1,9 @@
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 import uvicorn
 import asyncmy
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from app.scripts.create import create_all
-from app.scripts.parse_theory import run_everything
 from app.core.config import settings
 from app.api.theory.router import router as th_rt
 
@@ -27,7 +25,7 @@ async def lifespan(app: FastAPI):
             print("Waiting for MySQL to be ready...", str(e))
             break
     await create_all()
-    await run_everything()
+    # await run_everything() раскомментировать только если ляжет база, и придётся тянуть из файлов
     yield
 
 
