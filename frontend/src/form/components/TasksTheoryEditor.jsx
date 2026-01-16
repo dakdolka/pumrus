@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 
 /**
  * props:
- *  - subjectId: number
- *  - theories: список теорий по предмету (из FormApp)
+ * - subjectId: number
+ * - theories: список теорий по предмету (из FormApp)
  */
 export function TasksTheoryEditor({ subjectId, theories }) {
   const [groups, setGroups] = useState([]);
@@ -16,12 +16,16 @@ export function TasksTheoryEditor({ subjectId, theories }) {
   const [taskNameDraft, setTaskNameDraft] = useState("");
   const [selectedTheoryIdsForTask, setSelectedTheoryIdsForTask] = useState([]);
 
+  // какие группы раскрыты (только для is_single = false)
+  const [expandedGroupIds, setExpandedGroupIds] = useState([]);
+
   // загрузка групп/тасков для предмета
   useEffect(() => {
     if (!subjectId) {
       setGroups([]);
       setSelectedGroupId(null);
       setSelectedTaskId(null);
+      setExpandedGroupIds([]);
       return;
     }
 
@@ -39,6 +43,9 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
         setSelectedGroupId(firstGroup ? firstGroup.task_group_id : null);
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
+
+        // все группы стартуют свёрнутыми
+        setExpandedGroupIds([]);
       })
       .catch(console.error);
   }, [subjectId]);
@@ -51,6 +58,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
       setGroupIsSingleDraft(false);
       return;
     }
+
     setGroupNameDraft(group.group_name || "");
     setGroupIsSingleDraft(!!group.is_single);
   }, [selectedGroupId, groups]);
@@ -72,9 +80,19 @@ export function TasksTheoryEditor({ subjectId, theories }) {
     }
 
     setTaskNameDraft(task.task_name || "");
+
     const ids = (task.theories || []).map((th) => th.theory_id);
     setSelectedTheoryIdsForTask(ids);
   }, [selectedTaskId, groups]);
+
+  // переключение раскрытия группы
+  function toggleGroupExpanded(groupId) {
+    setExpandedGroupIds((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    );
+  }
 
   // создание новой группы
   function handleCreateGroup() {
@@ -108,6 +126,11 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
         setSelectedGroupId(firstGroup ? firstGroup.task_group_id : null);
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
+
+        const expanded = items
+          .filter((g) => !g.is_single)
+          .map((g) => g.task_group_id);
+        setExpandedGroupIds(expanded);
       })
       .catch(console.error);
   }
@@ -160,12 +183,16 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
         setSelectedGroupId(firstGroup ? firstGroup.task_group_id : null);
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
+
+        const expanded = items
+          .filter((g) => !g.is_single)
+          .map((g) => g.task_group_id);
+        setExpandedGroupIds(expanded);
       })
       .catch(console.error);
   }
 
   // задачи
-
   function handleCreateTask() {
     if (!selectedGroupId) {
       alert("Сначала выберите группу");
@@ -245,7 +272,9 @@ export function TasksTheoryEditor({ subjectId, theories }) {
           (g) => g.task_group_id === selectedGroupId
         );
         const firstTask =
-          group && group.tasks && group.tasks[0] ? group.tasks[0] : null;
+          group && group.tasks && group.tasks[0]
+            ? group.tasks[0]
+            : null;
 
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
       })
@@ -253,7 +282,6 @@ export function TasksTheoryEditor({ subjectId, theories }) {
   }
 
   // привязка теорий к задаче
-
   function handleToggleTheoryForTask(theoryId) {
     setSelectedTheoryIdsForTask((prev) => {
       if (prev.includes(theoryId)) {
@@ -285,30 +313,62 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
   return (
     <div className="form-main">
+      {/* ЛЕВАЯ ЧАСТЬ: группы и задачи */}
       <div className="form-tree">
-        <div className="form-tree__header">Группы и задачи</div>
+        <div className="form-tree__header">Группы задач</div>
         <div className="form-tree__scroll">
-          {groups.map((g) => (
-            <div key={g.task_group_id}>
-              <div
-                className={
-                  selectedGroupId === g.task_group_id
-                    ? "form-tree__item form-tree__item--active"
-                    : "form-tree__item"
-                }
-                onClick={() => {
-                  setSelectedGroupId(g.task_group_id);
-                  setSelectedTaskId(null);
-                }}
-              >
-                <span className="form-tree__content">
-                  {g.group_name} {g.is_single ? "(single)" : ""}
-                </span>
-              </div>
+          {groups.map((g) => {
+            const isSingle = !!g.is_single;
+            const tasks = g.tasks || [];
+            const singleTask = isSingle && tasks.length ? tasks[0] : null;
 
-              {selectedGroupId === g.task_group_id && (
-                <div style={{ marginLeft: 16 }}>
-                  {(g.tasks || []).map((t) => (
+            if (isSingle && singleTask) {
+              const isActive =
+                selectedTaskId === singleTask.task_id ||
+                selectedGroupId === g.task_group_id;
+
+              return (
+                <div key={g.task_group_id}>
+                  <div
+                    className={
+                      isActive
+                        ? "form-tree__item form-tree__item--active"
+                        : "form-tree__item"
+                    }
+                    onClick={() => {
+                      setSelectedGroupId(g.task_group_id);
+                      setSelectedTaskId(singleTask.task_id);
+                    }}
+                  >
+                    {g.group_name}
+                  </div>
+                </div>
+              );
+            }
+
+            const isExpanded = expandedGroupIds.includes(g.task_group_id);
+
+            return (
+              <div key={g.task_group_id}>
+                <div
+                  className={
+                    selectedGroupId === g.task_group_id
+                      ? "form-tree__item form-tree__item--active"
+                      : "form-tree__item"
+                  }
+                  onClick={() => {
+                    setSelectedGroupId(g.task_group_id);
+                    toggleGroupExpanded(g.task_group_id);
+                  }}
+                >
+                  <span style={{ marginRight: 6 }}>
+                    {isExpanded ? "▾" : "▸"}
+                  </span>
+                  {g.group_name}
+                </div>
+
+                {isExpanded &&
+                  (g.tasks || []).map((t) => (
                     <div
                       key={t.task_id}
                       className={
@@ -316,121 +376,177 @@ export function TasksTheoryEditor({ subjectId, theories }) {
                           ? "form-tree__item form-tree__item--active"
                           : "form-tree__item"
                       }
+                      style={{ paddingLeft: 24 }}
                       onClick={() => {
                         setSelectedGroupId(g.task_group_id);
                         setSelectedTaskId(t.task_id);
                       }}
                     >
-                      <span className="form-tree__content">
-                        {t.task_name}
-                      </span>
+                      {t.task_name}
                     </div>
                   ))}
-                </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
 
         <button className="form-tree__add" onClick={handleCreateGroup}>
-          + Добавить группу
-        </button>
-        <button className="form-tree__add" onClick={handleCreateTask}>
-          + Добавить задачу
+          + Добавить группу задач
         </button>
       </div>
 
-      <div className="form-editor">
-        <div className="form-editor__header">Редактор группы / задачи</div>
+      {/* ПРАВАЯ ЧАСТЬ: редактор + линкуемая теория, растянутая до низа */}
+      <div className="form-editor" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+        {/* верх: группа + задача */}
+        <div style={{ flex: "0 0 auto" }}>
+          <div className="form-editor__header">Редактор задач</div>
 
-        <div className="form-editor__field">
-          <label>Группа:</label>
-          <input
-            type="text"
-            value={groupNameDraft}
-            onChange={(e) => setGroupNameDraft(e.target.value)}
-          />
-          <label>
+          {/* Редактирование группы */}
+          <div className="form-editor__field">
+            <label>Группа</label>
+            <input
+              type="text"
+              value={groupNameDraft}
+              onChange={(e) => setGroupNameDraft(e.target.value)}
+              disabled={!selectedGroupId}
+            />
+          </div>
+
+          <div className="form-editor__field">
+            <label>Одиночная</label>
             <input
               type="checkbox"
+              style={{ marginLeft: 0 }}
               checked={groupIsSingleDraft}
               onChange={(e) => setGroupIsSingleDraft(e.target.checked)}
+              disabled={!selectedGroupId}
             />
-            single
-          </label>
-        </div>
+          </div>
 
-        <div className="form-editor__actions">
-          <button onClick={handleSaveGroup} disabled={!selectedGroupId}>
-            Сохранить группу
-          </button>
-          <button
-            onClick={handleDeleteGroup}
-            disabled={!selectedGroupId}
-            className="form-editor__delete"
-          >
-            Удалить группу
-          </button>
-        </div>
+          <div className="form-editor__actions">
+            <button
+              type="button"
+              onClick={handleSaveGroup}
+              disabled={!selectedGroupId}
+            >
+              Сохранить группу
+            </button>
+            <button
+              type="button"
+              className="form-editor__delete"
+              onClick={handleDeleteGroup}
+              disabled={!selectedGroupId}
+            >
+              Удалить группу
+            </button>
+          </div>
 
-        <hr />
+          {/* Редактирование задачи */}
+          <div className="form-editor__field" style={{ marginTop: 12 }}>
+            <label>Задача</label>
+            <input
+              type="text"
+              value={taskNameDraft}
+              onChange={(e) => setTaskNameDraft(e.target.value)}
+              disabled={!selectedTaskId}
+            />
+          </div>
 
-        <div className="form-editor__field">
-          <label>Задача:</label>
-          <input
-            type="text"
-            value={taskNameDraft}
-            onChange={(e) => setTaskNameDraft(e.target.value)}
-          />
-        </div>
-
-        <div className="form-editor__actions">
-          <button onClick={handleSaveTask} disabled={!selectedTaskId}>
-            Сохранить задачу
-          </button>
-          <button
-            onClick={handleDeleteTask}
-            disabled={!selectedTaskId}
-            className="form-editor__delete"
-          >
-            Удалить задачу
-          </button>
-        </div>
-
-        <hr />
-
-        <div className="form-editor__header">Теория для задачи</div>
-        <div
-          className="form-editor__field form-editor__field--textarea"
-          style={{ flexDirection: "column", alignItems: "flex-start" }}
-        >
-          <div
-            style={{
-              maxHeight: 200,
-              overflowY: "auto",
-              width: "100%",
-            }}
-          >
-            {theories.map((th) => {
-              const checked = selectedTheoryIdsForTask.includes(th.id);
-              return (
-                <label key={th.id} style={{ display: "block" }}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => handleToggleTheoryForTask(th.id)}
-                  />{" "}
-                  {th.name}
-                </label>
-              );
-            })}
+          <div className="form-editor__actions">
+            <button
+              type="button"
+              onClick={handleCreateTask}
+              disabled={!selectedGroupId}
+            >
+              + Добавить задачу
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveTask}
+              disabled={!selectedTaskId}
+            >
+              Сохранить задачу
+            </button>
+            <button
+              type="button"
+              className="form-editor__delete"
+              onClick={handleDeleteTask}
+              disabled={!selectedTaskId}
+            >
+              Удалить задачу
+            </button>
           </div>
         </div>
 
-        <div className="form-editor__actions">
-          <button onClick={handleSaveTaskTheories} disabled={!selectedTaskId}>
-            Сохранить теории задачи
-          </button>
+        {/* низ: ЛИНКУЕМАЯ ТЕОРИЯ, тянется до низа и скроллится внутри */}
+        <div
+          style={{
+            flex: "1 1 auto",
+            minHeight: 0,
+            marginTop: 16,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div className="form-editor__header">Линкуемая теория</div>
+
+          <div
+            className="form-editor__field"
+            style={{ flex: 1, minHeight: 0, alignItems: "stretch" }}
+          >
+            <label></label>
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                maxHeight: "100%",
+                overflowY: "auto",
+              }}
+            >
+              <div
+                className="form-types-select"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "8px",
+                }}
+              >
+                {theories.map((th) => (
+                  <button
+                    key={th.id}
+                    type="button"
+                    className={
+                      selectedTheoryIdsForTask.includes(th.id)
+                        ? "form-types-select__chip form-types-select__chip--active"
+                        : "form-types-select__chip"
+                    }
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      padding: "8px 10px",
+                      fontSize: "0.9rem",
+                      whiteSpace: "normal",
+                      textAlign: "center",
+                    }}
+                    onClick={() => handleToggleTheoryForTask(th.id)}
+                    disabled={!selectedTaskId}
+                  >
+                    {th.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="form-editor__actions">
+            <button
+              type="button"
+              onClick={handleSaveTaskTheories}
+              disabled={!selectedTaskId}
+            >
+              Сохранить привязку теорий
+            </button>
+          </div>
         </div>
       </div>
     </div>

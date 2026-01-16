@@ -268,7 +268,7 @@ html, body {
 .form-editor__field {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: left;
   gap: 8px;
   margin-bottom: 6px;
 }
@@ -397,4 +397,21 @@ html, body {
 
 .form-editor__bold-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+.form-tree__item--active {
+  background-color: var(--active-color);
+  border: 1px solid #ffffff;
+}
+
+/* чтобы фон не менялся при hover */
+.form-tree__item--active:hover {
+  background-color: var(--active-color);
+}
+
+/* внутри активного блока всё серым */
+.form-tree__item--active .form-tree__order,
+.form-tree__item--active .form-tree__type,
+.form-tree__item--active .form-tree__content {
+  color: rgba(0, 0, 0, 0.6);
 }
