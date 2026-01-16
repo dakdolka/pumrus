@@ -108,7 +108,7 @@ html, body {
   overflow-y: auto;
 }
 
-/* элементы дерева */
+/* элементы дерева
 .form-tree__item {
   display: flex;
   flex-direction: row;
@@ -127,6 +127,29 @@ html, body {
 .form-tree__item--active {
   background-color: var(--active-color);
   color: var(--main-color);
+} */
+
+.form-tree__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+/* жёлтый только на наведение */
+.form-tree__item:hover {
+  background-color: var(--active-color);
+  color: #1b1b1b;
+}
+
+/* убираем постоянный цвет активного */
+.form-tree__item--active {
+  /* либо пусто, либо только тонкую рамку, без заливки */
+  border: 1px solid rgba(255, 255, 255);
 }
 
 .form-tree__order {
@@ -339,4 +362,34 @@ html, body {
 
 .form-editor__bold-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Табы в шапке */
+
+.form-tabs {
+  margin-top: 8px;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.form-tab {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--text-color);
+  background-color: transparent;
+  color: var(--text-color);
+  font-family: var(--chapter-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.form-tab--active {
+  background-color: var(--active-color);
+  color: #1b1b1b;
+  border-color: var(--active-color);
+}
+
+.form-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
 }

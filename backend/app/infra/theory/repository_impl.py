@@ -3,7 +3,7 @@ from pprint import pprint
 
 import sqlalchemy
 from app.core.db import async_session_factory
-from app.core.theory.entities import TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
+from app.core.theory.entities import TaskTheory, TaskTheoryGroup, Theory, TheoryBlock, TheoryType, TheorySubject
 from app.core.theory.repository import ITheoryRepository
 from app.core.theory.enums import BlockType
 from .models import TaskTheoryAssociation, TaskTheoryBD, TheoryBD, TheoryBlockBD, TheoryTypeBD, TheorySubjectBD, TaskTheoryGroupBD
@@ -227,4 +227,47 @@ class TheoryRepositoryImpl(ITheoryRepository):
 
     async def delete_block(self, session: AsyncSession, block_id: int) -> None:
         await session.execute(delete(TheoryBlockBD).where(TheoryBlockBD.id == block_id))
+        
+    async def update_task_theory_group(self, session: AsyncSession, group_id: int, name: Optional[str], is_single: Optional[bool]) -> TaskTheoryGroupBD:
+        res = await session.execute(select(TaskTheoryGroupBD).where(TaskTheoryGroupBD.id == group_id))
+        group_bd = res.scalars().one_or_none()
+        if group_bd is None:
+            raise ValueError("TaskTheoryGroup not found")
+        if name is not None:
+            group_bd.name = name
+        if is_single is not None:
+            group_bd.is_single = is_single
+        await session.flush()
+        return group_bd
+
+    async def delete_task_theory_group(self, session: AsyncSession, group_id: int) -> None:
+        await session.execute(delete(TaskTheoryGroupBD).where(TaskTheoryGroupBD.id == group_id))
+        
+    async def insert_task_theory(self, session: AsyncSession, task: TaskTheory) -> TaskTheoryBD:
+        task_bd = TaskTheoryBD(name=task.name, group_id=task.group_id)
+        session.add(task_bd)
+        await session.flush()
+        return task_bd
+
+    async def update_task_theory(self, session: AsyncSession, task_id: int, name: Optional[str], group_id: Optional[int]) -> TaskTheoryBD:
+        res = await session.execute(select(TaskTheoryBD).where(TaskTheoryBD.id == task_id))
+        task_bd = res.scalars().one_or_none()
+        if task_bd is None:
+            raise ValueError("TaskTheory not found")
+        if name is not None:
+            task_bd.name = name
+        if group_id is not None:
+            task_bd.group_id = group_id
+        await session.flush()
+        return task_bd
+
+    async def delete_task_theory(self, session: AsyncSession, task_id: int) -> None:
+        await session.execute(delete(TaskTheoryBD).where(TaskTheoryBD.id == task_id))
+        
+    async def replace_task_theory_links(self, session: AsyncSession, task_id: int, theory_ids: list[int]) -> None:
+        await session.execute(delete(TaskTheoryAssociation).where(TaskTheoryAssociation.task_theory_id == task_id))
+        for order_index, theory_id in enumerate(theory_ids):
+            assoc = TaskTheoryAssociation(task_theory_id=task_id, theory_id=theory_id, order=order_index)
+            session.add(assoc)
+        await session.flush()
 

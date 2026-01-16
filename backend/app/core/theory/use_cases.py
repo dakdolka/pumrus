@@ -1,9 +1,9 @@
 from pprint import pprint
 
-from app.api.theory.schemas import TaskGroupsResponse, TaskTheory, TheoryForTaskTheory
+from app.api.theory.schemas import TaskGroupsResponse, TaskTheory as TaskTheoryResponse, TheoryForTaskTheory
 from app.core.theory.enums import BlockType
 from .repository import ITheoryRepository
-from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup
+from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup, TaskTheory
 from app.core.db import async_session_factory
 from typing import Optional, Tuple, List
 
@@ -108,13 +108,12 @@ class GetAllTaskTheoryGroupsForSubjectUseCase:
                         for assoc in el.theory_associations
                     ]
 
-                    taskth = TaskTheory(
+                    taskth = TaskTheoryResponse(
                         task_id=el.id,
                         task_name=el.name,
                         theories=theories
                     )
                     group.tasks.append(taskth)
-
                 ans.append(group)
             return ans
 
@@ -166,3 +165,84 @@ class DeleteTheoryBlockUseCase:
         async with async_session_factory() as session:
             async with session.begin():
                 await self.repo.delete_block(session, block_id)
+                
+class UpdateTaskTheoryGroupUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, group_id: int, name: Optional[str], is_single: Optional[bool]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.update_task_theory_group(
+                    session,
+                    group_id=group_id,
+                    name=name,
+                    is_single=is_single,
+                )
+
+
+class DeleteTaskTheoryGroupUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, group_id: int):
+        async with async_session_factory() as session:
+            async with session.begin():
+                await self.repo.delete_task_theory_group(session, group_id)
+                
+class CreateTaskTheoryUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, group_id: int, name: str) -> int:
+        async with async_session_factory() as session:
+            async with session.begin():
+                # TaskTheory – доменная сущность. Если её нет, можно просто прокинуть параметры в репо.
+                task = TaskTheory(
+                    id=None,
+                    name=name,
+                    group_id=group_id,
+                    theory_associations=[],  # или не заполнять, если в entity нет
+                )
+                res = await self.repo.insert_task_theory(session, task)
+                return res
+
+
+class UpdateTaskTheoryUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, task_id: int, name: Optional[str], group_id: Optional[int]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                return await self.repo.update_task_theory(
+                    session,
+                    task_id=task_id,
+                    name=name,
+                    group_id=group_id,
+                )
+
+
+class DeleteTaskTheoryUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, task_id: int):
+        async with async_session_factory() as session:
+            async with session.begin():
+                await self.repo.delete_task_theory(session, task_id)
+
+
+class UpdateTaskTheoryLinksUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+
+    async def execute(self, task_id: int, theory_ids: list[int]):
+        async with async_session_factory() as session:
+            async with session.begin():
+                # Полностью переопределяем список связей для задачи
+                await self.repo.replace_task_theory_links(
+                    session,
+                    task_id=task_id,
+                    theory_ids=theory_ids,
+                )

@@ -21,6 +21,7 @@ class TheoryBlockResponse(BaseModel):
     type: BlockType
     content: str
     order: int
+    parent_id: Optional[int] = None
     theory_id: Optional[int] = None
     children: List["TheoryBlockResponse"] = []
 
@@ -78,3 +79,36 @@ class TheoryBlockUpdateRequest(BaseModel):
     content: Optional[str] = None
     order: Optional[int] = None
     parent_id: Optional[int] = None
+    
+
+#Форма для теории по заданиям
+class TaskTheoryGroupCreateRequest(BaseModel):
+    name: str = Field(..., example="Уравнения 7 класс")
+    is_single: bool = Field(..., description="True, если в группе всегда одна задача активна")
+    subject_id: int = Field(..., description="ID предмета (theory_subject.id)")
+
+
+class TaskTheoryGroupUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, example="Новое имя группы")
+    is_single: Optional[bool] = Field(None)
+
+
+class TaskTheoryCreateRequest(BaseModel):
+    name: str = Field(..., example="Задача 1")
+    # group_id берём из URL, поэтому здесь не нужен
+
+
+class TaskTheoryUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, example="Новое имя задачи")
+    group_id: Optional[int] = Field(
+        None,
+        description="Если передан, переносим задачу в другую группу",
+    )
+
+
+class TaskTheoryLinksUpdateRequest(BaseModel):
+    theory_ids: List[int] = Field(
+        ...,
+        description="Список id теорий в нужном порядке для данной задачи",
+        example=[1, 5, 7],
+    )
