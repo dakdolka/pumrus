@@ -93,13 +93,12 @@ html, body {
   padding: 4px 8px;
   border-radius: 6px;
   border: none;
-  background-color: var(--active-color); /* жёлтый фон */
-  color: #1b1b1b; /* жёстко тёмный текст */
+  background-color: var(--active-color);
+  color: #1b1b1b;
   font-family: var(--chapter-text);
   cursor: pointer;
 }
 
-/* на всякий случай перебиваем возможные глобальные стили */
 .form-top__group button * {
   color: #1b1b1b !important;
 }
@@ -110,7 +109,7 @@ html, body {
   display: flex;
   flex-direction: row;
   gap: 10px;
-  min-height: 0; /* важно для вложенного скролла */
+  min-height: 0;
 }
 
 /* слева: дерево */
@@ -199,8 +198,8 @@ html, body {
   padding: 4px 8px;
   border-radius: 6px;
   border: none;
-  background-color: var(--active-color); /* жёлтый */
-  color: #1b1b1b; /* тёмный текст */
+  background-color: var(--active-color);
+  color: #1b1b1b;
   font-family: var(--chapter-text);
   cursor: pointer;
 }
@@ -268,7 +267,7 @@ html, body {
 .form-editor__field {
   display: flex;
   flex-direction: row;
-  align-items: left;
+  align-items: center;
   gap: 8px;
   margin-bottom: 6px;
 }
@@ -320,8 +319,8 @@ html, body {
   border: none;
   font-family: var(--chapter-text);
   cursor: pointer;
-  background-color: var(--active-color); /* жёлтый */
-  color: #1b1b1b; /* тёмный текст */
+  background-color: var(--active-color);
+  color: #1b1b1b;
 }
 
 .form-editor__actions button * {
@@ -335,7 +334,7 @@ html, body {
 
 /* зелёная кнопка "Сохранить теорию" */
 .form-button--save-theory {
-  background-color: #2e7d32 !important; /* зелёный */
+  background-color: #2e7d32 !important;
   color: #ffffff !important;
 }
 
@@ -380,7 +379,7 @@ html, body {
   padding: 2px 6px;
 }
 
-/* кнопка жирного текста в редакторе */
+/* кнопка Bold в редакторе */
 .form-editor__bold-btn {
   display: inline-block;
   padding: 2px 8px;
@@ -392,26 +391,15 @@ html, body {
   font-family: var(--chapter-text);
   cursor: pointer;
   text-align: center;
-  width: auto; /* без растягивания на всю ширину */
+  width: auto;
 }
 
 .form-editor__bold-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-.form-tree__item--active {
-  background-color: var(--active-color);
-  border: 1px solid #ffffff;
-}
-
-/* чтобы фон не менялся при hover */
-.form-tree__item--active:hover {
-  background-color: var(--active-color);
-}
-
-/* внутри активного блока всё серым */
-.form-tree__item--active .form-tree__order,
-.form-tree__item--active .form-tree__type,
-.form-tree__item--active .form-tree__content {
-  color: rgba(0, 0, 0, 0.6);
+/* ЖЁСТКО фиксируем цвет текста внутри активного блока дерева */
+.form-tree__item--active,
+.form-tree__item--active * {
+  color: rgba(0, 0, 0, 0.6) !important;
 }

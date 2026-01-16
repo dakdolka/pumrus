@@ -11,12 +11,10 @@ export function TasksTheoryEditor({ subjectId, theories }) {
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
   const [groupNameDraft, setGroupNameDraft] = useState("");
-  const [groupIsSingleDraft, setGroupIsSingleDraft] = useState(false);
-
   const [taskNameDraft, setTaskNameDraft] = useState("");
   const [selectedTheoryIdsForTask, setSelectedTheoryIdsForTask] = useState([]);
 
-  // какие группы раскрыты (только для is_single = false)
+  // какие группы раскрыты
   const [expandedGroupIds, setExpandedGroupIds] = useState([]);
 
   // загрузка групп/тасков для предмета
@@ -50,17 +48,14 @@ export function TasksTheoryEditor({ subjectId, theories }) {
       .catch(console.error);
   }, [subjectId]);
 
-  // когда выбрана группа – подставляем её данные в драфт
+  // когда выбрана группа – подставляем её имя
   useEffect(() => {
     const group = groups.find((g) => g.task_group_id === selectedGroupId);
     if (!group) {
       setGroupNameDraft("");
-      setGroupIsSingleDraft(false);
       return;
     }
-
     setGroupNameDraft(group.group_name || "");
-    setGroupIsSingleDraft(!!group.is_single);
   }, [selectedGroupId, groups]);
 
   // когда выбрана задача – подставляем её имя и привязанные теории
@@ -80,7 +75,6 @@ export function TasksTheoryEditor({ subjectId, theories }) {
     }
 
     setTaskNameDraft(task.task_name || "");
-
     const ids = (task.theories || []).map((th) => th.theory_id);
     setSelectedTheoryIdsForTask(ids);
   }, [selectedTaskId, groups]);
@@ -94,16 +88,16 @@ export function TasksTheoryEditor({ subjectId, theories }) {
     );
   }
 
-  // создание новой группы
+  // создание новой группы (is_single сохраняем только на бэке, по умолчанию false)
   function handleCreateGroup() {
-    const name = prompt("Название новой группы задач:");
+    const name = prompt("Название новой группы заданий:");
     if (!name || !subjectId) return;
 
     fetch("/api/theory/task-groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: name,
+        name,
         is_single: false,
         subject_id: subjectId,
       }),
@@ -127,24 +121,25 @@ export function TasksTheoryEditor({ subjectId, theories }) {
         setSelectedGroupId(firstGroup ? firstGroup.task_group_id : null);
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
 
-        const expanded = items
-          .filter((g) => !g.is_single)
-          .map((g) => g.task_group_id);
-        setExpandedGroupIds(expanded);
+        // после перезагрузки тоже свёрнутые
+        setExpandedGroupIds([]);
       })
       .catch(console.error);
   }
 
-  // сохранение изменений по группе
+  // сохранение изменений по группе (is_single оставляем как есть на бэке)
   function handleSaveGroup() {
     if (!selectedGroupId) return;
+
+    const group = groups.find((g) => g.task_group_id === selectedGroupId);
+    const currentIsSingle = group ? !!group.is_single : false;
 
     fetch(`/api/theory/task-groups/${selectedGroupId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: groupNameDraft,
-        is_single: groupIsSingleDraft,
+        is_single: currentIsSingle,
       }),
     })
       .then((r) => r.json())
@@ -161,7 +156,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
   function handleDeleteGroup() {
     if (!selectedGroupId) return;
-    if (!window.confirm("Удалить группу задач?")) return;
+    if (!window.confirm("Удалить группу заданий?")) return;
 
     fetch(`/api/theory/task-groups/${selectedGroupId}`, {
       method: "DELETE",
@@ -184,10 +179,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
         setSelectedGroupId(firstGroup ? firstGroup.task_group_id : null);
         setSelectedTaskId(firstTask ? firstTask.task_id : null);
 
-        const expanded = items
-          .filter((g) => !g.is_single)
-          .map((g) => g.task_group_id);
-        setExpandedGroupIds(expanded);
+        setExpandedGroupIds([]);
       })
       .catch(console.error);
   }
@@ -198,7 +190,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
       alert("Сначала выберите группу");
       return;
     }
-    const name = prompt("Название новой задачи:");
+    const name = prompt("Название нового задания:");
     if (!name) return;
 
     fetch(`/api/theory/task-groups/${selectedGroupId}/tasks`, {
@@ -254,7 +246,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
 
   function handleDeleteTask() {
     if (!selectedTaskId) return;
-    if (!window.confirm("Удалить задачу?")) return;
+    if (!window.confirm("Удалить задание?")) return;
 
     fetch(`/api/theory/tasks/${selectedTaskId}`, {
       method: "DELETE",
@@ -315,16 +307,17 @@ export function TasksTheoryEditor({ subjectId, theories }) {
     <div className="form-main">
       {/* ЛЕВАЯ ЧАСТЬ: группы и задачи */}
       <div className="form-tree">
-        <div className="form-tree__header">Группы задач</div>
+        <div className="form-tree__header">Группы заданий</div>
         <div className="form-tree__scroll">
           {groups.map((g) => {
-            const isSingle = !!g.is_single;
             const tasks = g.tasks || [];
-            const singleTask = isSingle && tasks.length ? tasks[0] : null;
+            const isSingle = !!g.is_single; // признак с бэка, не показываем в UI
 
-            if (isSingle && singleTask) {
+            // ОДИНОЧНАЯ группа: один элемент, без раскрытия и без дублирования
+            if (isSingle) {
+              const t = tasks[0] || null;
               const isActive =
-                selectedTaskId === singleTask.task_id ||
+                (t && selectedTaskId === t.task_id) ||
                 selectedGroupId === g.task_group_id;
 
               return (
@@ -337,7 +330,9 @@ export function TasksTheoryEditor({ subjectId, theories }) {
                     }
                     onClick={() => {
                       setSelectedGroupId(g.task_group_id);
-                      setSelectedTaskId(singleTask.task_id);
+                      if (t) {
+                        setSelectedTaskId(t.task_id);
+                      }
                     }}
                   >
                     {g.group_name}
@@ -346,6 +341,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
               );
             }
 
+            // Обычная группа: раскрывающаяся
             const isExpanded = expandedGroupIds.includes(g.task_group_id);
 
             return (
@@ -368,7 +364,7 @@ export function TasksTheoryEditor({ subjectId, theories }) {
                 </div>
 
                 {isExpanded &&
-                  (g.tasks || []).map((t) => (
+                  tasks.map((t) => (
                     <div
                       key={t.task_id}
                       className={
@@ -391,34 +387,25 @@ export function TasksTheoryEditor({ subjectId, theories }) {
         </div>
 
         <button className="form-tree__add" onClick={handleCreateGroup}>
-          + Добавить группу задач
+          + Добавить группу заданий
         </button>
       </div>
 
-      {/* ПРАВАЯ ЧАСТЬ: редактор + линкуемая теория, растянутая до низа */}
-      <div className="form-editor" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
+      {/* ПРАВАЯ ЧАСТЬ: редактор + линкуемая теория */}
+      <div
+        className="form-editor"
+        style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+      >
         {/* верх: группа + задача */}
         <div style={{ flex: "0 0 auto" }}>
-          <div className="form-editor__header">Редактор задач</div>
+          <div className="form-editor__header">Редактор теории для заданий</div>
 
-          {/* Редактирование группы */}
           <div className="form-editor__field">
             <label>Группа</label>
             <input
               type="text"
               value={groupNameDraft}
               onChange={(e) => setGroupNameDraft(e.target.value)}
-              disabled={!selectedGroupId}
-            />
-          </div>
-
-          <div className="form-editor__field">
-            <label>Одиночная</label>
-            <input
-              type="checkbox"
-              style={{ marginLeft: 0 }}
-              checked={groupIsSingleDraft}
-              onChange={(e) => setGroupIsSingleDraft(e.target.checked)}
               disabled={!selectedGroupId}
             />
           </div>
@@ -441,9 +428,8 @@ export function TasksTheoryEditor({ subjectId, theories }) {
             </button>
           </div>
 
-          {/* Редактирование задачи */}
           <div className="form-editor__field" style={{ marginTop: 12 }}>
-            <label>Задача</label>
+            <label>Задание</label>
             <input
               type="text"
               value={taskNameDraft}
@@ -458,14 +444,14 @@ export function TasksTheoryEditor({ subjectId, theories }) {
               onClick={handleCreateTask}
               disabled={!selectedGroupId}
             >
-              + Добавить задачу
+              + Добавить задание
             </button>
             <button
               type="button"
               onClick={handleSaveTask}
               disabled={!selectedTaskId}
             >
-              Сохранить задачу
+              Сохранить задание
             </button>
             <button
               type="button"
@@ -473,81 +459,86 @@ export function TasksTheoryEditor({ subjectId, theories }) {
               onClick={handleDeleteTask}
               disabled={!selectedTaskId}
             >
-              Удалить задачу
+              Удалить задание
             </button>
           </div>
         </div>
 
-        {/* низ: ЛИНКУЕМАЯ ТЕОРИЯ, тянется до низа и скроллится внутри */}
-        <div
-          style={{
-            flex: "1 1 auto",
-            minHeight: 0,
-            marginTop: 16,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <div className="form-editor__header">Линкуемая теория</div>
-
+        {/* низ: ЛИНКУЕМАЯ ТЕОРИЯ */}
           <div
-            className="form-editor__field"
-            style={{ flex: 1, minHeight: 0, alignItems: "stretch" }}
+            style={{
+              flex: "1 1 auto",
+              minHeight: 0,
+              marginTop: 16,
+              display: "flex",
+              flexDirection: "column",
+            }}
           >
-            <label></label>
+            <div className="form-editor__header">Линкуемая теория</div>
+
+            {/* без label, чтобы колонки были от самого левого края */}
             <div
+              className="form-editor__field"
               style={{
                 flex: 1,
                 minHeight: 0,
-                maxHeight: "100%",
-                overflowY: "auto",
+                alignItems: "stretch",
+                marginLeft: 0,
               }}
             >
               <div
-                className="form-types-select"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "8px",
+                  flex: 1,
+                  minHeight: 0,
+                  maxHeight: "100%",
+                  overflowY: "auto",
                 }}
               >
-                {theories.map((th) => (
-                  <button
-                    key={th.id}
-                    type="button"
-                    className={
-                      selectedTheoryIdsForTask.includes(th.id)
-                        ? "form-types-select__chip form-types-select__chip--active"
-                        : "form-types-select__chip"
-                    }
-                    style={{
-                      width: "100%",
-                      justifyContent: "center",
-                      padding: "8px 10px",
-                      fontSize: "0.9rem",
-                      whiteSpace: "normal",
-                      textAlign: "center",
-                    }}
-                    onClick={() => handleToggleTheoryForTask(th.id)}
-                    disabled={!selectedTaskId}
-                  >
-                    {th.name}
-                  </button>
-                ))}
+                <div
+                  className="form-types-select"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                  }}
+                >
+                  {theories.map((th) => (
+                    <button
+                      key={th.id}
+                      type="button"
+                      className={
+                        selectedTheoryIdsForTask.includes(th.id)
+                          ? "form-types-select__chip form-types-select__chip--active"
+                          : "form-types-select__chip"
+                      }
+                      style={{
+                        width: "100%",
+                        justifyContent: "center",
+                        padding: "8px 10px",
+                        fontSize: "0.9rem",
+                        whiteSpace: "normal",
+                        textAlign: "center",
+                      }}
+                      onClick={() => handleToggleTheoryForTask(th.id)}
+                      disabled={!selectedTaskId}
+                    >
+                      {th.name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="form-editor__actions">
-            <button
-              type="button"
-              onClick={handleSaveTaskTheories}
-              disabled={!selectedTaskId}
-            >
-              Сохранить привязку теорий
-            </button>
+            <div className="form-editor__actions">
+              <button
+                type="button"
+                onClick={handleSaveTaskTheories}
+                disabled={!selectedTaskId}
+              >
+                Сохранить привязку теорий
+              </button>
+            </div>
           </div>
-        </div>
       </div>
     </div>
   );

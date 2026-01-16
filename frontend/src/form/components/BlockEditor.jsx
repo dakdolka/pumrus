@@ -86,8 +86,11 @@ export function BlockEditor({ block, onChange, disabled }) {
 
   return (
     <>
-      <div className="form-editor__field">
-        <label>Тип блока</label>
+      {/* Типы блоков без label, прижаты к левому краю */}
+      <div
+        className="form-editor__field"
+        style={{ alignItems: "flex-start", marginBottom: 4 }}
+      >
         <div className="form-types-select">
           {BLOCK_TYPES.map((t) => (
             <button
@@ -107,9 +110,8 @@ export function BlockEditor({ block, onChange, disabled }) {
         </div>
       </div>
 
-      {/* Bold сразу под типами */}
-      <div className="form-editor__field">
-        <label></label>
+      {/* Bold сразу под типами, тоже слева */}
+      <div className="form-editor__field" style={{ marginBottom: 8 }}>
         <button
           type="button"
           className="form-editor__bold-btn"
@@ -120,10 +122,7 @@ export function BlockEditor({ block, onChange, disabled }) {
         </button>
       </div>
 
-      {/* убрали поле порядка, он редактируется стрелками в дереве */}
-
       <div className="form-editor__field form-editor__field--textarea">
-        <label>Текст</label>
         <textarea
           ref={textareaRef}
           value={block.content ?? ""}

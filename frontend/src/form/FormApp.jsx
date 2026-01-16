@@ -423,7 +423,7 @@ function FormApp() {
             onClick={() => setActiveTab("tasks")}
             disabled={!selectedSubjectId}
           >
-            Задания
+            Теория для заданий
           </button>
         </div>
       </div>
