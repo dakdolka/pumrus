@@ -6,7 +6,7 @@ import { TheorySelect } from "./components/TheorySelect";
 import { BlocksTree } from "./components/BlocksTree";
 import { BlockEditor } from "./components/BlockEditor";
 import { TheoryTypeSelect } from "./components/TheoryTypeSelect";
-import { TasksTheoryEditor } from "./components/TasksTheoryEditor"; // новый компонент
+import { TasksTheoryEditor } from "./components/TasksTheoryEditor";
 
 function FormApp() {
   const [subjects, setSubjects] = useState([]);
@@ -410,7 +410,10 @@ function FormApp() {
               value={newTheoryName}
               onChange={(e) => setNewTheoryName(e.target.value)}
             />
-            <button onClick={handleSaveNewTheory} className="form-button--save-theory">
+            <button
+              onClick={handleSaveNewTheory}
+              className="form-button--save-theory"
+            >
               Сохранить теорию
             </button>
           </div>
@@ -425,18 +428,20 @@ function FormApp() {
               <BlocksTree
                 theory={theory}
                 selectedBlockId={selectedBlockId}
-                onSelectBlock={setSelectedBlockId}
+                onSelectBlock={(id) => {
+                  setSelectedBlockId(id);
+                }}
                 onAddBlockInGroup={(groupId) => {
                   if (!selectedTheoryId) return;
                   createBlockAt(selectedTheoryId, groupId)
-                    .then(setTheory)
+                    .then((updated) => {
+                      setTheory(updated);
+                      // createBlockAt уже выбирает новый блок, просто не перетираем
+                    })
                     .catch(console.error);
                 }}
-                onAddRootBlock={() => {
-                  if (!selectedTheoryId) return;
-                  createBlockAt(selectedTheoryId, null)
-                    .then(setTheory)
-                    .catch(console.error);
+                onMoveBlock={(blockId, direction) => {
+                  // здесь можно добавить логику смены order, если потребуется
                 }}
               />
             </div>
@@ -478,7 +483,11 @@ function FormApp() {
       )}
 
       {activeTab === "tasks" && (
-        <TasksTheoryEditor subjectId={selectedSubjectId} theories={theories} />
+        <TasksTheoryEditor
+          key={`tasks-${selectedSubjectId}-${activeTab}`}
+          subjectId={selectedSubjectId}
+          theories={theories}
+        />
       )}
     </div>
   );

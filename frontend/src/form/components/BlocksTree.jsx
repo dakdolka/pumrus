@@ -2,7 +2,6 @@ import React from "react";
 
 function collectAllChildIds(blocks) {
   const ids = new Set();
-
   const walk = (nodes) => {
     if (!Array.isArray(nodes)) return;
     nodes.forEach((n) => {
@@ -12,8 +11,7 @@ function collectAllChildIds(blocks) {
       }
     });
   };
-
-  walk(blocks);
+  walk(blocks || []);
   return ids;
 }
 
@@ -22,8 +20,8 @@ function TreeNode({
   level,
   selectedBlockId,
   onSelectBlock,
-  onAddBlockInGroup, // (groupId) => void
-  onMoveBlock,       // (blockId, direction) => void
+  onAddBlockInGroup,
+  onMoveBlock,
 }) {
   const paddingLeft = 8 + level * 20;
 
@@ -33,122 +31,130 @@ function TreeNode({
       : "";
 
   const children = Array.isArray(node.children)
-    ? [...node.children].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    ? [...node.children].sort(
+        (a, b) => (a.order ?? 0) - (b.order ?? 0)
+      )
     : [];
+
+  const isActive = selectedBlockId === node.id;
+  const hasChildren = children.length > 0; // группа = есть дети
 
   return (
     <>
       <div
         className={
-          "form-tree__item" +
-          (node.id === selectedBlockId ? " form-tree__item--active" : "")
+          isActive
+            ? "form-tree__item form-tree__item--active"
+            : "form-tree__item"
         }
         style={{ paddingLeft }}
-        onClick={() => onSelectBlock(node.id)}
+        onClick={() => {
+          onSelectBlock(node.id);
+        }}
       >
-        <div className="form-tree__controls">
-          <button
-            type="button"
-            className="form-tree__move"
-            onClick={(e) => {
-              e.stopPropagation();      // важно
-              onMoveBlock(node.id, "up");
-            }}
-            title="Переместить выше"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            className="form-tree__move"
-            onClick={(e) => {
-              e.stopPropagation();      // важно
-              onMoveBlock(node.id, "down");
-            }}
-            title="Переместить ниже"
-          >
-            ↓
-          </button>
-        </div>
+        {onMoveBlock && (
+          <div className="form-tree__move-vertical">
+            <button
+              type="button"
+              className="form-tree__move-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveBlock(node.id, "up");
+              }}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="form-tree__move-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveBlock(node.id, "down");
+              }}
+            >
+              ↓
+            </button>
+          </div>
+        )}
 
-        <span className="form-tree__order">{node.order}</span>
-        <span className="form-tree__type">
-          {node.type === "group" ? "ГРУППА" : node.type}
+        <span className="form-tree__order">
+          {typeof node.order === "number" ? node.order : "-"}
         </span>
-        <span className="form-tree__content">{preview || "(пусто)"}</span>
+        <span className="form-tree__type">{node.type}</span>
+        <span className="form-tree__content">{preview}</span>
       </div>
 
-      {children.map((child) => (
-        <TreeNode
-          key={child.id}
-          node={child}
-          level={level + 1}
-          selectedBlockId={selectedBlockId}
-          onSelectBlock={onSelectBlock}
-          onAddBlockInGroup={onAddBlockInGroup}
-          onMoveBlock={onMoveBlock}
-        />
-      ))}
-
-      {node.type === "group" && (
-        <div
-          style={{
-            paddingLeft: paddingLeft + 20,
-            marginBottom: 4,
-          }}
-        >
-          <button
-            className="form-tree__add"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddBlockInGroup(node.id);
-            }}
-          >
-            + Блок в группе «{node.content || node.id}»
-          </button>
-        </div>
-      )}
+      {children.map((child, index) => {
+        const isLastChild = index === children.length - 1;
+        return (
+          <React.Fragment key={child.id}>
+            <TreeNode
+              node={child}
+              level={level + 1}
+              selectedBlockId={selectedBlockId}
+              onSelectBlock={onSelectBlock}
+              onAddBlockInGroup={onAddBlockInGroup}
+              onMoveBlock={onMoveBlock}
+            />
+            {/* под последним дочерним блоком каждой группы рисуем "+ Блок в группу" */}
+            {isLastChild && hasChildren && onAddBlockInGroup && (
+              <div
+                className="form-tree__add-under-group"
+                style={{ paddingLeft: paddingLeft + 20 }}
+              >
+                <button
+                  type="button"
+                  className="form-tree__add"
+                  onClick={() => onAddBlockInGroup(node.id)}
+                >
+                  + Блок в группу
+                </button>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
     </>
   );
 }
 
 export function BlocksTree({
-  blocks,
+  theory,
   selectedBlockId,
   onSelectBlock,
-  onAddRootBlock, // () => void
-  onAddBlockInGroup, // (groupId) => void
-  onMoveBlock,       // (blockId, direction) => void
+  onAddBlockInGroup,
+  onMoveBlock,
 }) {
-  if (!blocks || blocks.length === 0) {
+  if (!theory || !Array.isArray(theory.blocks)) {
     return (
-      <div className="form-tree__scroll">
-        <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>
-          Блоков пока нет
-        </div>
-        <button
-          className="form-tree__add"
-          onClick={onAddRootBlock}
-          style={{ marginTop: 8 }}
-        >
-          + Добавить блок
-        </button>
+      <div style={{ opacity: 0.6 }}>
+        Нет блоков. Выберите теорию или создайте первый блок.
       </div>
     );
   }
 
+  const blocks = theory.blocks || [];
   const childIds = collectAllChildIds(blocks);
+  const rootNodes = blocks.filter((b) => !childIds.has(b.id));
 
-  const roots = [...blocks]
-    .filter((b) => !childIds.has(b.id))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sortedRootNodes = [...rootNodes].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  );
+
+  if (!sortedRootNodes.length) {
+    return (
+      <div style={{ opacity: 0.6 }}>
+        Нет корневых блоков. Добавьте блок в корень.
+      </div>
+    );
+  }
 
   return (
-    <div className="form-tree__scroll">
-      {roots.map((root) => (
+    <>
+      {sortedRootNodes.map((node) => (
         <TreeNode
-          key={root.id}
-          node={root}
+          key={node.id}
+          node={node}
           level={0}
           selectedBlockId={selectedBlockId}
           onSelectBlock={onSelectBlock}
@@ -156,12 +162,6 @@ export function BlocksTree({
           onMoveBlock={onMoveBlock}
         />
       ))}
-
-      <div style={{ marginTop: 8 }}>
-        <button className="form-tree__add" onClick={onAddRootBlock}>
-          + Добавить блок
-        </button>
-      </div>
-    </div>
+    </>
   );
 }

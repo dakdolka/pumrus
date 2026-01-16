@@ -393,3 +393,68 @@ html, body {
   opacity: 0.4;
   cursor: default;
 }
+
+
+.form-tree__move-vertical {
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 4px;
+}
+
+.form-tree__move {
+  cursor: pointer;
+  font-family: var(--chapter-text);
+  font-size: 0.8rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.form-tree__group-label {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.form-tree__add-panel {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-tree__move-vertical {
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 6px;
+}
+
+/* базовый стиль стрелок */
+.form-tree__move-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--chapter-text);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+/* hover на стрелке для НЕвыбранного блока */
+.form-tree__move-btn:hover {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* выбранный блок (жёлтый фон): по умолчанию тёмные стрелки */
+.form-tree__item--active .form-tree__move-btn {
+  color: #1b1b1b;
+  opacity: 0.9;
+}
+
+/* и только при hover на стрелку в выбранном блоке — делаем их серыми */
+.form-tree__item--active .form-tree__move-btn:hover {
+  color: rgba(0, 0, 0, 0.6);
+}
+
