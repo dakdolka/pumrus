@@ -204,7 +204,8 @@ class TheoryRepositoryImpl(ITheoryRepository):
         return theory_bd
 
     async def create_block(self, session: AsyncSession, theory_id: int, type: BlockType, content: str, parent_id: Optional[int], order: int) -> TheoryBlockBD:
-        block_bd = TheoryBlockBD(content=content, type=type, theory_id=theory_id, parent_id=parent_id, order=order)
+        effective_theory_id = theory_id if parent_id is None else None
+        block_bd = TheoryBlockBD(content=content, type=type, theory_id=effective_theory_id, parent_id=parent_id, order=order)
         session.add(block_bd)
         await session.flush()
         return block_bd

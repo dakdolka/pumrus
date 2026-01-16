@@ -12,38 +12,35 @@ const BLOCK_TYPES = [
   { value: "group", label: "Группа" },
 ];
 
-export function BlockEditor({
-  selectedBlockId,
-  blockDraft,
-  setBlockDraft,
-  canSave,
-  onSaveBlock,
-  onDeleteBlock,
-}) {
+export function BlockEditor({ block, onChange, disabled }) {
   const textareaRef = useRef(null);
+  const canEdit = !disabled && !!block;
 
   const handleChange = (field) => (e) => {
-    setBlockDraft((prev) => ({
+    if (!canEdit) return;
+    const value = e.target.value;
+    onChange((prev) => ({
       ...prev,
-      [field]: e.target.value,
+      [field]: value,
     }));
   };
 
   const handleTypeClick = (value) => {
-    setBlockDraft((prev) => ({
+    if (!canEdit) return;
+    onChange((prev) => ({
       ...prev,
       type: value,
     }));
   };
 
   const handleBoldClick = () => {
+    if (!canEdit) return;
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const value = blockDraft.content ?? "";
+    const value = block?.content ?? "";
     const start = textarea.selectionStart ?? 0;
     const end = textarea.selectionEnd ?? 0;
-
     if (start === end) return;
 
     const before = value.slice(0, start);
@@ -64,13 +61,14 @@ export function BlockEditor({
 
     const newValue = before + newSelected + after;
 
-    setBlockDraft((prev) => ({
+    onChange((prev) => ({
       ...prev,
       content: newValue,
     }));
 
     const delta = newSelected.length - selected.length;
     const newEnd = end + delta;
+
     requestAnimationFrame(() => {
       textarea.selectionStart = start;
       textarea.selectionEnd = newEnd;
@@ -78,10 +76,10 @@ export function BlockEditor({
     });
   };
 
-  if (!selectedBlockId) {
+  if (!block) {
     return (
-      <div style={{ opacity: 0.7, fontSize: "0.9rem" }}>
-        Выберите блок в дереве слева, чтобы редактировать
+      <div style={{ opacity: 0.6 }}>
+        Выберите блок в дереве слева, чтобы отредактировать.
       </div>
     );
   }
@@ -89,62 +87,49 @@ export function BlockEditor({
   return (
     <>
       <div className="form-editor__field">
+        <label>Тип блока</label>
         <div className="form-types-select">
-          {BLOCK_TYPES.map((t) => {
-            const active = blockDraft.type === t.value;
-            const className = [
-              "form-types-select__chip",
-              active ? "form-types-select__chip--active" : "",
-            ]
-              .filter(Boolean)
-              .join(" ");
-            return (
-              <div
-                key={t.value}
-                className={className}
-                onClick={() => handleTypeClick(t.value)}
-              >
-                {t.label}
-              </div>
-            );
-          })}
+          {BLOCK_TYPES.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              className={
+                block.type === t.value
+                  ? "form-types-select__chip form-types-select__chip--active"
+                  : "form-types-select__chip"
+              }
+              onClick={() => handleTypeClick(t.value)}
+              disabled={disabled}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* Bold сразу под типами */}
       <div className="form-editor__field">
+        <label></label>
         <button
           type="button"
           className="form-editor__bold-btn"
           onClick={handleBoldClick}
+          disabled={disabled}
         >
           Bold
         </button>
       </div>
 
+      {/* убрали поле порядка, он редактируется стрелками в дереве */}
+
       <div className="form-editor__field form-editor__field--textarea">
+        <label>Текст</label>
         <textarea
           ref={textareaRef}
-          value={blockDraft.content ?? ""}
+          value={block.content ?? ""}
           onChange={handleChange("content")}
+          disabled={disabled}
         />
-      </div>
-
-      <div className="form-editor__actions">
-        <button
-          type="button"
-          onClick={onSaveBlock}
-          disabled={!canSave}
-        >
-          Сохранить блок
-        </button>
-        <button
-          type="button"
-          className="form-editor__delete"
-          onClick={onDeleteBlock}
-          disabled={!canSave}
-        >
-          Удалить блок
-        </button>
       </div>
     </>
   );

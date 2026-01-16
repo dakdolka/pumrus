@@ -30,6 +30,35 @@ html, body {
   letter-spacing: 2px;
 }
 
+/* Табы в шапке */
+.form-tabs {
+  margin-top: 8px;
+  display: inline-flex;
+  gap: 6px;
+}
+
+.form-tab {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--text-color);
+  background-color: transparent;
+  color: var(--text-color);
+  font-family: var(--chapter-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.form-tab--active {
+  background-color: var(--active-color);
+  color: #1b1b1b;
+  border-color: var(--active-color);
+}
+
+.form-tab:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* верхняя панель: предмет + типы + теория */
 .form-top {
   display: flex;
@@ -65,7 +94,7 @@ html, body {
   border-radius: 6px;
   border: none;
   background-color: var(--active-color); /* жёлтый фон */
-  color: #1b1b1b;                        /* жёстко тёмный текст */
+  color: #1b1b1b; /* жёстко тёмный текст */
   font-family: var(--chapter-text);
   cursor: pointer;
 }
@@ -108,7 +137,7 @@ html, body {
   overflow-y: auto;
 }
 
-/* элементы дерева
+/* элементы дерева */
 .form-tree__item {
   display: flex;
   flex-direction: row;
@@ -120,38 +149,23 @@ html, body {
   font-size: 0.9rem;
 }
 
+/* НЕвыбранные блоки: лёгкий серый hover */
 .form-tree__item:hover {
   background-color: rgba(255, 255, 255, 0.04);
 }
 
+/* ВЫБРАННЫЙ блок: жёлтый фон + тонкая белая рамка */
 .form-tree__item--active {
   background-color: var(--active-color);
-  color: var(--main-color);
-} */
-
-.form-tree__item {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
+  border: 1px solid #ffffff;
 }
 
-/* жёлтый только на наведение */
-.form-tree__item:hover {
+/* чтобы при hover по выбранному блоку фон не менялся */
+.form-tree__item--active:hover {
   background-color: var(--active-color);
-  color: #1b1b1b;
 }
 
-/* убираем постоянный цвет активного */
-.form-tree__item--active {
-  /* либо пусто, либо только тонкую рамку, без заливки */
-  border: 1px solid rgba(255, 255, 255);
-}
-
+/* базовые цвета содержимого */
 .form-tree__order {
   font-family: var(--chapter-text);
   font-size: 0.8rem;
@@ -161,32 +175,77 @@ html, body {
 .form-tree__type {
   font-family: var(--chapter-text);
   font-size: 0.8rem;
-  opacity: 0.6;           /* блеклый тип */
+  opacity: 0.6;
   margin-right: 4px;
 }
 
 .form-tree__content {
   flex: 1;
-  opacity: 1;             /* яркое содержимое */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* КНОПКИ ДОБАВЛЕНИЯ В ДЕРЕВЕ: тёмный текст на жёлтом */
+/* ВЫБРАННЫЙ блок: содержимое серым */
+.form-tree__item--active .form-tree__order,
+.form-tree__item--active .form-tree__type,
+.form-tree__item--active .form-tree__content {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* КНОПКИ ДОБАВЛЕНИЯ В ДЕРЕВЕ */
 .form-tree__add {
   margin-top: 8px;
   padding: 4px 8px;
   border-radius: 6px;
   border: none;
   background-color: var(--active-color); /* жёлтый */
-  color: #1b1b1b;                        /* тёмный текст */
+  color: #1b1b1b; /* тёмный текст */
   font-family: var(--chapter-text);
   cursor: pointer;
 }
 
 .form-tree__add * {
   color: #1b1b1b !important;
+}
+
+.form-tree__add-under-group {
+  margin-top: 4px;
+}
+
+/* стрелки перемещения */
+.form-tree__move-vertical {
+  display: inline-flex;
+  flex-direction: column;
+  margin-right: 6px;
+}
+
+.form-tree__move-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--chapter-text);
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+/* hover на стрелке для НЕвыбранного блока */
+.form-tree__move-btn:hover {
+  opacity: 1;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* выбранный блок: по умолчанию тёмные стрелки */
+.form-tree__item--active .form-tree__move-btn {
+  color: rgba(0, 0, 0, 0.8);
+}
+
+/* и только при hover — серее */
+.form-tree__item--active .form-tree__move-btn:hover {
+  color: rgba(0, 0, 0, 0.6);
 }
 
 /* справа: редактор */
@@ -262,7 +321,7 @@ html, body {
   font-family: var(--chapter-text);
   cursor: pointer;
   background-color: var(--active-color); /* жёлтый */
-  color: #1b1b1b;                        /* тёмный текст */
+  color: #1b1b1b; /* тёмный текст */
 }
 
 .form-editor__actions button * {
@@ -273,28 +332,6 @@ html, body {
   background-color: #b00020;
   color: #ffffff;
 }
-
-.form-tree__controls {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-right: 4px;
-}
-
-.form-tree__move {
-  padding: 0 4px;
-  border: none;
-  border-radius: 4px;
-  background-color: transparent;
-  color: var(--text-color);
-  cursor: pointer;
-  font-size: 0.7rem;
-}
-
-.form-tree__move:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
 
 /* зелёная кнопка "Сохранить теорию" */
 .form-button--save-theory {
@@ -334,7 +371,6 @@ html, body {
   cursor: default;
 }
 
-
 .form-editor .form-types-select {
   justify-content: flex-start;
 }
@@ -344,7 +380,7 @@ html, body {
   padding: 2px 6px;
 }
 
-
+/* кнопка жирного текста в редакторе */
 .form-editor__bold-btn {
   display: inline-block;
   padding: 2px 8px;
@@ -356,105 +392,9 @@ html, body {
   font-family: var(--chapter-text);
   cursor: pointer;
   text-align: center;
-  /* главное: не задаём width: 100% */
-  width: auto;
+  width: auto; /* без растягивания на всю ширину */
 }
 
 .form-editor__bold-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
-
-/* Табы в шапке */
-
-.form-tabs {
-  margin-top: 8px;
-  display: inline-flex;
-  gap: 6px;
-}
-
-.form-tab {
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--text-color);
-  background-color: transparent;
-  color: var(--text-color);
-  font-family: var(--chapter-text);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.form-tab--active {
-  background-color: var(--active-color);
-  color: #1b1b1b;
-  border-color: var(--active-color);
-}
-
-.form-tab:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-
-.form-tree__move-vertical {
-  display: inline-flex;
-  flex-direction: column;
-  margin-right: 4px;
-}
-
-.form-tree__move {
-  cursor: pointer;
-  font-family: var(--chapter-text);
-  font-size: 0.8rem;
-  line-height: 1;
-  opacity: 0.8;
-}
-
-.form-tree__group-label {
-  margin-left: 6px;
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-.form-tree__add-panel {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-tree__move-vertical {
-  display: inline-flex;
-  flex-direction: column;
-  margin-right: 6px;
-}
-
-/* базовый стиль стрелок */
-.form-tree__move-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: var(--chapter-text);
-  font-size: 0.8rem;
-  line-height: 1;
-  color: var(--text-color);
-  opacity: 0.7;
-}
-
-/* hover на стрелке для НЕвыбранного блока */
-.form-tree__move-btn:hover {
-  opacity: 1;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-/* выбранный блок (жёлтый фон): по умолчанию тёмные стрелки */
-.form-tree__item--active .form-tree__move-btn {
-  color: #1b1b1b;
-  opacity: 0.9;
-}
-
-/* и только при hover на стрелку в выбранном блоке — делаем их серыми */
-.form-tree__item--active .form-tree__move-btn:hover {
-  color: rgba(0, 0, 0, 0.6);
-}
-

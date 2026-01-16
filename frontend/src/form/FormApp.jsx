@@ -339,6 +339,66 @@ function FormApp() {
 
   const canSaveBlock = !!selectedBlockId;
 
+  function handleMoveBlock(blockId, direction) {
+    if (!theory || !Array.isArray(theory.blocks)) return;
+
+    const allBlocks = flattenBlocks(theory.blocks || []);
+    const target = allBlocks.find((b) => b.id === blockId);
+    if (!target) return;
+
+    const siblings = collectChildrenForParent(theory.blocks || [], target.parent_id);
+    if (!siblings.length) return;
+
+    const sorted = [...siblings].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const index = sorted.findIndex((b) => b.id === blockId);
+    if (index === -1) return;
+
+    let swapWith = null;
+    if (direction === "up" && index > 0) {
+      swapWith = sorted[index - 1];
+    } else if (direction === "down" && index < sorted.length - 1) {
+      swapWith = sorted[index + 1];
+    }
+    if (!swapWith) return;
+
+    const newOrder = target.order ?? 0;
+    const swapOrder = swapWith.order ?? 0;
+
+    // меняем order локально
+    target.order = swapOrder;
+    swapWith.order = newOrder;
+
+    // отправляем два PUT-а на бэк
+    fetch(`/api/theory/blocks/${target.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: target.type,
+        content: target.content,
+        parent_id: target.parent_id ?? null,
+        order: target.order,
+      }),
+    })
+      .then(() =>
+        fetch(`/api/theory/blocks/${swapWith.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: swapWith.type,
+            content: swapWith.content,
+            parent_id: swapWith.parent_id ?? null,
+            order: swapWith.order,
+          }),
+        })
+      )
+      .then(() =>
+        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) => r.json())
+      )
+      .then(setTheory)
+      .catch(console.error);
+  }
+
+
   return (
     <div className="form-root">
       <div className="form-header">
@@ -436,13 +496,10 @@ function FormApp() {
                   createBlockAt(selectedTheoryId, groupId)
                     .then((updated) => {
                       setTheory(updated);
-                      // createBlockAt уже выбирает новый блок, просто не перетираем
                     })
                     .catch(console.error);
                 }}
-                onMoveBlock={(blockId, direction) => {
-                  // здесь можно добавить логику смены order, если потребуется
-                }}
+                onMoveBlock={handleMoveBlock}
               />
             </div>
             <button
