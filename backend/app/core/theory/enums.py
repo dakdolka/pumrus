@@ -10,6 +10,7 @@ class BlockType(str, Enum):
     text = "text"
     svg = "svg"
     group = "group"
+    link = "link"
 
 class TheoryType(str, Enum):
     speechpart = "Части речи"
