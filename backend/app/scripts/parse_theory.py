@@ -24,7 +24,8 @@ config = {
     "5": BlockType.exception,
     "6": BlockType.important,
     "7": BlockType.text,
-    "8": BlockType.group
+    "8": BlockType.group,
+    "9": BlockType.link
 }
 
 subject_config = {

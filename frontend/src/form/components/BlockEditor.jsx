@@ -10,6 +10,7 @@ const BLOCK_TYPES = [
   { value: "text", label: "Текст" },
   { value: "svg", label: "Svg" },
   { value: "group", label: "Группа" },
+  { value: "link", label: "Ссылка"}
 ];
 
 export function BlockEditor({ block, onChange, disabled }) {

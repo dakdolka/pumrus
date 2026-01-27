@@ -39,6 +39,7 @@ function TreeNode({
   const isActive = selectedBlockId === node.id;
   const hasChildren = children.length > 0;
   const isGroupType = node.type === "group";
+  const isLinkType = node.type === "link"
 
   return (
     <>
@@ -81,7 +82,10 @@ function TreeNode({
         <span className="form-tree__order">
           {typeof node.order === "number" ? node.order : "-"}
         </span>
-        <span className="form-tree__type">{node.type}</span>
+        <span className="form-tree__type">
+          {node.type}
+          {isLinkType ? " [L]" : ""}
+        </span>
         <span className="form-tree__content">{preview}</span>
       </div>
 
