@@ -231,6 +231,23 @@
     /* text-align: justify; */
 }
 
+.theory__link {
+    width: fit-content;
+
+    margin: 15px 0px;
+    letter-spacing: 1px;
+    font-size: large;
+    font-family: var(--text-font);
+    
+    color: var(--block-color);
+    text-decoration: underline;
+    background-color: var(--important-color);
+    padding: 5px 10px;
+    border-radius: var(--border-size);
+    
+    /* text-align: justify; */
+}
+
 .theory__subtitle {
     margin: 10px 0px;
 

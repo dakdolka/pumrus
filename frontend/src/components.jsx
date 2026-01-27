@@ -123,27 +123,31 @@ function TaskElement( {is_single, content, children, setPopup, setContent} ) {
 
 function TheoryElem({ item }) {
     function parseBold(text) {
-        const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+        if (text.includes("https://")) {
+            return <a href={text} className="theory__link">Тренажер</a>;
+        } else {
+            const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
 
-        return parts.flatMap((part, i) => {
-            // ЖИРНЫЙ
-            if (part.startsWith("**") && part.endsWith("**")) {
-            return <b key={i}>{part.slice(2, -2)}</b>;
-            }
+            return parts.flatMap((part, i) => {
+                // ЖИРНЫЙ
+                if (part.startsWith("**") && part.endsWith("**")) {
+                return <b key={i}>{part.slice(2, -2)}</b>;
+                }
 
-            // КУРСИВ
-            if (part.startsWith("*") && part.endsWith("*")) {
-            return <i key={i}>{part.slice(1, -1)}</i>;
-            }
+                // КУРСИВ
+                if (part.startsWith("*") && part.endsWith("*")) {
+                return <i key={i}>{part.slice(1, -1)}</i>;
+                }
 
-            // ОБЫЧНЫЙ ТЕКСТ → только тут режем \n
-            return part.split("\\n").map((line, j, arr) => (
-            <React.Fragment key={`${i}-${j}`}>
-                {line}
-                {j < arr.length - 1 && <br />}
-            </React.Fragment>
-            ));
-        });
+                // ОБЫЧНЫЙ ТЕКСТ → только тут режем \n
+                return part.split("\\n").map((line, j, arr) => (
+                <React.Fragment key={`${i}-${j}`}>
+                    {line}
+                    {j < arr.length - 1 && <br />}
+                </React.Fragment>
+                ));
+            });
+        }
     }
 
 
@@ -173,6 +177,9 @@ function TheoryElem({ item }) {
     switch (item.type) {
         case "text":
             return <div className="theory--visual theory__text">{Content}</div>;
+
+        case "link":
+            return <a href={Content} className="theory__link">тренажер</a>
 
         case "rule":
             return <div className="theory--visual theory__rule">{Content}</div>;
