@@ -242,6 +242,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
         return group_bd
 
     async def delete_task_theory_group(self, session: AsyncSession, group_id: int) -> None:
+        await session.execute(delete(TaskTheoryBD).where(TaskTheoryBD.group_id == group_id))
         await session.execute(delete(TaskTheoryGroupBD).where(TaskTheoryGroupBD.id == group_id))
         
     async def insert_task_theory(self, session: AsyncSession, task: TaskTheory) -> TaskTheoryBD:
