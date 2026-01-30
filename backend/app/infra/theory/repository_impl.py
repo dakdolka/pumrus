@@ -272,4 +272,10 @@ class TheoryRepositoryImpl(ITheoryRepository):
             assoc = TaskTheoryAssociation(task_theory_id=task_id, theory_id=theory_id, order=order_index)
             session.add(assoc)
         await session.flush()
+    
+    async def insert_task_theory_group_from_request(self, session: AsyncSession, task_theory_group: TaskTheoryGroup):
+        tg = TaskTheoryGroupBD(name=task_theory_group.group_name, is_single=task_theory_group.is_single, subject_id=task_theory_group.subject)
+        session.add(tg)
+        await session.commit()
+        
 

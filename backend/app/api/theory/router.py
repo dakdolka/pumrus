@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTasksTheoryUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsForSubjectUseCase, GetAllTheoryDopInfoUseCase, GetTheoryByIdUseCase, GetAllTheoriesForSubjectUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
+from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTaskTheoryGroupUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsForSubjectUseCase, GetAllTheoryDopInfoUseCase, GetTheoryByIdUseCase, GetAllTheoriesForSubjectUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
 from .schemas import AllTheoryDopInfoResponse, TaskTheoryCreateRequest, TaskTheoryGroupCreateRequest, TaskTheoryGroupUpdateRequest, TaskTheoryLinksUpdateRequest, TaskTheoryUpdateRequest, TheoryBlockCreateRequest, TheoryBlockUpdateRequest, TheoryCreateRequest, TheoryResponse, AllTheoryResponse, TaskGroupsResponse, TheoryUpdateRequest
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
@@ -90,7 +90,7 @@ async def delete_block(block_id: int):
 @router.post("/task-groups", response_model=dict)
 async def create_task_group(body: TaskTheoryGroupCreateRequest):
     repo = TheoryRepositoryImpl()
-    usecase = CreateTasksTheoryUseCase(repo)
+    usecase = CreateTaskTheoryGroupUseCase(repo)
     # здесь ты внутри usecase собираешь TaskTheoryGroup из body
     group_id = await usecase.execute(task_theory_group=body)  # адаптируй под свои entities
     return {"id": group_id}

@@ -1,6 +1,6 @@
 from pprint import pprint
 
-from app.api.theory.schemas import TaskGroupsResponse, TaskTheory as TaskTheoryResponse, TheoryForTaskTheory
+from app.api.theory.schemas import TaskGroupsResponse, TaskTheory as TaskTheoryResponse, TheoryForTaskTheory, TaskTheoryGroupCreateRequest
 from app.core.theory.enums import BlockType
 from .repository import ITheoryRepository
 from .entities import Theory, TheoryBlock, TheoryType, TheorySubject, TaskTheoryGroup, TaskTheory
@@ -71,6 +71,20 @@ class CreateTasksTheoryUseCase:
               async with session.begin():
                   res = await self.repo.insert_task_theory_group(session, task_theory_group)
                   return res
+              
+class CreateTaskTheoryGroupUseCase:
+    def __init__(self, repo: ITheoryRepository):
+        self.repo = repo
+        
+    async def execute(self, task_theory_group: TaskTheoryGroupCreateRequest):
+        async with async_session_factory() as session:
+            async with session.begin():
+                group = TaskTheoryGroup(
+                    group_name=task_theory_group.name,
+                    is_single=task_theory_group.is_single,
+                    subject=task_theory_group.subject_id
+                )
+                res = await self.repo.insert_task_theory_group_from_request(session, group)
     
 class GetTheoriesByNamesUseCase:
     def __init__(self, repo: ITheoryRepository):

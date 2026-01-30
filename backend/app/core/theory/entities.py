@@ -52,6 +52,6 @@ class TaskTheory:
 class TaskTheoryGroup:
     group_name: str
     is_single: bool
-    subject: TheorySubject
+    subject: TheorySubject | int
     tasks_theories: Optional[List["TaskTheory"]] = None
     id: Optional[int] = None
