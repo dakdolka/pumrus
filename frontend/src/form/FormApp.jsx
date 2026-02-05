@@ -45,6 +45,28 @@ function FormApp() {
     });
   }
 
+  // Функция для конвертации \\n в \n при загрузке с API
+  function convertBlocksFromAPI(blocks) {
+    return blocks.map(block => {
+      const converted = {
+        ...block,
+        content: (block.content || '').replace(/\\n/g, '\n')
+      };
+      if (block.children && block.children.length > 0) {
+        converted.children = convertBlocksFromAPI(block.children);
+      }
+      return converted;
+    });
+  }
+
+  // Функция для конвертации \n в \\n перед отправкой на API
+  function convertBlockForAPI(block) {
+    return {
+      ...block,
+      content: (block.content || '').replace(/\n/g, '\\n')
+    };
+  }
+
   // плоский список ТОЛЬКО для поиска блока по id
   function flattenBlocks(nodes) {
     if (!Array.isArray(nodes)) return [];
@@ -134,6 +156,11 @@ function FormApp() {
       `/api/theory/get_theory/${theoryId}`
     ).then((r) => r.json());
 
+    // Конвертируем \\n в \n при загрузке
+    if (updatedTheory.blocks) {
+      updatedTheory.blocks = convertBlocksFromAPI(updatedTheory.blocks);
+    }
+
     // выбираем только что добавленный блок как активный
     const flat = flattenBlocks(updatedTheory.blocks || []);
     if (flat.length > 0) {
@@ -193,6 +220,10 @@ function FormApp() {
     fetch(`/api/theory/get_theory/${selectedTheoryId}`)
       .then((r) => r.json())
       .then((data) => {
+        // Конвертируем \\n в реальные переносы при загрузке
+        if (data.blocks) {
+          data.blocks = convertBlocksFromAPI(data.blocks);
+        }
         setTheory(data);
         setSelectedBlockId(null);
         setBlockDraft({
@@ -214,8 +245,8 @@ function FormApp() {
 
     setBlockDraft({
       type: block.type,
-      content: block.content,
-      parent_id: null, // вложенность не трогаем
+      content: block.content, // уже содержит реальные \n после конвертации
+      parent_id: null,
       order: block.order ?? 0,
     });
   }, [selectedBlockId, theory]);
@@ -295,12 +326,15 @@ function FormApp() {
   function handleSaveBlock() {
     if (!selectedBlockId) return;
 
+    // Конвертируем \n в \\n перед отправкой
+    const blockToSave = convertBlockForAPI(blockDraft);
+
     fetch(`/api/theory/blocks/${selectedBlockId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(blockDraft),
+      body: JSON.stringify(blockToSave),
     })
       .then((r) => r.json())
       .then(() =>
@@ -308,7 +342,13 @@ function FormApp() {
           r.json()
         )
       )
-      .then(setTheory)
+      .then((data) => {
+        // Конвертируем обратно при получении
+        if (data.blocks) {
+          data.blocks = convertBlocksFromAPI(data.blocks);
+        }
+        setTheory(data);
+      })
       .catch(console.error);
   }
 
@@ -325,6 +365,10 @@ function FormApp() {
         )
       )
       .then((data) => {
+        // Конвертируем \\n в \n при загрузке
+        if (data.blocks) {
+          data.blocks = convertBlocksFromAPI(data.blocks);
+        }
         setTheory(data);
         setSelectedBlockId(null);
         setBlockDraft({
@@ -368,15 +412,19 @@ function FormApp() {
     target.order = swapOrder;
     swapWith.order = newOrder;
 
+    // Конвертируем перед отправкой
+    const targetToSave = convertBlockForAPI(target);
+    const swapToSave = convertBlockForAPI(swapWith);
+
     // отправляем два PUT-а на бэк
     fetch(`/api/theory/blocks/${target.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: target.type,
-        content: target.content,
-        parent_id: target.parent_id ?? null,
-        order: target.order,
+        type: targetToSave.type,
+        content: targetToSave.content,
+        parent_id: targetToSave.parent_id ?? null,
+        order: targetToSave.order,
       }),
     })
       .then(() =>
@@ -384,20 +432,25 @@ function FormApp() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: swapWith.type,
-            content: swapWith.content,
-            parent_id: swapWith.parent_id ?? null,
-            order: swapWith.order,
+            type: swapToSave.type,
+            content: swapToSave.content,
+            parent_id: swapToSave.parent_id ?? null,
+            order: swapToSave.order,
           }),
         })
       )
       .then(() =>
         fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) => r.json())
       )
-      .then(setTheory)
+      .then((data) => {
+        // Конвертируем обратно при получении
+        if (data.blocks) {
+          data.blocks = convertBlocksFromAPI(data.blocks);
+        }
+        setTheory(data);
+      })
       .catch(console.error);
   }
-
 
   return (
     <div className="form-root">

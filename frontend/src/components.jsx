@@ -148,8 +148,9 @@ function TheoryElem({ item }) {
 
 
     if (item.type === "group") {
-        const [isOpenGroup, openGroup] = useState(false);
-
+        const [isOpenGroup, openGroup] = useState(false);  
+        // Сортируем детей группы по order
+        const sortedChildren = [...(item.children || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         return (
             <div className="theory--group">
                 <div 
@@ -160,7 +161,7 @@ function TheoryElem({ item }) {
                 </div>
 
                 <div className={isOpenGroup ? "theory--children" : "all--disabled"}>
-                    {item.children.map((child, index) => (
+                    {sortedChildren.map((child, index) => (
                         <TheoryElem item={child} key={index} />
                     ))}
                 </div>
@@ -220,6 +221,9 @@ function TheoryElem({ item }) {
 function Popup({ isPopup, setPopup, content }) {
     // console.log("------< Объект в попапе >------", content) // ! console.log
 
+    // Сортируем все блоки по order
+    const sortedBlocks = [...(content?.blocks || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
     return (
         <div className={isPopup ? "popup" : "popup all--disabled"}>
             <div className="popup__header">
@@ -228,12 +232,11 @@ function Popup({ isPopup, setPopup, content }) {
             </div>
             <div className="popup__content">
                 {
-                    content?.blocks.map((item, index) =>  <TheoryElem item={item} key={index} />)
+                    sortedBlocks.map((item, index) =>  <TheoryElem item={item} key={index} />)
                 }   
             </div>
         </div>
     )
 }
-
 
 export { Element, TaskElement, Popup }

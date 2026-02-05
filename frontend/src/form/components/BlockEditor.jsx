@@ -17,12 +17,12 @@ export function BlockEditor({ block, onChange, disabled }) {
   const textareaRef = useRef(null);
   const canEdit = !disabled && !!block;
 
+  // Простой handleChange - НЕ конвертируем, храним реальные переносы
   const handleChange = (field) => (e) => {
     if (!canEdit) return;
-    const value = e.target.value;
     onChange((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: e.target.value, // Храним как есть с реальными \n
     }));
   };
 
@@ -87,7 +87,6 @@ export function BlockEditor({ block, onChange, disabled }) {
 
   return (
     <>
-      {/* Типы блоков без label, прижаты к левому краю */}
       <div
         className="form-editor__field"
         style={{ alignItems: "flex-start", marginBottom: 4 }}
@@ -111,7 +110,6 @@ export function BlockEditor({ block, onChange, disabled }) {
         </div>
       </div>
 
-      {/* Bold сразу под типами, тоже слева */}
       <div className="form-editor__field" style={{ marginBottom: 8 }}>
         <button
           type="button"
