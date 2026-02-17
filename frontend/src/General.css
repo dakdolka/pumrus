@@ -272,3 +272,16 @@
         color: var(--text-color);
     }
 }
+/* Адаптивность для мобильных */
+@media (max-width: 600px) {
+  .back-to-subjects-button {
+    top: 10px;
+    left: 10px;
+    width: 35px;
+    height: 35px;
+  }
+  
+  .back-to-subjects-button::before {
+    font-size: 20px;
+  }
+}

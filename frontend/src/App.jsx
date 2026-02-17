@@ -1,22 +1,11 @@
-import { useRef, useState, useEffect, use } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import './General.css'
-import Chapter from './componentrs/Chapter/chapter.jsx'
+import Chapter from './components/Chapter/chapter.jsx'
 import { Element, TaskElement, Popup } from './components.jsx'
+import { StressTrainer } from './components/trainers/StressTrainer.jsx'
+import { PrefixTrainer } from './components/trainers/PrefixTrainer.jsx'
+import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx'
 
-// const Names = [
-//   {
-//     name: "Текст"
-//   },
-//   {
-//     name: "Морфемы"
-//   },
-//   {
-//     name: "Части речи"
-//   },
-//   {
-//     name: "Пунктуация"
-//   },
-// ]
 
 function saveInfo(key, value) {
     const jsonString = JSON.stringify(value);
@@ -49,8 +38,7 @@ function Option({ children, onSelect, theme_id }) {
 
 
 function TheoryChoose({ object }) {
-  console.log("-----< Полученный предмет >-----", object); //! console.log
-
+  console.log("-----< Полученный предмет >-----", object);
 
   const task = useRef();
   const theme = useRef();
@@ -67,55 +55,28 @@ function TheoryChoose({ object }) {
   const [chosenBlock, setChosenBlock] = useState([]);
 
   const [viewRules, setViewRules] = useState([]);
-  const [rules, setRules] = useState(
-    []
-  ); // * Долэжен быть fetch на получение имен
+  const [rules, setRules] = useState([]);
+  
   useEffect(() => {
-    fetch(`/api/theory/all_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+    fetch(`/api/theory/all_theory_for_subject/${object.id}`)
       .then(response => response.json())
       .then(data => {
-        // console.log(data)
         setRules(data)
     })
   }, []);
 
   const [tasks, setTasks] = useState([]);
   useEffect(() => {
-    fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
+    fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)
       .then(response => response.json())
       .then(data => {
         setTasks(data)
       })
   }, []);
 
-  // const [tasks, setTasks] = useState([
-  // {
-  //   "task_group_id": 0,
-  //   "group_name": "1-3 Мини-текст",
-  //   "tasks": [
-  //     {
-  //       "task_id": 0,
-  //       "task_name": "1 На месте пропуска...",
-  //       "theories": [
-  //         {
-  //           "theory_id": 0,
-  //           "theory_name": "Местоимения"
-  //         }
-  //       ]
-  //     },
-  //     {
-
-  //     }
-  //   ]
-  // }]);
-  // function getTask() {
-  //   // fetch(`http://localhost:8000/api/theory/get_tasks_theory_for_subject/${object.id}`)  //! Должно быть без localhost
-  // }
-
-  console.log("-----< Правила >-----", rules); //! console.log
+  console.log("-----< Правила >-----", rules);
 
   function handleSelect(id, isChoose) {
-    // console.log("ВЫБОР ТЕМЫ", id, isChoose) //! console.log
     setChosenBlock(prev => {
       if (isChoose) {
         if (!prev.includes(id)) return [...prev, id];
@@ -128,11 +89,9 @@ function TheoryChoose({ object }) {
 
   useEffect(() => {
     if (chosenBlock.length === 0) {
-      // console.log(`Вывели всю теорию}`);
       setViewRules(rules);
     } else {
       setViewRules([]);
-      // console.log(`Вывели теорию по запросу (id) = ${chosenBlock}`);
       rules.map(item => {
         item.types.map(type => {
           if (chosenBlock.includes(type.id)) {
@@ -188,6 +147,7 @@ function TheoryChoose({ object }) {
   )
 }
 
+
 function App() {
   const day_task = useRef();
   const task = useRef();
@@ -197,13 +157,13 @@ function App() {
 
   const [subjects, getSubjects] = useState([]);
   const [object, chooseSubject] = useState();
+  const [selectedTrainer, setSelectedTrainer] = useState(null); // 'stress' | 'prefix' | 'dict'
 
   useEffect(() => {
     fetch("/api/theory/all_theory_dop_info")
       .then(response => response.json())
       .then(data => {
         getSubjects(data)
-
         console.log("-----< Полученные предметы >-----", data)
       })
   }, []);
@@ -219,13 +179,10 @@ function App() {
     const isDark = tg.colorScheme === "dark";
     const root = document.documentElement;
 
-    // Функция — задаёт переменные, если они есть
     function setVar(name, value) {
       if (value) root.style.setProperty(`--${name}`, value);
     }
 
-    // Передаём основные цвета Telegram темы
-    setVar("text-color", params.text_color);
     setVar("text-color", params.text_color);
     setVar("main-color", params.bg_color);
     setVar("block-color", isDark ? params.section_bg_color : params.secondary_bg_color);
@@ -233,6 +190,7 @@ function App() {
   }, []);
 
   let content;
+  
   if (page === "main") {
     content =
     <>
@@ -254,8 +212,7 @@ function App() {
             func={() => {
               chooseSubject(item);
               setPage("subject");
-              
-              console.log("------< Предмет >------", item.subject)            //! console.log
+              console.log("------< Предмет >------", item.subject)
             }}
           >
             {item.subject}
@@ -265,6 +222,7 @@ function App() {
     </div>
     </>
   }
+  
   if (page === "subject") {
     content = 
       <>
@@ -310,11 +268,13 @@ function App() {
         </Chapter>
         <Chapter 
           ref={task} 
-          func={() => {         
+          func={() => {
+            // Анимация скрытия других элементов
             title.current.style.animation = "disable 0.5s";
             day_task.current.style.animation = "disable 0.5s";
             theory.current.style.animation = "disable 0.5s";
             analysis.current.style.animation = "disable 0.5s";
+            
             setTimeout(() => {
               title.current.classList.add("all--disabled");
               day_task.current.classList.add("all--disabled");
@@ -322,9 +282,11 @@ function App() {
               analysis.current.classList.add("all--disabled");
             }, 480);
 
+            // Анимация самой кнопки "Практика"
             const our = task.current;
             our.children[2].style = "transform: translateX(50px);";
             our.children[1].style.animation = "chapter-text 0.5s forwards";
+            
             setTimeout(() => {
               our.children[1].classList.add("chapter__text--after");
               our.children[1].style.animation = "";
@@ -332,8 +294,23 @@ function App() {
               our.children[0].classList.toggle("all--disabled");
             }, 480);
 
+            // 🔧 ВАЖНО: переход на страницу + сброс выбора тренажёра
             setTimeout(() => {
-              setPage("task");
+              setPage("trainers");
+              setSelectedTrainer(null);
+              
+              // 🔧 ДОБАВЛЕНО: сбрасываем анимации и классы
+              title.current.style.animation = "";
+              day_task.current.style.animation = "";
+              task.current.style.animation = "";
+              theory.current.style.animation = "";
+              analysis.current.style.animation = "";
+              
+              title.current.classList.remove("all--disabled");
+              day_task.current.classList.remove("all--disabled");
+              task.current.classList.remove("all--disabled");
+              theory.current.classList.remove("all--disabled");
+              analysis.current.classList.remove("all--disabled");
             }, 500);
           }}
         >
@@ -407,6 +384,7 @@ function App() {
         />
       </>
   }
+  
   if (page === "day-task") {
     content = (
       <>
@@ -419,18 +397,81 @@ function App() {
       </>
     )
   }
-  if (page === "task") {
+if (page === "trainers") {
+  if (!selectedTrainer) {
+    // 🎯 Страница выбора тренажёров (с логотипом)
+    content = (
+      <>
+        <div className="mainTitle">
+          <div className="mainTitle__picture" />
+          <div className="mainTitle__title">PumRus</div>
+          <div className="mainTitle__text">
+            Выберите тренажёр для практики
+          </div>
+        </div>
+        
+        <div className="subject__block">
+          <Chapter 
+            subject={false}
+            func={() => setSelectedTrainer('stress')}
+          >
+            Орфоэпия (ударения)
+          </Chapter>
+          
+          <Chapter 
+            subject={false}
+            func={() => setSelectedTrainer('prefix')}
+          >
+            ПРЕ/ПРИ
+          </Chapter>
+          
+          <Chapter 
+            subject={false}
+            func={() => setSelectedTrainer('dict')}
+          >
+            Словарные слова
+          </Chapter>
+        </div>
+        
+        <div 
+          className="back-to-subjects-button" 
+          onClick={() => setPage('subject')}
+        />
+      </>
+    );
+  } else {
+    // 🎯 Открытый тренажёр
+    let TrainerComponent = null;
+    let trainerTitle = '';
+    
+    if (selectedTrainer === 'stress') {
+      TrainerComponent = StressTrainer;
+      trainerTitle = 'Орфоэпия (ударения)';
+    }
+    if (selectedTrainer === 'prefix') {
+      TrainerComponent = PrefixTrainer;
+      trainerTitle = 'ПРЕ/ПРИ';
+    }
+    if (selectedTrainer === 'dict') {
+      TrainerComponent = DictionaryTrainer;
+      trainerTitle = 'Словарные слова';
+    }
+    
     content = (
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("subject")}
+          func={() => setSelectedTrainer(null)} // 🔧 Возврат к выбору (та же страница с логотипом)
         >
-          Практика
+          {trainerTitle}
         </Chapter>
+        
+        {TrainerComponent && <TrainerComponent />}
       </>
-    )
+    );
   }
+} 
+  
   if (page === "theory") {
     content = (
       <>
@@ -444,12 +485,13 @@ function App() {
       </>
     )
   }
+  
   if (page === "analysis") {
     content = (
       <>
         <Chapter
           isValue="true"
-          func={() => {setPage("subject")}}
+          func={() => setPage("subject")}
         >
           Аналитика
         </Chapter>
