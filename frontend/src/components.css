@@ -509,7 +509,7 @@
 .theory--group__header.group--close:hover {
     background-color: var(--block-color);
     color: var(--text-color);
-    border-color: color-mix(in srgb, var(--text-color) 12%, transparent);
+    border: 2px solid color-mix(in srgb, var(--text-color) 30%, transparent);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     transform: none;
 }

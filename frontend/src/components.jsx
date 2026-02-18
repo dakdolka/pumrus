@@ -203,48 +203,55 @@ function TheoryElem({ item, groupPath = '' }) {
 
 
 function Popup({ isPopup, setPopup, content }) {
-    const [isContentReady, setIsContentReady] = useState(false);
-    const [showContent, setShowContent] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [showContent, setShowContent] = useState(false);
 
-    React.useEffect(() => {
-        if (isPopup) {
-            setIsContentReady(false);
-            setShowContent(false);
-            setTimeout(() => {
-                setIsContentReady(true);
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        setShowContent(true);
-                    });
-                });
-            }, 100);
-        }
-    }, [isPopup, content]);
+  React.useEffect(() => {
+    if (isPopup) {
+      setIsContentReady(false);
+      setShowContent(false);
+      setTimeout(() => {
+        setIsContentReady(true);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setShowContent(true);
+          });
+        });
+      }, 100);
+    }
+  }, [isPopup, content]);
 
-    const sortedBlocks = [...(content?.blocks || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sortedBlocks = [...(content?.blocks || [])].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0)
+  );
 
-    return (
-        <div className={isPopup ? "popup" : "popup all--disabled"}>
-            <div className="popup__header">
-                <button className="popup__button" onClick={() => setPopup(false)} aria-label="Закрыть" />
-                <div className="popup__title">{content?.title}</div>
-            </div>
+  return (
+    <div className={isPopup ? "popup" : "popup all--disabled"}>
+      <div className="popup__header">
+        <button
+          className="popup__button"
+          onClick={() => setPopup(false)}
+          aria-label="Закрыть"
+        />
+        <div className="popup__title">{content?.title}</div>
+      </div>
 
-            {isPopup && !showContent && (
-                <div className="popup__loading">
-                    <div className="popup__spinner" />
-                    <div className="popup__loading-text">Загрузка...</div>
-                </div>
-            )}
-
-            <div className={`popup__content${showContent ? ' popup__content--visible' : ' popup__content--hidden'}`}>
-                {isContentReady && sortedBlocks.map((item, index) => (
-                    <TheoryElem item={item} key={index} />
-                ))}
-            </div>
+      {isPopup && !showContent && (
+        <div className="popup__loading">
+          <div className="popup__spinner" />
+          <div className="popup__loading-text">Загрузка...</div>
         </div>
-    )
+      )}
+
+      <div className={`popup__content${showContent ? ' popup__content--visible' : ' popup__content--hidden'}`}>
+        {isContentReady && sortedBlocks.map((item, index) => (
+          <TheoryElem item={item} key={index} />
+        ))}
+      </div>
+    </div>
+  );
 }
+
 
 
 export { Element, TaskElement, Popup }
