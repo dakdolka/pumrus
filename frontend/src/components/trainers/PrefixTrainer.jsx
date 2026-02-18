@@ -256,7 +256,7 @@ export function PrefixTrainer() {
 
   return (
     <div className="trainer-container">
-      <h1 className="trainer-title">ПРЕ / ПРИ</h1>
+      {/* <h1 className="trainer-title">ПРЕ / ПРИ</h1> */}
 
       <div className="trainer-controls">
         <button onClick={reset} className="trainer-button">Сбросить</button>

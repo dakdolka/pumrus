@@ -106,7 +106,7 @@ export function StressTrainer() {
 
   return (
     <div className="trainer-container">
-      <h1 className="trainer-title">Орфоэпический тест</h1>
+      {/* <h1 className="trainer-title">Орфоэпический тест</h1> */}
 
       {/* Кнопки сверху */}
       <div className="trainer-controls">
@@ -192,12 +192,12 @@ function WordDisplay({ word, result, onVowelClick }) {
         } else if (result?.result === 'wrong') {
           if (isWrongClick) {
             className += ' trainer-vowel-slot--wrong';
+            // 🆕 НЕ дублируем букву - просто зачёркиваем
           } else if (isCorrect) {
             className += ' trainer-vowel-slot--correct';
             displayChar = lowerCh.toUpperCase();
           }
         } else {
-          // Не кликнута ещё - можно нажать
           className += ' trainer-vowel-slot--clickable';
         }
 
@@ -207,9 +207,7 @@ function WordDisplay({ word, result, onVowelClick }) {
             className={className}
             onClick={() => result?.result === 'none' && onVowelClick(charIndex)}
           >
-            {isWrongClick && (
-              <span className="trainer-letter-crossed">{displayChar}</span>
-            )}
+            {/* 🆕 Зачёркивание через CSS */}
             {displayChar}
           </span>
         );

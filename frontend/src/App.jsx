@@ -6,7 +6,6 @@ import { StressTrainer } from './components/trainers/StressTrainer.jsx'
 import { PrefixTrainer } from './components/trainers/PrefixTrainer.jsx'
 import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx'
 
-
 function saveInfo(key, value) {
     const jsonString = JSON.stringify(value);
     localStorage.setItem(key, jsonString);
@@ -16,7 +15,6 @@ function getInfo(key) {
     const jsonString = localStorage.getItem(key);
     return JSON.parse(jsonString);
 }
-
 
 function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
@@ -36,8 +34,7 @@ function Option({ children, onSelect, theme_id }) {
   )
 }
 
-
-function TheoryChoose({ object }) {
+function TheoryChoose({ object, preloadedRules, preloadedTasks }) {
   console.log("-----< Полученный предмет >-----", object);
 
   const task = useRef();
@@ -55,24 +52,31 @@ function TheoryChoose({ object }) {
   const [chosenBlock, setChosenBlock] = useState([]);
 
   const [viewRules, setViewRules] = useState([]);
-  const [rules, setRules] = useState([]);
+  
+  // 🆕 Используем предзагруженные данные или загружаем
+  const [rules, setRules] = useState(preloadedRules || []);
+  const [tasks, setTasks] = useState(preloadedTasks || []);
   
   useEffect(() => {
-    fetch(`/api/theory/all_theory_for_subject/${object.id}`)
-      .then(response => response.json())
-      .then(data => {
-        setRules(data)
-    })
-  }, []);
-
-  const [tasks, setTasks] = useState([]);
-  useEffect(() => {
-    fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)
-      .then(response => response.json())
-      .then(data => {
-        setTasks(data)
+    // Если данные не были предзагружены, загружаем
+    if (!preloadedRules) {
+      fetch(`/api/theory/all_theory_for_subject/${object.id}`)
+        .then(response => response.json())
+        .then(data => {
+          setRules(data)
       })
-  }, []);
+    }
+  }, [object.id, preloadedRules]);
+
+  useEffect(() => {
+    if (!preloadedTasks) {
+      fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)
+        .then(response => response.json())
+        .then(data => {
+          setTasks(data)
+        })
+    }
+  }, [object.id, preloadedTasks]);
 
   console.log("-----< Правила >-----", rules);
 
@@ -147,7 +151,6 @@ function TheoryChoose({ object }) {
   )
 }
 
-
 function App() {
   const day_task = useRef();
   const task = useRef();
@@ -157,7 +160,13 @@ function App() {
 
   const [subjects, getSubjects] = useState([]);
   const [object, chooseSubject] = useState();
-  const [selectedTrainer, setSelectedTrainer] = useState(null); // 'stress' | 'prefix' | 'dict'
+  const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [isFadingOut, setIsFadingOut] = useState(false);
+  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+  const [isContentReady, setIsContentReady] = useState(false);
+
+  // 🆕 Кэш для предзагрузки данных theory
+  const [theoryCache, setTheoryCache] = useState({});
 
   useEffect(() => {
     fetch("/api/theory/all_theory_dop_info")
@@ -171,23 +180,145 @@ function App() {
   const [page, setPage] = useState("main");
 
   useEffect(() => {
-    const tg = window.Telegram.WebApp || {};
+    const tg = window.Telegram?.WebApp || {};
     tg.ready?.();
     tg.expand?.();
 
     const params = tg.themeParams || {};
-    const isDark = tg.colorScheme === "dark";
+    const colorScheme = tg.colorScheme; // 'light' | 'dark' | undefined
+    const isDark = colorScheme === 'dark';
+
+    document.body.classList.toggle('theme--light', !isDark);
+    document.body.classList.toggle('theme--dark', isDark);
+
     const root = document.documentElement;
-
-    function setVar(name, value) {
+    const setVar = (name, value) => {
       if (value) root.style.setProperty(`--${name}`, value);
-    }
+    };
 
-    setVar("text-color", params.text_color);
-    setVar("main-color", params.bg_color);
-    setVar("block-color", isDark ? params.section_bg_color : params.secondary_bg_color);
-    setVar("active-color", isDark ? "rgb(255, 200, 100)" : params.header_bg_color);
+    // Общие цвета из Telegram
+    setVar('text-color', params.text_color);
+    setVar('main-color', params.bg_color);
+    setVar('block-color', params.secondary_bg_color || params.section_bg_color);
+
+    if (isDark) {
+      // ТЁМНАЯ ТЕМА — твой жёлтый акцент
+      const accent = 'rgb(255, 200, 100)';
+      setVar('active-color', accent);
+      root.style.setProperty(
+        '--rule-color',
+        `color-mix(in srgb, ${accent} 10%, transparent)`
+      );
+    } else {
+      // СВЕТЛАЯ ТЕМА — телеграммовский синий (или твой запасной)
+      const accent = params.header_bg_color || '#3b6fd4';
+      setVar('active-color', accent);
+      root.style.setProperty(
+        '--rule-color',
+        `color-mix(in srgb, ${accent} 7%, transparent)`
+      );
+    }
   }, []);
+
+  
+
+
+
+  // При первом монтировании
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsContentReady(true);
+      });
+    });
+  }, []);
+
+  // 🆕 ПРЕДЗАГРУЗКА ДАННЫХ ДЛЯ THEORY
+  async function preloadTheoryData(objectId) {
+    console.log(`📥 Предзагрузка данных для theory, object.id: ${objectId}`);
+    
+    // Проверяем кэш
+    if (theoryCache[objectId]) {
+      console.log(`✅ Данные уже в кэше`);
+      return theoryCache[objectId];
+    }
+    
+    // Загружаем параллельно
+    const [rulesResponse, tasksResponse] = await Promise.all([
+      fetch(`/api/theory/all_theory_for_subject/${objectId}`),
+      fetch(`/api/theory/get_tasks_theory_for_subject/${objectId}`)
+    ]);
+    
+    const rules = await rulesResponse.json();
+    const tasks = await tasksResponse.json();
+    
+    const data = { rules, tasks };
+    
+    // Сохраняем в кэш
+    setTheoryCache(prev => ({
+      ...prev,
+      [objectId]: data
+    }));
+    
+    console.log(`✅ Данные загружены и закэширован`);
+    return data;
+  }
+
+  // 🔥 ЕДИНАЯ ФУНКЦИЯ ПЕРЕХОДА
+  async function navigateToPage(targetPage, additionalActions = {}) {
+    console.log(`🚀 Переход на: ${targetPage}`);
+    
+    // 1. Fade-out
+    setIsFadingOut(true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // 2. Скрываем контент
+    setIsContentReady(false);
+    
+    // 3. Таймер для индикатора загрузки (только если долго)
+    const loadingTimer = setTimeout(() => {
+      setShowLoadingIndicator(true);
+      console.log('⏳ Показываем индикатор загрузки...');
+    }, 300); // 🆕 Увеличили до 300ms
+    
+    const renderStartTime = performance.now();
+    
+    // 4. 🆕 ДЛЯ THEORY ПРЕДЗАГРУЖАЕМ ДАННЫЕ
+    if (targetPage === 'theory' && object) {
+      await preloadTheoryData(object.id);
+    }
+    
+    // 5. Меняем страницу
+    setPage(targetPage);
+    if (additionalActions.resetTrainer) {
+      setSelectedTrainer(null);
+    }
+    
+    // 6. Минимальная задержка для рендера
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const renderTime = performance.now() - renderStartTime;
+    console.log(`⏱️ Время подготовки: ${renderTime.toFixed(2)}ms`);
+    
+    // 7. Показываем контент
+    setIsContentReady(true);
+    
+    // 8. Стабилизация
+    await new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setTimeout(resolve, 50);
+        });
+      });
+    });
+    
+    // 9. Убираем индикатор и делаем fade-in
+    clearTimeout(loadingTimer);
+    setShowLoadingIndicator(false);
+    setIsFadingOut(false);
+    
+    console.log(`✅ Переход завершён: ${targetPage}`);
+  }
 
   let content;
   
@@ -211,7 +342,7 @@ function App() {
             subject="true"
             func={() => {
               chooseSubject(item);
-              setPage("subject");
+              navigateToPage("subject");
               console.log("------< Предмет >------", item.subject)
             }}
           >
@@ -237,251 +368,238 @@ function App() {
         </div>
         <Chapter 
           ref={day_task} 
-          func={() => {         
-            title.current.style.animation = "disable 0.5s";
-            task.current.style.animation = "disable 0.5s";
-            theory.current.style.animation = "disable 0.5s";
-            analysis.current.style.animation = "disable 0.5s";
-            setTimeout(() => {
-              title.current.classList.add("all--disabled");
-              task.current.classList.add("all--disabled");
-              theory.current.classList.add("all--disabled");
-              analysis.current.classList.add("all--disabled");
-            }, 480);
-
-            const our = day_task.current;
-            our.children[2].style = "transform: translateX(50px);";
-            our.children[1].style.animation = "chapter-text 0.5s forwards";
-            setTimeout(() => {
-              our.children[1].classList.add("chapter__text--after");
-              our.children[1].style.animation = "";
-              our.children[2].classList.toggle("all--disabled");
-              our.children[0].classList.toggle("all--disabled");
-            }, 480);
-
-            setTimeout(() => {
-              setPage("day-task");
-            }, 500);
-          }}
+          func={() => navigateToPage("day-task")}
         >
           Ежедневное задание
         </Chapter>
         <Chapter 
           ref={task} 
-          func={() => {
-            // Анимация скрытия других элементов
-            title.current.style.animation = "disable 0.5s";
-            day_task.current.style.animation = "disable 0.5s";
-            theory.current.style.animation = "disable 0.5s";
-            analysis.current.style.animation = "disable 0.5s";
-            
-            setTimeout(() => {
-              title.current.classList.add("all--disabled");
-              day_task.current.classList.add("all--disabled");
-              theory.current.classList.add("all--disabled");
-              analysis.current.classList.add("all--disabled");
-            }, 480);
-
-            // Анимация самой кнопки "Практика"
-            const our = task.current;
-            our.children[2].style = "transform: translateX(50px);";
-            our.children[1].style.animation = "chapter-text 0.5s forwards";
-            
-            setTimeout(() => {
-              our.children[1].classList.add("chapter__text--after");
-              our.children[1].style.animation = "";
-              our.children[2].classList.toggle("all--disabled");
-              our.children[0].classList.toggle("all--disabled");
-            }, 480);
-
-            // 🔧 ВАЖНО: переход на страницу + сброс выбора тренажёра
-            setTimeout(() => {
-              setPage("trainers");
-              setSelectedTrainer(null);
-              
-              // 🔧 ДОБАВЛЕНО: сбрасываем анимации и классы
-              title.current.style.animation = "";
-              day_task.current.style.animation = "";
-              task.current.style.animation = "";
-              theory.current.style.animation = "";
-              analysis.current.style.animation = "";
-              
-              title.current.classList.remove("all--disabled");
-              day_task.current.classList.remove("all--disabled");
-              task.current.classList.remove("all--disabled");
-              theory.current.classList.remove("all--disabled");
-              analysis.current.classList.remove("all--disabled");
-            }, 500);
-          }}
+          func={() => navigateToPage("trainers", { resetTrainer: true })}
         >
           Практика
         </Chapter>
         <Chapter 
           ref={theory} 
-          func={() => {         
-            title.current.style.animation = "disable 0.5s";
-            day_task.current.style.animation = "disable 0.5s";
-            task.current.style.animation = "disable 0.5s";
-            analysis.current.style.animation = "disable 0.5s";
-            setTimeout(() => {
-              title.current.classList.add("all--disabled");
-              day_task.current.classList.add("all--disabled");
-              task.current.classList.add("all--disabled");
-              analysis.current.classList.add("all--disabled");
-            }, 480);
-
-            const our = theory.current;
-            our.children[2].style = "transform: translateX(50px);";
-            our.children[1].style.animation = "chapter-text 0.5s forwards";
-            setTimeout(() => {
-              our.children[1].classList.add("chapter__text--after");
-              our.children[1].style.animation = "";
-              our.children[2].classList.toggle("all--disabled");
-              our.children[0].classList.toggle("all--disabled");
-            }, 480);
-
-            setTimeout(() => {
-              setPage("theory");
-            }, 500);
-          }}
+          func={() => navigateToPage("theory")}
         >
           Теория
         </Chapter>
         <Chapter 
           ref={analysis} 
-          func={() => {         
-            title.current.style.animation = "disable 0.5s";
-            day_task.current.style.animation = "disable 0.5s";
-            task.current.style.animation = "disable 0.5s";
-            theory.current.style.animation = "disable 0.5s";
-            setTimeout(() => {
-              title.current.classList.add("all--disabled");
-              day_task.current.classList.add("all--disabled");
-              task.current.classList.add("all--disabled");
-              theory.current.classList.add("all--disabled");
-            }, 480);
-
-            const our = analysis.current;
-            our.children[2].style = "transform: translateX(50px);";
-            our.children[1].style.animation = "chapter-text 0.5s forwards";
-            setTimeout(() => {
-              our.children[1].classList.add("chapter__text--after");
-              our.children[1].style.animation = "";
-              our.children[2].classList.toggle("all--disabled");
-              our.children[0].classList.toggle("all--disabled");
-            }, 480);
-
-            setTimeout(() => {
-              setPage("analysis");
-            }, 500);
-          }}
+          func={() => navigateToPage("analysis")}
         >
           Аналитика
         </Chapter>
         <div 
           className="back-to-subjects-button" 
-          onClick={() => setPage("main")}
+          onClick={() => navigateToPage("main")}
         />
       </>
   }
-  
+
   if (page === "day-task") {
     content = (
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("subject")}
+          func={() => navigateToPage("subject")}
         >
           Ежедневное задание
         </Chapter>
       </>
     )
   }
-if (page === "trainers") {
-  if (!selectedTrainer) {
-    // 🎯 Страница выбора тренажёров (с логотипом)
-    content = (
-      <>
-        <div className="mainTitle">
-          <div className="mainTitle__picture" />
-          <div className="mainTitle__title">PumRus</div>
-          <div className="mainTitle__text">
-            Выберите тренажёр для практики
+
+  if (page === "trainers") {
+    if (!selectedTrainer) {
+      content = (
+        <>
+          <div className="mainTitle">
+            <div className="mainTitle__picture" />
+            <div className="mainTitle__title">PumRus</div>
+            <div className="mainTitle__text">
+              Выберите тренажёр для практики
+            </div>
           </div>
-        </div>
-        
-        <div className="subject__block">
-          <Chapter 
-            subject={false}
-            func={() => setSelectedTrainer('stress')}
+          
+          <div className="subject__block">
+            <Chapter 
+              subject={false}
+              func={async () => {
+                setIsFadingOut(true);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                setIsContentReady(false);
+                
+                const loadingTimer = setTimeout(() => {
+                  setShowLoadingIndicator(true);
+                }, 300);
+                
+                setSelectedTrainer('stress');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                setIsContentReady(true);
+                await new Promise(resolve => {
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      setTimeout(resolve, 50);
+                    });
+                  });
+                });
+                
+                clearTimeout(loadingTimer);
+                setShowLoadingIndicator(false);
+                setIsFadingOut(false);
+              }}
+            >
+              Орфоэпия (ударения)
+            </Chapter>
+            
+            <Chapter 
+              subject={false}
+              func={async () => {
+                setIsFadingOut(true);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                setIsContentReady(false);
+                
+                const loadingTimer = setTimeout(() => {
+                  setShowLoadingIndicator(true);
+                }, 300);
+                
+                setSelectedTrainer('prefix');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                setIsContentReady(true);
+                await new Promise(resolve => {
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      setTimeout(resolve, 50);
+                    });
+                  });
+                });
+                
+                clearTimeout(loadingTimer);
+                setShowLoadingIndicator(false);
+                setIsFadingOut(false);
+              }}
+            >
+              ПРЕ/ПРИ
+            </Chapter>
+            
+            <Chapter 
+              subject={false}
+              func={async () => {
+                setIsFadingOut(true);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                setIsContentReady(false);
+                
+                const loadingTimer = setTimeout(() => {
+                  setShowLoadingIndicator(true);
+                }, 300);
+                
+                setSelectedTrainer('dict');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                setIsContentReady(true);
+                await new Promise(resolve => {
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      setTimeout(resolve, 50);
+                    });
+                  });
+                });
+                
+                clearTimeout(loadingTimer);
+                setShowLoadingIndicator(false);
+                setIsFadingOut(false);
+              }}
+            >
+              Словарные слова
+            </Chapter>
+          </div>
+          
+          <div 
+            className="back-to-subjects-button" 
+            onClick={() => navigateToPage('subject')}
+          />
+        </>
+      );
+    } else {
+      let TrainerComponent = null;
+      let trainerTitle = '';
+      
+      if (selectedTrainer === 'stress') {
+        TrainerComponent = StressTrainer;
+        trainerTitle = 'Орфоэпия (ударения)';
+      }
+      if (selectedTrainer === 'prefix') {
+        TrainerComponent = PrefixTrainer;
+        trainerTitle = 'ПРЕ/ПРИ';
+      }
+      if (selectedTrainer === 'dict') {
+        TrainerComponent = DictionaryTrainer;
+        trainerTitle = 'Словарные слова';
+      }
+      
+      content = (
+        <>
+          <Chapter
+            isValue="true"
+            func={async () => {
+              setIsFadingOut(true);
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
+              setIsContentReady(false);
+              
+              const loadingTimer = setTimeout(() => {
+                setShowLoadingIndicator(true);
+              }, 300);
+              
+              setSelectedTrainer(null);
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+              setIsContentReady(true);
+              await new Promise(resolve => {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    setTimeout(resolve, 50);
+                  });
+                });
+              });
+              
+              clearTimeout(loadingTimer);
+              setShowLoadingIndicator(false);
+              setIsFadingOut(false);
+            }}
           >
-            Орфоэпия (ударения)
+            {trainerTitle}
           </Chapter>
           
-          <Chapter 
-            subject={false}
-            func={() => setSelectedTrainer('prefix')}
-          >
-            ПРЕ/ПРИ
-          </Chapter>
-          
-          <Chapter 
-            subject={false}
-            func={() => setSelectedTrainer('dict')}
-          >
-            Словарные слова
-          </Chapter>
-        </div>
-        
-        <div 
-          className="back-to-subjects-button" 
-          onClick={() => setPage('subject')}
-        />
-      </>
-    );
-  } else {
-    // 🎯 Открытый тренажёр
-    let TrainerComponent = null;
-    let trainerTitle = '';
-    
-    if (selectedTrainer === 'stress') {
-      TrainerComponent = StressTrainer;
-      trainerTitle = 'Орфоэпия (ударения)';
+          {TrainerComponent && <TrainerComponent />}
+        </>
+      );
     }
-    if (selectedTrainer === 'prefix') {
-      TrainerComponent = PrefixTrainer;
-      trainerTitle = 'ПРЕ/ПРИ';
-    }
-    if (selectedTrainer === 'dict') {
-      TrainerComponent = DictionaryTrainer;
-      trainerTitle = 'Словарные слова';
-    }
-    
-    content = (
-      <>
-        <Chapter
-          isValue="true"
-          func={() => setSelectedTrainer(null)} // 🔧 Возврат к выбору (та же страница с логотипом)
-        >
-          {trainerTitle}
-        </Chapter>
-        
-        {TrainerComponent && <TrainerComponent />}
-      </>
-    );
-  }
-} 
+  } 
   
   if (page === "theory") {
+    // 🆕 Передаём предзагруженные данные
+    const cachedData = object ? theoryCache[object.id] : null;
+    
     content = (
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("subject")}
+          func={() => navigateToPage("subject")}
         >
           Теория
         </Chapter>
-        <TheoryChoose object={object} />
+        <TheoryChoose 
+          object={object} 
+          preloadedRules={cachedData?.rules}
+          preloadedTasks={cachedData?.tasks}
+        />
       </>
     )
   }
@@ -491,7 +609,7 @@ if (page === "trainers") {
       <>
         <Chapter
           isValue="true"
-          func={() => setPage("subject")}
+          func={() => navigateToPage("subject")}
         >
           Аналитика
         </Chapter>
@@ -501,11 +619,20 @@ if (page === "trainers") {
 
   return (
     <>
-      <div className="main">
-        {content}
+      <div className={`main ${isFadingOut ? 'main--fading-out' : ''}`}>
+        {isContentReady ? content : null}
       </div>
+      
+      {/* Индикатор загрузки */}
+      {showLoadingIndicator && (
+        <div className="loading-indicator">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">Загрузка...</div>
+        </div>
+      )}
     </>
   )
 }
 
 export default App
+

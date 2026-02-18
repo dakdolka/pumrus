@@ -294,7 +294,7 @@ export function DictionaryTrainer() {
 
   return (
     <div className="trainer-container">
-      <h1 className="trainer-title">Словарные слова</h1>
+      {/* <h1 className="trainer-title">Словарные слова</h1> */}
 
       <div className="trainer-controls">
         <button onClick={reset} className="trainer-button">Сбросить</button>
