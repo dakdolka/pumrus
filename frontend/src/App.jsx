@@ -5,6 +5,7 @@ import { Element, TaskElement, Popup } from './components.jsx'
 import { StressTrainer } from './components/trainers/StressTrainer.jsx'
 import { PrefixTrainer } from './components/trainers/PrefixTrainer.jsx'
 import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx'
+import { SpellingTrainer } from './components/trainers/SpellingTrainer.jsx'
 
 function saveInfo(key, value) {
   const jsonString = JSON.stringify(value);
@@ -548,7 +549,7 @@ useEffect(() => {
                 setIsFadingOut(false);
               }}
             >
-              Орфоэпия (ударения)
+              Орфоэпия
             </Chapter>
 
             <Chapter
@@ -614,6 +615,27 @@ useEffect(() => {
             >
               Словарные слова
             </Chapter>
+
+            <Chapter
+              subject={false}
+              func={async () => {
+                setIsFadingOut(true);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                setIsContentReady(false);
+                const loadingTimer = setTimeout(() => setShowLoadingIndicator(true), 300);
+                setSelectedTrainer('spelling');
+                await new Promise(resolve => setTimeout(resolve, 50));
+                setIsContentReady(true);
+                await new Promise(resolve => {
+                  requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
+                });
+                clearTimeout(loadingTimer);
+                setShowLoadingIndicator(false);
+                setIsFadingOut(false);
+              }}
+            >
+              Слитно / Раздельно
+          </Chapter>
           </div>
 
           <div
@@ -628,7 +650,7 @@ useEffect(() => {
 
       if (selectedTrainer === 'stress') {
         TrainerComponent = StressTrainer;
-        trainerTitle = 'Орфоэпия (ударения)';
+        trainerTitle = 'Орфоэпия';
       }
       if (selectedTrainer === 'prefix') {
         TrainerComponent = PrefixTrainer;
@@ -638,6 +660,11 @@ useEffect(() => {
         TrainerComponent = DictionaryTrainer;
         trainerTitle = 'Словарные слова';
       }
+      if (selectedTrainer === 'spelling') {
+        TrainerComponent = SpellingTrainer;
+        trainerTitle = 'Слитно / Раздельно';
+      }
+
 
       content = (
         <>

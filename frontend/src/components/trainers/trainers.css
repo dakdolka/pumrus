@@ -1,19 +1,18 @@
-/* === ОБЩИЕ СТИЛИ === */
+@import url('/src/static.css');
+
+
+/* ============================================================
+   ОБЩИЕ СТИЛИ ТРЕНАЖЁРОВ
+   ============================================================ */
+
 .trainer-container {
   width: 90%;
   max-width: 700px;
   margin: 0 auto;
-  padding: 20px 10px 20px 10px;
+  padding: 20px 10px;
   font-family: var(--text-font);
   color: var(--text-color);
   box-sizing: border-box;
-}
-
-.trainer-title {
-  font-size: 2rem;
-  margin: 60px 0 20px 0;
-  text-align: center;
-  color: var(--text-color);
 }
 
 .trainer-controls {
@@ -27,31 +26,56 @@
 .trainer-button {
   padding: 10px 20px;
   font-size: 14px;
+  font-family: var(--text-font);
   background: var(--block-color);
   color: var(--text-color);
-  border: 1px solid var(--active-color);
-  border-radius: 8px;
+  border: 2px solid color-mix(in srgb, var(--active-color) 45%, transparent);
+  border-radius: var(--border-size);
   cursor: pointer;
-  transition: all 0.2s;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease, border-color 0.2s ease,
+              transform 0.2s ease, box-shadow 0.2s ease;
   flex-shrink: 0;
 }
 
 .trainer-button:hover {
-  background: var(--active-color);
+  background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
+  border-color: var(--active-color);
   transform: translateY(-2px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--active-color) 20%, transparent);
 }
 
 .trainer-button:active {
   transform: translateY(0);
+  box-shadow: none;
+}
+
+.trainer-button:focus {
+  outline: none;
+}
+
+.trainer-button:focus-visible {
+  outline: 2px solid var(--active-color);
+  outline-offset: 2px;
+}
+
+.trainer-button:focus:not(:focus-visible) {
+  outline: none;
+  background: var(--block-color);
+  border-color: color-mix(in srgb, var(--active-color) 45%, transparent);
 }
 
 .trainer-stats {
   text-align: center;
   margin: 10px 0;
   font-size: 16px;
-  padding: 10px;
+  font-family: var(--text-font);
+  padding: 10px 14px;
   background: var(--block-color);
-  border-radius: 8px;
+  border-radius: var(--border-size);
+  border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   box-sizing: border-box;
 }
 
@@ -62,18 +86,21 @@
 }
 
 
-/* === ОРФОЭПИЯ (УДАРЕНИЯ) === */
+/* ============================================================
+   ОРФОЭПИЯ (УДАРЕНИЯ)
+   ============================================================ */
+
 .trainer-word-display {
   font-size: 1.8em;
   margin: 15px 0;
   padding: 10px;
-  transition: background 0.2s;
-  border-radius: 4px;
+  transition: background 0.2s ease;
+  border-radius: var(--border-size);
   word-break: break-word;
 }
 
 .trainer-word-display:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
 }
 
 .trainer-char {
@@ -86,43 +113,46 @@
   min-width: 1.2ch;
   text-align: center;
   padding: 2px 4px;
-  border-radius: 3px;
-  transition: all 0.15s;
+  border-radius: calc(var(--border-size) / 2);
+  transition: all 0.15s ease;
   position: relative;
 }
 
 .trainer-vowel-slot--clickable {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
 }
 
 .trainer-vowel-slot--clickable:hover {
-  background: rgba(255, 243, 160, 0.3);
+  background: color-mix(in srgb, var(--active-color) 18%, transparent);
   transform: scale(1.1);
 }
 
 .trainer-vowel-slot--correct {
-  color: green !important;
+  color: rgba(90, 200, 140, 1) !important;
   font-weight: bold;
-  background: rgba(0, 255, 0, 0.1);
+  background: color-mix(in srgb, rgba(90, 200, 140, 0.9) 12%, transparent);
 }
 
 .trainer-vowel-slot--wrong {
-  color: red !important;
-  background: rgba(255, 0, 0, 0.1);
+  color: var(--exception-color) !important;
+  background: color-mix(in srgb, var(--exception-color) 10%, transparent);
   position: relative;
 }
 
 
-/* === ПРЕ/ПРИ И СЛОВАРНЫЕ === */
+/* ============================================================
+   ПРЕ/ПРИ И СЛОВАРНЫЕ
+   ============================================================ */
+
 .trainer-word-input {
   font-size: 1.8em;
   margin: 8px 0;
   padding: 6px 12px;
   cursor: text;
   position: relative;
-  transition: all 0.2s;
-  border-radius: 6px;
+  transition: all 0.2s ease;
+  border-radius: var(--border-size);
   border: 2px solid transparent;
   word-break: break-word;
   box-sizing: border-box;
@@ -130,11 +160,11 @@
 }
 
 .trainer-word-input:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
 }
 
 .trainer-word-input--active {
-  background: rgba(255, 243, 160, 0.2);
+  background: var(--rule-color);
   border-color: var(--active-color);
 }
 
@@ -142,30 +172,29 @@
   display: inline-block;
   width: 1.3ch;
   text-align: center;
-  border-bottom: 2px solid gray;
+  border-bottom: 2px solid color-mix(in srgb, var(--text-color) 35%, transparent);
   margin: 0 2px;
   position: relative;
   min-height: 1.8em;
   line-height: 1.2em;
   vertical-align: text-bottom;
-  padding-top: 0.8em; /* Только для слотов с ошибками */
-  transition: all 0.2s;
+  padding-top: 0.8em;
+  transition: all 0.2s ease;
 }
 
 .trainer-letter--correct {
-  color: green !important;
-  border-color: green;
+  color: rgba(90, 200, 140, 1) !important;
+  border-color: rgba(90, 200, 140, 0.9);
   font-weight: bold;
-  padding-top: 0 !important; /* 🔧 Убираем отступ для правильных */
-  min-height: 1.2em; /* 🔧 Уменьшаем высоту */
+  padding-top: 0 !important;
+  min-height: 1.2em;
 }
 
 .trainer-letter--wrong {
-  color: red !important;
-  border-color: red;
+  color: var(--exception-color) !important;
+  border-color: color-mix(in srgb, var(--exception-color) 80%, transparent);
   font-weight: bold;
   position: relative;
-  /* padding-top остаётся 0.8em от родителя */
 }
 
 .trainer-letter-correct-above {
@@ -173,7 +202,7 @@
   top: -0.1em;
   left: 50%;
   transform: translateX(-50%);
-  color: green !important;
+  color: rgba(90, 200, 140, 1) !important;
   font-weight: bold;
   font-size: 0.85em;
   white-space: nowrap;
@@ -189,16 +218,20 @@
 }
 
 
-/* === ПОПАП === */
+/* ============================================================
+   ПОПАП
+   ============================================================ */
+
 .trainer-popup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
   backdrop-filter: blur(4px);
+  animation: fadeIn 0.25s ease;
 }
 
 .trainer-popup {
@@ -207,14 +240,16 @@
   max-width: 90%;
   max-height: 80vh;
   overflow-y: auto;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-  border: 2px solid var(--active-color);
+  border-radius: var(--border-size);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  border: 2px solid color-mix(in srgb, var(--active-color) 45%, transparent);
   box-sizing: border-box;
+  animation: slideDown 0.25s ease;
 }
 
 .trainer-popup h2 {
   margin-top: 0;
+  font-family: var(--chapter-text);
   color: var(--text-color);
   text-align: center;
 }
@@ -227,9 +262,10 @@
 .trainer-mistake-word {
   margin: 8px 0;
   font-size: 1.5em;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--text-color) 5%, transparent);
+  border-radius: var(--border-size);
+  border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
   word-break: break-word;
 }
 
@@ -240,49 +276,235 @@
 }
 
 
-/* === АДАПТИВНОСТЬ === */
+/* ============================================================
+   14 ЗАДАНИЕ — СЛИТНО / РАЗДЕЛЬНО
+   ============================================================ */
+
+.spelling-trainer-container {
+  padding-bottom: 90px;
+}
+
+.spelling-item {
+  padding: 10px 14px;
+  border-radius: var(--border-size);
+  border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+  background: var(--block-color);
+  margin-bottom: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-family: var(--text-font);
+  color: var(--text-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spelling-item--active {
+  border-color: var(--active-color);
+  background: var(--rule-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--active-color) 30%, transparent);
+}
+
+.spelling-item--correct {
+  color: rgba(90, 200, 140, 1);
+  border-color: color-mix(in srgb, rgba(90, 200, 140, 0.9) 40%, transparent);
+  background: color-mix(in srgb, rgba(90, 200, 140, 0.9) 8%, var(--block-color));
+  cursor: default;
+}
+
+.spelling-item--wrong {
+  color: var(--exception-color);
+  border-color: color-mix(in srgb, var(--exception-color) 40%, transparent);
+  background: color-mix(in srgb, var(--exception-color) 8%, var(--block-color));
+  cursor: default;
+}
+
+.spelling-gap {
+  display: inline-block;
+  background: color-mix(in srgb, var(--active-color) 15%, transparent);
+  border-radius: calc(var(--border-size) / 2);
+  padding: 0 5px;
+  margin: 0 1px;
+  font-size: 0.8em;
+  color: var(--active-color);
+  font-weight: 600;
+}
+
+/* Фиксированная клавиатура */
+.spelling-keyboard {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px 28px;
+  background: var(--main-color);
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
+  z-index: 100;
+}
+
+.spelling-key {
+  flex: 1;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: var(--chapter-text);
+  border-radius: var(--border-size);
+  border: 2px solid color-mix(in srgb, var(--active-color) 50%, transparent);
+  background: var(--block-color);
+  color: var(--text-color);
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease, border-color 0.15s ease,
+              transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spelling-key:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
+  border-color: var(--active-color);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--active-color) 20%, transparent);
+}
+
+.spelling-key:active:not(:disabled) {
+  transform: scale(0.96);
+  background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
+  box-shadow: none;
+}
+
+.spelling-key:focus {
+  outline: none;
+}
+
+.spelling-key:focus-visible {
+  outline: 2px solid var(--active-color);
+  outline-offset: 2px;
+}
+
+.spelling-key:focus:not(:focus-visible) {
+  outline: none;
+  background: var(--block-color);
+  border-color: color-mix(in srgb, var(--active-color) 50%, transparent);
+}
+
+.spelling-key--disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+
+/* ============================================================
+   АДАПТИВНОСТЬ
+   ============================================================ */
+
 @media (max-width: 600px) {
   .trainer-container {
     padding: 15px 5px;
   }
 
-  .trainer-title {
-    font-size: 1.5rem;
-    margin: 50px 0 15px 0;
-  }
-  
   .trainer-word-display,
   .trainer-word-input {
     font-size: 1.4em;
     padding: 8px;
   }
-  
+
   .trainer-letter {
     width: 1.2ch;
     margin: 0 1px;
   }
-  
+
   .trainer-popup {
     padding: 20px;
     max-width: 95%;
   }
-  
+
   .trainer-button {
     font-size: 12px;
     padding: 8px 16px;
   }
-  
+
   .trainer-stats {
     font-size: 14px;
     padding: 8px;
   }
+
+  .spelling-key {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
 }
 
-/* Предотвращение горизонтального скролла */
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+.trainer-container * { max-width: 100%; }
+
+
+/* ============================================================
+   СВЕТЛАЯ ТЕМА
+   ============================================================ */
+
+body.theme--light .trainer-button {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.trainer-container * {
-  max-width: 100%;
+body.theme--light .trainer-button:hover {
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 25%, transparent);
+}
+
+body.theme--light .trainer-stats {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+body.theme--light .trainer-popup {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+}
+
+body.theme--light .trainer-mistake-word {
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+}
+
+body.theme--light .trainer-vowel-slot--correct {
+  color: rgba(56, 176, 120, 0.95) !important;
+  background: color-mix(in srgb, rgba(56, 176, 120, 0.9) 12%, transparent);
+}
+
+body.theme--light .trainer-letter--correct {
+  color: rgba(56, 176, 120, 0.95) !important;
+  border-color: rgba(56, 176, 120, 0.9);
+}
+
+body.theme--light .trainer-letter-correct-above {
+  color: rgba(56, 176, 120, 0.95) !important;
+}
+
+body.theme--light .spelling-item {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+body.theme--light .spelling-item--active {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--active-color) 25%, transparent),
+              0 3px 10px color-mix(in srgb, var(--active-color) 15%, transparent);
+}
+
+body.theme--light .spelling-item--correct {
+  color: rgba(56, 176, 120, 0.95);
+  background: color-mix(in srgb, rgba(56, 176, 120, 0.9) 7%, #ffffff);
+}
+
+body.theme--light .spelling-key:hover:not(:disabled) {
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 25%, transparent);
+}
+
+
+/* ============================================================
+   АНИМАЦИИ
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
