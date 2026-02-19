@@ -23,7 +23,7 @@ function resolveWord(str, correct) {
   return parseParts(str).map(p => p.value).join(correct === 'separate' ? ' ' : '');
 }
 
-export function SpellingTrainer({ onExit }) {
+export function SpellingTrainer({ onExit, exitRef }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeRef = useRef(null);
 
@@ -32,9 +32,11 @@ export function SpellingTrainer({ onExit }) {
     showPageMistakes, setShowPageMistakes,
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
+    isExiting, setIsExiting,
     showConfirmReset, setShowConfirmReset,
     reset, resetPage, updateResult,
     collectPageMistakes, collectAllMistakes,
+    triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
   } = useWordTrainer({
     storageKey: STORAGE_KEY,
@@ -42,6 +44,11 @@ export function SpellingTrainer({ onExit }) {
     createEmptyResult: () => ({ result: 'none', chosen: null }),
     onExit,
   });
+
+  useEffect(() => {
+    if (exitRef) exitRef.current = triggerExit;
+    return () => { if (exitRef) exitRef.current = null; };
+  }, [exitRef, triggerExit]);
 
   useEffect(() => {
     activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -98,7 +105,7 @@ export function SpellingTrainer({ onExit }) {
         })}
       </main>
 
-      {pageNav}  {/* пункт 3 */}
+      {pageNav}
 
       <div className="spelling-keyboard">
         <button className={`spelling-key${isCurrentDone ? ' spelling-key--disabled' : ''}`}
@@ -122,10 +129,20 @@ export function SpellingTrainer({ onExit }) {
         />
       )}
       {showExitMistakes && (
-        <MistakesPopup title="Все ошибки"
-          mistakes={collectAllMistakes()} renderMistake={renderMistake}
-          stats={stats} statsLabel="слов"
-          onClose={() => { setShowExitMistakes(false); onExit?.(); }}
+        <MistakesPopup
+          title="Все ошибки"
+          mistakes={collectAllMistakes()}
+          renderMistake={renderMistake}
+          stats={stats}
+          statsLabel="слов"
+          isExit={isExiting}
+          onClose={() => {
+            setShowExitMistakes(false);
+            if (isExiting) {
+              setIsExiting(false);
+              onExit?.();
+            }
+          }}
         />
       )}
       {showConfirmReset && (

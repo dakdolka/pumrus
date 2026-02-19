@@ -38,7 +38,15 @@ export function PageNav({ currentPage, totalPages, onPrev, onNext }) {
 
 // stats теперь отображается внутри попапа (пункт 1)
 // renderMistake(item) → JSX
-export function MistakesPopup({ mistakes, onClose, renderMistake, title = 'Ошибки', stats, statsLabel = 'слов' }) {
+export function MistakesPopup({
+  mistakes,
+  onClose,
+  renderMistake,
+  title = 'Ошибки',
+  stats,
+  statsLabel = 'слов',
+  isExit = false,
+}) {
   return (
     <div className="trainer-popup-overlay" onClick={onClose}>
       <div className="trainer-popup" onClick={e => e.stopPropagation()}>
@@ -55,12 +63,18 @@ export function MistakesPopup({ mistakes, onClose, renderMistake, title = 'Ош�
           }
         </div>
         <div className="trainer-popup-close">
-          <button onClick={e => { b(e); onClose(); }} className="trainer-button">Закрыть</button>
+          <button
+            onClick={e => { b(e); onClose(); }}
+            className="trainer-button"
+          >
+            {isExit ? 'Выйти' : 'Закрыть'}   {/* текст для ясности */}
+          </button>
         </div>
       </div>
     </div>
   );
 }
+
 
 export function ConfirmPopup({ message, onConfirm, onCancel }) {
   return (

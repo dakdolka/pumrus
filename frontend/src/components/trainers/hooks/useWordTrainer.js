@@ -6,10 +6,12 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
   const [words,       setWords]       = useState([]);
   const [wordResults, setWordResults] = useState([]);
   const [stats,       setStats]       = useState({ total: 0, correct: 0, wrong: 0 });
+
   const [showPageMistakes, setShowPageMistakes] = useState(false);
-  const [showAllMistakes,  setShowAllMistakes]  = useState(false); // пункт 4/5
+  const [showAllMistakes,  setShowAllMistakes]  = useState(false);
   const [showExitMistakes, setShowExitMistakes] = useState(false);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [isExiting,        setIsExiting]        = useState(false);
 
   const pagination = useTrainerPagination({
     items: wordResults,
@@ -28,7 +30,11 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
     if (saved) {
       setWords(saved.words ?? []);
       setWordResults(saved.wordResults ?? []);
-      setStats({ total: saved.total ?? 0, correct: saved.correct ?? 0, wrong: saved.wrong ?? 0 });
+      setStats({
+        total:   saved.total   ?? 0,
+        correct: saved.correct ?? 0,
+        wrong:   saved.wrong   ?? 0,
+      });
       setCurrentPage(saved.currentPage ?? 0);
       initShownPages(saved.wordResults ?? []);
     } else {
@@ -45,13 +51,36 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg) return;
+
     const handleBack = () => {
+      // 1) Попап выхода с ошибками
+      if (showExitMistakes) {
+        setShowExitMistakes(false);
+        if (isExiting) {
+          setIsExiting(false);
+          onExit?.();
+        }
+        return;
+      }
+      // 2) Обычные попапы
+      if (showAllMistakes)  { setShowAllMistakes(false);  return; }
+      if (showPageMistakes) { setShowPageMistakes(false); return; }
+      // 3) Навигация по страницам
       if (currentPage > 0) setCurrentPage(p => p - 1);
       else _triggerExit();
     };
+
     tg.onEvent('backButtonClicked', handleBack);
     return () => tg.offEvent?.('backButtonClicked', handleBack);
-  }, [currentPage, words, wordResults]);
+  }, [
+    currentPage,
+    wordResults,
+    showExitMistakes,
+    showAllMistakes,
+    showPageMistakes,
+    isExiting,
+    onExit,
+  ]);
 
   function _reset() {
     if (!rawData?.length) return;
@@ -73,7 +102,11 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
     const newResults = [...wordResults];
     for (let i = start; i < end; i++) newResults[i] = createEmptyResult();
     setWordResults(newResults);
-    setStats(prev => ({ ...prev, correct: prev.correct - pageCorrect, wrong: prev.wrong - pageWrong }));
+    setStats(prev => ({
+      ...prev,
+      correct: prev.correct - pageCorrect,
+      wrong:   prev.wrong   - pageWrong,
+    }));
     allowPageAgain();
   }
 
@@ -102,8 +135,13 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
   }
 
   function _triggerExit() {
-    if (collectAllMistakes().length > 0) setShowExitMistakes(true);
-    else onExit?.();
+    const hasMistakes = collectAllMistakes().length > 0;
+    if (hasMistakes) {
+      setIsExiting(true);
+      setShowExitMistakes(true);
+    } else {
+      onExit?.();
+    }
   }
 
   return {
@@ -112,6 +150,7 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
     showConfirmReset, setShowConfirmReset,
+    isExiting, setIsExiting,
     reset: _reset, resetPage, updateResult,
     collectPageMistakes, collectAllMistakes,
     triggerExit: _triggerExit,

@@ -8,10 +8,12 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
   const [stats,         setStats]         = useState({ total: 0, correct: 0, wrong: 0 });
   const [currentWord,   setCurrentWord]   = useState(0);
   const [currentLetter, setCurrentLetter] = useState(0);
+
   const [showPageMistakes, setShowPageMistakes] = useState(false);
-  const [showAllMistakes,  setShowAllMistakes]  = useState(false); // пункт 4/5
+  const [showAllMistakes,  setShowAllMistakes]  = useState(false);
   const [showExitMistakes, setShowExitMistakes] = useState(false);
   const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [isExiting,        setIsExiting]        = useState(false);
 
   const pagination = useTrainerPagination({
     items: letterStates,
@@ -42,20 +44,42 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
 
   useEffect(() => {
     if (words.length > 0) {
-      saveState(storageKey, { words, letterStates, stats, currentWord, currentLetter, currentPage });
+      saveState(storageKey, {
+        words, letterStates, stats, currentWord, currentLetter, currentPage,
+      });
     }
   }, [words, letterStates, stats, currentWord, currentLetter, currentPage]);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg) return;
+
     const handleBack = () => {
+      if (showExitMistakes) {
+        setShowExitMistakes(false);
+        if (isExiting) {
+          setIsExiting(false);
+          onExit?.();
+        }
+        return;
+      }
+      if (showAllMistakes)  { setShowAllMistakes(false);  return; }
+      if (showPageMistakes) { setShowPageMistakes(false); return; }
       if (currentPage > 0) setCurrentPage(p => p - 1);
       else _triggerExit();
     };
+
     tg.onEvent('backButtonClicked', handleBack);
     return () => tg.offEvent?.('backButtonClicked', handleBack);
-  }, [currentPage, letterStates]);
+  }, [
+    currentPage,
+    letterStates,
+    showExitMistakes,
+    showAllMistakes,
+    showPageMistakes,
+    isExiting,
+    onExit,
+  ]);
 
   useEffect(() => {
     for (let w = start; w < end; w++) {
@@ -69,10 +93,16 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
   function _reset() {
     if (!rawData?.length) return;
     const shuffled = shuffleArray(rawData.map(parseWord));
-    const states   = shuffled.map(word => word.check.map(() => ({ done: false, correct: null, input: '' })));
+    const states   = shuffled.map(word => word.check.map(
+      () => ({ done: false, correct: null, input: '' })
+    ));
     setWords(shuffled);
     setLetterStates(states);
-    setStats({ total: shuffled.reduce((s, w) => s + w.check.length, 0), correct: 0, wrong: 0 });
+    setStats({
+      total: shuffled.reduce((s, w) => s + w.check.length, 0),
+      correct: 0,
+      wrong: 0,
+    });
     setCurrentWord(0);
     setCurrentLetter(0);
     setCurrentPage(0);
@@ -90,10 +120,16 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
     }
     const newStates = [...letterStates];
     for (let i = start; i < end; i++) {
-      newStates[i] = words[i].check.map(() => ({ done: false, correct: null, input: '' }));
+      newStates[i] = words[i].check.map(
+        () => ({ done: false, correct: null, input: '' })
+      );
     }
     setLetterStates(newStates);
-    setStats(prev => ({ ...prev, correct: prev.correct - pageCorrect, wrong: prev.wrong - pageWrong }));
+    setStats(prev => ({
+      ...prev,
+      correct: prev.correct - pageCorrect,
+      wrong:   prev.wrong   - pageWrong,
+    }));
     setCurrentWord(start);
     setCurrentLetter(0);
     allowPageAgain();
@@ -131,7 +167,10 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
   }
 
   function collectPageMistakes() {
-    return _collectMistakesFrom(letterStates.slice(start, end), words.slice(start, end));
+    return _collectMistakesFrom(
+      letterStates.slice(start, end),
+      words.slice(start, end)
+    );
   }
 
   function collectAllMistakes() {
@@ -139,8 +178,13 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
   }
 
   function _triggerExit() {
-    if (collectAllMistakes().length > 0) setShowExitMistakes(true);
-    else onExit?.();
+    const hasMistakes = collectAllMistakes().length > 0;
+    if (hasMistakes) {
+      setIsExiting(true);
+      setShowExitMistakes(true);
+    } else {
+      onExit?.();
+    }
   }
 
   return {
@@ -151,6 +195,7 @@ export function useLetterTrainer({ storageKey, rawData, parseWord, onExit }) {
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
     showConfirmReset, setShowConfirmReset,
+    isExiting, setIsExiting,
     reset: _reset, resetPage, focusFirstEmpty, updateLetterState,
     collectPageMistakes, collectAllMistakes,
     triggerExit: _triggerExit,

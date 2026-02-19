@@ -12,7 +12,7 @@ function parseWord(word) {
   return { original: word, lower: word.toLowerCase(), check };
 }
 
-export function PrefixTrainer({ onExit }) {
+export function PrefixTrainer({ onExit, exitRef }) {
   const activeRef = useRef(null);
 
   const {
@@ -22,9 +22,11 @@ export function PrefixTrainer({ onExit }) {
     showPageMistakes, setShowPageMistakes,
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
+    isExiting, setIsExiting,
     showConfirmReset, setShowConfirmReset,
     reset, resetPage, focusFirstEmpty, updateLetterState,
     collectPageMistakes, collectAllMistakes,
+    triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
   } = useLetterTrainer({
     storageKey: STORAGE_KEY,
@@ -32,6 +34,11 @@ export function PrefixTrainer({ onExit }) {
     parseWord,
     onExit,
   });
+
+  useEffect(() => {
+    if (exitRef) exitRef.current = triggerExit;
+    return () => { if (exitRef) exitRef.current = null; };
+  }, [exitRef, triggerExit]);
 
   useEffect(() => {
     if (activeRef.current) activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -99,7 +106,7 @@ export function PrefixTrainer({ onExit }) {
         })}
       </main>
 
-      {pageNav}  {/* пункт 3 */}
+      {pageNav}
 
       <div className="spelling-keyboard">
         <button className="spelling-key" onClick={() => handleChoice('е')}>Е</button>
@@ -121,10 +128,20 @@ export function PrefixTrainer({ onExit }) {
         />
       )}
       {showExitMistakes && (
-        <MistakesPopup title="Все ошибки"
-          mistakes={collectAllMistakes()} renderMistake={renderMistake}
-          stats={stats} statsLabel="букв"
-          onClose={() => { setShowExitMistakes(false); onExit?.(); }}
+        <MistakesPopup
+          title="Все ошибки"
+          mistakes={collectAllMistakes()}
+          renderMistake={renderMistake}
+          stats={stats}
+          statsLabel="слов"
+          isExit={isExiting}
+          onClose={() => {
+            setShowExitMistakes(false);
+            if (isExiting) {
+              setIsExiting(false);
+              onExit?.();
+            }
+          }}
         />
       )}
       {showConfirmReset && (
@@ -139,22 +156,28 @@ export function PrefixTrainer({ onExit }) {
 
 function WordInput({ word, letterStates, isActive, innerRef }) {
   const chars = [...word.lower];
-  let letterIndex = 0;
   return (
-    <div ref={innerRef} className={`trainer-word-input ${isActive ? 'trainer-word-input--active' : ''}`}>
+    <div ref={innerRef}
+      className={`trainer-word-input${isActive ? ' trainer-word-input--active' : ''}`}
+    >
       {chars.map((ch, charIndex) => {
-        if (word.check.includes(charIndex)) {
-          const state = letterStates[letterIndex];
-          const className = `trainer-letter ${state?.done ? (state.correct ? 'trainer-letter--correct' : 'trainer-letter--wrong') : ''}`;
-          letterIndex++;
-          return (
-            <span key={charIndex} className={className}>
-              {state?.done && !state.correct && <span className="trainer-letter-correct-above">{ch}</span>}
-              {state?.done ? state.input : '\u00A0'}
-            </span>
-          );
+        const checkIdx = word.check.indexOf(charIndex);
+        if (checkIdx === -1) return <span key={charIndex} className="trainer-char">{ch}</span>;
+        const ls = letterStates[checkIdx];
+        let cls = 'trainer-letter';
+        let display = '';
+        if (ls?.done) {
+          cls += ls.correct ? ' trainer-letter--correct' : ' trainer-letter--wrong';
+          display = ls.input;
         }
-        return <span key={charIndex} className="trainer-char">{ch}</span>;
+        return (
+          <span key={charIndex} className={cls}>
+            {ls?.done && !ls.correct && (
+              <span className="trainer-letter-correct-above">{ch}</span>
+            )}
+            {display}
+          </span>
+        );
       })}
     </div>
   );

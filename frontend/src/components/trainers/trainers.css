@@ -44,7 +44,7 @@
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition: background 0.4s ease, border-color 0.4s ease, transform 0.4s ease;
   flex-shrink: 0;
 }
 
@@ -54,7 +54,10 @@
 }
 
 .trainer-button:active {
-  transform: translateY(0);
+  background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
+  border-color: var(--active-color);
+  transform: translateY(1px);
+  transition: background 0s, border-color 0s, transform 0s;
 }
 
 .trainer-button:focus {
@@ -369,12 +372,14 @@
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition: background 0.4s ease, border-color 0.4s ease, transform 0.4s ease;
 }
 
 .spelling-key:active:not(:disabled) {
-  transform: scale(0.96);
   background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
+  border-color: var(--active-color);
+  transform: scale(0.96);
+  transition: background 0s, border-color 0s, transform 0s;
 }
 
 .spelling-key:focus {
@@ -388,22 +393,23 @@
 
 
 /* ============================================================
-   HOVER — только на устройствах с курсором
+   HOVER — только на устройствах с настоящим курсором
    ============================================================ */
+
+.trainer-button.is-pressed {
+  background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
+  border-color: var(--active-color);
+  transform: translateY(1px);
+}
+
+.spelling-key.is-pressed {
+  background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
+  border-color: var(--active-color);
+  transform: scale(0.96);
+}
 
 
 @media (hover: hover) {
-  .trainer-button:hover {
-    background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
-    border-color: var(--active-color);
-    transform: translateY(-2px);
-  }
-
-  .spelling-key:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
-    border-color: var(--active-color);
-  }
-
   .trainer-word-display:hover {
     background: color-mix(in srgb, var(--text-color) 4%, transparent);
   }

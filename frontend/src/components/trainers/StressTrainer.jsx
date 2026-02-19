@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import './trainers.css';
 import { stressWords } from './data/stressWords.js';
 import { useWordTrainer } from './hooks/useWordTrainer.js';
@@ -7,15 +7,17 @@ import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './Trainer
 const STORAGE_KEY = 'stress_trainer_state_v11';
 const vowels = 'аеёиоуыэюя';
 
-export function StressTrainer({ onExit }) {
+export function StressTrainer({ onExit, exitRef }) {
   const {
     words, wordResults, stats,
     showPageMistakes, setShowPageMistakes,
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
+    isExiting, setIsExiting,
     showConfirmReset, setShowConfirmReset,
     reset, resetPage, updateResult,
     collectPageMistakes, collectAllMistakes,
+    triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
   } = useWordTrainer({
     storageKey: STORAGE_KEY,
@@ -23,6 +25,12 @@ export function StressTrainer({ onExit }) {
     createEmptyResult: () => ({ result: 'none', clicked: [] }),
     onExit,
   });
+
+  // Регистрируем triggerExit в ref для вызова из App.jsx
+  useEffect(() => {
+    if (exitRef) exitRef.current = triggerExit;
+    return () => { if (exitRef) exitRef.current = null; };
+  }, [exitRef, triggerExit]);
 
   function handleVowelClick(absIndex, charIndex) {
     if (wordResults[absIndex]?.result !== 'none') return;
@@ -57,7 +65,7 @@ export function StressTrainer({ onExit }) {
       <TrainerControls
         onResetAll={() => setShowConfirmReset(true)}
         onResetPage={resetPage}
-        onMistakes={() => setShowAllMistakes(true)}  // пункт 4
+        onMistakes={() => setShowAllMistakes(true)}
       />
       {pageNav}
 
@@ -75,34 +83,27 @@ export function StressTrainer({ onExit }) {
         })}
       </main>
 
-      {pageNav}  {/* пункт 3 — навигация снизу */}
+      {pageNav}
 
-      {/* Автопопап при завершении страницы — показывает ошибки страницы */}
       {showPageMistakes && (
         <MistakesPopup
           title={`Страница ${currentPage + 1} завершена`}
           mistakes={collectPageMistakes()}
           renderMistake={renderMistake}
-          stats={stats}
-          statsLabel="слов"
+          stats={stats} statsLabel="слов"
           onClose={() => {
             setShowPageMistakes(false);
             if (currentPage < totalPages - 1) setCurrentPage(p => p + 1);
           }}
         />
       )}
-      {/* Кнопка "Ошибки" — показывает все ошибки (пункт 4/5) */}
       {showAllMistakes && (
-        <MistakesPopup
-          title="Все ошибки"
-          mistakes={collectAllMistakes()}
-          renderMistake={renderMistake}
-          stats={stats}
-          statsLabel="слов"
+        <MistakesPopup title="Все ошибки"
+          mistakes={collectAllMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="слов"
           onClose={() => setShowAllMistakes(false)}
         />
       )}
-      {/* Попап при выходе — показывает все ошибки */}
       {showExitMistakes && (
         <MistakesPopup
           title="Все ошибки"
@@ -110,7 +111,14 @@ export function StressTrainer({ onExit }) {
           renderMistake={renderMistake}
           stats={stats}
           statsLabel="слов"
-          onClose={() => { setShowExitMistakes(false); onExit?.(); }}
+          isExit={isExiting}
+          onClose={() => {
+            setShowExitMistakes(false);
+            if (isExiting) {
+              setIsExiting(false);
+              onExit?.();
+            }
+          }}
         />
       )}
       {showConfirmReset && (

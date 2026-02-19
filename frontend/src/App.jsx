@@ -16,8 +16,6 @@ function getInfo(key) {
   return JSON.parse(localStorage.getItem(key));
 }
 
-// ─── Конфиг тренажёров ────────────────────────────────────────────────────────
-// Чтобы добавить новый — просто добавь сюда объект, больше ничего менять не надо
 const TRAINERS = [
   { id: 'stress',   label: 'Орфоэпия',         Component: StressTrainer     },
   { id: 'prefix',   label: 'ПРЕ/ПРИ',           Component: PrefixTrainer     },
@@ -28,7 +26,6 @@ const TRAINERS = [
 
 function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
-
   return (
     <div
       className="option"
@@ -50,13 +47,8 @@ function Option({ children, onSelect, theme_id }) {
 
 
 function TheoryChoose({
-  object,
-  preloadedRules,
-  preloadedTasks,
-  isPopup,
-  setPopup,
-  content,
-  setContent,
+  object, preloadedRules, preloadedTasks,
+  isPopup, setPopup, content, setContent,
 }) {
   console.log("-----< Полученный предмет >-----", object);
 
@@ -65,7 +57,6 @@ function TheoryChoose({
 
   const [isTaskActive,  setTaskMood]  = useState(false);
   const [isThemeActive, setThemeMood] = useState(false);
-
   const [chosenBlock, setChosenBlock] = useState([]);
   const [viewRules,   setViewRules]   = useState([]);
   const [rules, setRules] = useState(preloadedRules || []);
@@ -185,18 +176,19 @@ function App() {
   const theory   = useRef();
   const analysis = useRef();
   const title    = useRef();
+  const trainerExitRef = useRef(null); // ← для вызова triggerExit из тренажёра
 
-  const [subjects,      getSubjects]      = useState([]);
-  const [object,        chooseSubject]    = useState();
-  const [selectedTrainer, setSelectedTrainer] = useState(null);
-  const [isFadingOut,         setIsFadingOut]         = useState(false);
+  const [subjects,             getSubjects]             = useState([]);
+  const [object,               chooseSubject]           = useState();
+  const [selectedTrainer,      setSelectedTrainer]      = useState(null);
+  const [isFadingOut,          setIsFadingOut]          = useState(false);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
-  const [isContentReady,      setIsContentReady]      = useState(false);
-  const [theoryCache,         setTheoryCache]         = useState({});
-  const [page,                setPage]                = useState("main");
+  const [isContentReady,       setIsContentReady]       = useState(false);
+  const [theoryCache,          setTheoryCache]          = useState({});
+  const [page,                 setPage]                 = useState("main");
 
-  const [isTheoryPopupOpen,   setIsTheoryPopupOpen]   = useState(false);
-  const [theoryPopupContent,  setTheoryPopupContent]  = useState({
+  const [isTheoryPopupOpen,  setIsTheoryPopupOpen]  = useState(false);
+  const [theoryPopupContent, setTheoryPopupContent] = useState({
     title: "Отсутствует",
     blocks: [],
   });
@@ -215,10 +207,10 @@ function App() {
     tg.ready?.();
     tg.expand?.();
 
-    const params      = tg.themeParams || {};
-    const isDark      = tg.colorScheme === 'dark';
-    const root        = document.documentElement;
-    const setVar      = (name, value) => { if (value) root.style.setProperty(`--${name}`, value); };
+    const params = tg.themeParams || {};
+    const isDark = tg.colorScheme === 'dark';
+    const root   = document.documentElement;
+    const setVar = (name, value) => { if (value) root.style.setProperty(`--${name}`, value); };
 
     document.body.classList.toggle('theme--light', !isDark);
     document.body.classList.toggle('theme--dark',   isDark);
@@ -233,8 +225,23 @@ function App() {
     root.style.setProperty('--rule-color', `color-mix(in srgb, ${accent} ${mix}, transparent)`);
   }, []);
 
-  // ─── Единый хелпер анимированного перехода ──────────────────────────────────
-  // action — async-функция с логикой конкретного перехода (setPage, setSelectedTrainer и т.д.)
+  useEffect(() => {
+    const onStart = e => {
+      const btn = e.target.closest('button');
+      if (btn) btn.classList.add('is-pressed');
+    };
+    const onEnd = e => {
+      const btn = e.target.closest('button');
+      if (btn) setTimeout(() => btn.classList.remove('is-pressed'), 270);
+    };
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchend',   onEnd,   { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchend',   onEnd);
+    };
+  }, []);
+
   async function performTransition(action, { withLoadingSpinner = true } = {}) {
     setIsFadingOut(true);
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -268,24 +275,22 @@ function App() {
     const handleBack = async () => {
       setShowLoadingIndicator(false);
 
-      // 1) Закрыть попап теории
       if (isTheoryPopupOpen) {
         setIsTheoryPopupOpen(false);
         return;
       }
 
-      // 2) Вернуться из конкретного тренажёра к списку
+      // Когда открыт тренажёр — back обрабатывается внутри хука тренажёра
       if (page === 'trainers' && selectedTrainer) {
         return;
       }
 
-      // 3) Обычная страничная навигация назад
       const backMap = {
-        theory:    'subject',
-        trainers:  'subject',
-        analysis:  'subject',
+        theory:     'subject',
+        trainers:   'subject',
+        analysis:   'subject',
         'day-task': 'subject',
-        subject:   'main',
+        subject:    'main',
       };
 
       const targetPage = backMap[page];
@@ -333,7 +338,6 @@ function App() {
 
   async function navigateToPage(targetPage, { resetTrainer = false } = {}) {
     console.log(`🚀 Переход на: ${targetPage}`);
-
     await performTransition(async () => {
       const t0 = performance.now();
       if (targetPage === 'theory' && object) await preloadTheoryData(object.id);
@@ -341,11 +345,9 @@ function App() {
       if (resetTrainer) setSelectedTrainer(null);
       console.log(`⏱️ Время подготовки: ${(performance.now() - t0).toFixed(2)}ms`);
     });
-
     console.log(`✅ Переход завершён: ${targetPage}`);
   }
 
-  // ─── Шапка (повторяется на main и subject) ──────────────────────────────────
   const header = (
     <div ref={title} className="mainTitle">
       <div className="mainTitle__picture" />
@@ -358,7 +360,6 @@ function App() {
     </div>
   );
 
-  // ─── Рендер страниц ──────────────────────────────────────────────────────────
   let content;
 
   if (page === "main") {
@@ -414,7 +415,6 @@ function App() {
             <div className="mainTitle__title">PumRus</div>
             <div className="mainTitle__text">Выберите тренажёр для практики</div>
           </div>
-
           <div className="subject__block">
             {TRAINERS.map(({ id, label }) => (
               <Chapter
@@ -426,25 +426,30 @@ function App() {
               </Chapter>
             ))}
           </div>
-
           <div className="back-to-subjects-button" onClick={() => navigateToPage('subject')} />
         </>
       );
     } else {
       const trainer = TRAINERS.find(t => t.id === selectedTrainer);
+      const onExit  = () => performTransition(() => setSelectedTrainer(null), { withLoadingSpinner: false });
 
       content = (
         <>
+          {/* ← func теперь вызывает triggerExit через ref */}
           <Chapter
             isValue="true"
-            func={() => performTransition(() => setSelectedTrainer(null))}
+            func={() => {
+              if (trainerExitRef.current) trainerExitRef.current();
+              else performTransition(() => setSelectedTrainer(null));
+            }}
           >
             {trainer?.label}
           </Chapter>
 
           {trainer?.Component && (
             <trainer.Component
-              onExit={() => performTransition(() => setSelectedTrainer(null), { withLoadingSpinner: false })}
+              onExit={onExit}
+              exitRef={trainerExitRef}   // ← передаём ref
             />
           )}
         </>
@@ -488,7 +493,6 @@ function App() {
       <div className={`main ${isFadingOut ? 'main--fading-out' : ''}`}>
         {isContentReady ? content : null}
       </div>
-
       {showLoadingIndicator && (
         <div className="loading-indicator">
           <div className="loading-spinner" />
