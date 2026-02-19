@@ -1,850 +1,158 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import './trainers.css';
+import { dictionaryWords } from './data/dictionaryWords.js';
+import { useLetterTrainer } from './hooks/useLetterTrainer.js';
+import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
 
-const STORAGE_KEY = 'dict_words_trainer_state_v1';
-
-const rawWords = `
-абИтуриент
-абОнЕмент
-абрИкос
-абрИкосовый
-акАдемический
-акАдемия
-аквАмАрин
-аквАрель
-аквАрельный
-аккОмпАнЕмент
-аккомпанИатор
-аккОмпАнировать
-аннОтация
-антрЕсоли
-Апеллировать
-апЕлляция
-аплОдировать
-аплОдИсменты
-аппАратура
-аппЕтит
-арОмат
-арОматный
-архИтектор
-архИтектура
-Асфальт
-асфАльтировать
-атмОсфера
-атмОсферный
-аттрАкцион
-аукцИон
-бАгаж
-бАгажный
-бАгроветь
-бАгровый
-бАгряный
-бАдмИнтон
-бАланс
-бАлАнсировать
-бАлкон
-бАлконный
-бАрЕльеф
-бАскЕтбол
-бАскЕтбольный
-бАссейн
-бЕречь
-бЕрёза
-бЕрёзовый
-бИрюзовый
-бОгатство
-бОгатый
-бОгатырь
-брОшЮра
-брОшЮровать
-бЮллЕтень
-вАкцина
-вАкцинация
-вАкцинировать
-вАрИант
-вАрИативный
-велОсипед
-вЕлОсИпедный
-вЕнтИлятор
-вЕнтИляторный
-вЕрмИшель
-вЕстИбюль
-вЕтеран
-вЕтЕранский
-винЕгрет
-вИртуальный
-вИртуоз
-вИртуозный
-вИтраж
-вИтражный
-влАделец
-влАдеть
-возрАжать
-возрАжение
-вОкзал
-вОкзальный
-вОлейбол
-вОлейбольный
-вообрАжать
-вообрАжение
-воплОтить
-воплОщать
-воплОщение
-впЕчатление
-впЕчатлить
-вырАжать
-вырАжение
-вырАзительный
-вырАзить
-гАзон
-гАлактика
-гАлАктический
-гАлЕрея
-гАрмоничный
-гАрмония
-гАрнизон
-гЕолог
-гЕологический
-гЕология
-гЕроизм
-гЕроический
-гЕрой
-гИпотЕза
-гИпотЕтический
-гОрИзонт
-гОрИзонтальный
-гОрмон
-гОрячий
-грАмматика
-грАмматический
-грамОта
-грамОтный
-грОмадный
-грОмоздить
-грОмоздкий
-дЕбаты
-дЕклАрация
-дЕкоративный
-дЕкорация
-делИкатес
-дЕлИкатный
-дЕмОкрат
-дЕмОкратичный
-дЕмОнстрация
-дЕмОнстрировать
-дИалог
-дИалогический
-дИалоговый
-диАпАзон
-дИнамика
-дИнамический
-дИнАмичный
-дИрИжировать
-дИрИжёр
-дИспЕтчер
-дИспетчерский
-дИстанционный
-дИстанция
-дИсциплина
-дИсцИплинарный
-дИсцИплинировать
-жЕлание
-жЕлать
-жИраф
-жОкей
-жОнглёр
-жЮри
-знАкомить
-знАкомиться
-знАкомый
-знАмЕнитый
-знАменовать
-игнОрировать
-идЕал
-идЕализировать
-идЕалист
-идЕальный
-иждИвенец
-иллюзИОнист
-иллюзИя
-индИвид
-индИвидуальный
-инЕй
-инжЕнер
-инжЕнерный
-инженерский
-инИцИатива
-инИцИативный
-интЕллект
-интЕллектуальный
-интЕллигент
-интЕллигентный
-интЕллигенция
-интЕнсивный
-интЕрьер
-интЕрьерный
-искАжение
-искАзить
-истИна
-истИнный
-кАморка
-кАмпания (мероприятие)
-кАникулы
-кАнИтель
-кАнОнада
-кАнцЕлярия
-кАнцЕлярский
-кАпюшОн
-кАрдинальный
-кАрИкАтура
-кАрИкАтурист
-кАрИкАтурный
-кАсатка (птица)
-кАтАкомба
-кАтАстрофа
-квАлИфИкация
-квИтанция
-кИнЕмАтограф
-кОварный
-кОварство
-кОлдовать
-кОлдовской
-кОлдун
-кОлЕбание
-кОлЕбаться
-кОллЕктив
-коллЕктивный
-кОллекционировать
-кОллекционный
-кОллекция
-кОлоссальный
-кОлыхать
-кОлыхаться
-кОмбИнация
-кОмбИнировать
-кОмедийный
-кОмедия
-кОмпания (группа людей)
-компЕтентный
-кОмпЕтенция
-кОмпОнент
-кОмпьютер
-кОмпьютерный
-кОмфорт
-кОмфортный
-кОнверт
-кОнкурент
-кОнкуренция
-кОнтИнент
-кОнфЕренция
-кОнфликт
-кОнфликтовать
-кОнфорка
-кОрзина
-кОрИфей
-кОричневый
-кОролевство
-кОроль
-кОсатка (млекопитающее)
-кОсмический
-кОсмос
-крОмешный
-лАбиринт
-лАдья
-лЕгенда
-лЕгендарный
-лЕлеять
-лИбЕрал
-либЕральный
-лИнгвистика
-лИнгвистический
-мАжор
-мАжорный
-мАтериал
-мАтерИализм
-мАтерИализовать
-мАтерИальный
-мгнОвение
-мгнОвенный
-мЕнтАлитет
-мЕнтальный
-мЕрИдиан
-мЕрОприятие
-мЕтафора
-мЕтафорический
-мЕханизм
-мЕханический
-мИнЕрал
-мИнЕральный
-мИнор
-мИнорный
-мОнОлит
-мОнОлитный
-мОрАторий
-мОтив
-мОтивация
-мотИвировать
-мЯтеж
-мЯтежный
-навАждение
-нАсЕкомые
-наслАждаться
-наслАждение
-недОсЯгаемый
-нОвелла
-обАяние
-обАятельный
-обИтатель
-обИтать
-обнАружить
-обОняние
-обОнятельный
-обОрона
-обОронять
-одОлеть
-озОрник
-озОрничать
-озОрной
-опЕкун
-опЕкунский
-оптИмизм
-оптИмист
-оптИмистичный
-орАнжЕрея
-Орбита
-Орбитальный
-оргАнизация
-оргАнИзовать
-орИгинальный
-орИЕнтация
-орИЕнтир
-орИЕнтировать
-орИентироваться
-Орнамент
-остОрожность
-остОрожный
-офИцер
-офИцерский
-ошЕлОмительный
-ошЕлОмить
-ошЕлОмлённый
-пАлисадник
-пАлитра
-пАнОрама
-панОрамный
-панцИрь
-пАрАграф
-пАрАдокс
-пАрАдоксальный
-парашЮт
-пАтриот
-пАтриотизм
-пАтриотический
-пЕйзаж
-пЕйзажный
-пЕрила
-пЕриОд
-пЕриОдический
-пЕссИмизм
-пессИмист
-пЕссИмистичный
-подлИнный
-подрАжание
-подрАжатель
-подрАжать
-пОзиция
-пОкой
-покОление
-пОлемика
-пОлемичный
-пОлИрованный
-пОлИровать
-порАжать
-порАжение
-порАзительный
-порАзить
-посЕтитель
-посЕщать
-посЕщение
-правИло
-правИльный
-предвАрительный
-прЕзЕнтация
-прЕзИдент
-прЕзИдентский
-прЕзидиум
-прЕобрАжение
-прЕобрАзить
-прЕобрАзование
-прЕобрАзователь
-прЕобрАзовать
-прЕодОление
-прЕодОлеть
-прЕцЕдент
-прИвИлегированный
-привИлегия
-примИтивный
-прИОритет
-прИорИтетный
-прОвинциальный
-прОвинция
-прОвОцировать
-прОнИцательный
-рАдИатор
-рацИонализировать
-рацИональный
-рЕАлизм
-рЕАлист
-рЕАлистичный
-рЕжИссёр
-рЕжиссёрский
-рЕзИдент
-резИденция
-рЕмЕсленный
-рЕмЕсло
-рЕстАврационный
-рестАврация
-рЕферат
-рЕфЕрировать
-рЕформа
-рЕформатор
-рЕформировать
-рЕцензент
-рЕцензировать
-рЕцензия
-рИторика
-рИторический
-рОвесники
-рОмантизм
-рОмантический
-рОмантичный
-сАлют
-сАлютовать
-сАтира
-сАтирический
-свАрливый
-свИдетель
-сЕзон
-сЕзонный
-сИмпатичный
-сИмпатия
-сИмптом
-сИмфонический
-сИмфония
-сИнхронный
-сИреневый
-сИрень
-сИстема
-сИстематизировать
-сИстематичный
-смЯтение
-снАрЯдить
-снАрЯжение
-сОкрОвенный
-сОнет
-сострАдание
-сострАдать
-состЯзание
-состЯзаться
-сОцИальный
-спартАкиада
-спОкойный
-стАдИон
-стИпендия
-стрАховать
-стрАховка
-стрЕмиться
-стрЕмление
-сувЕнир
-сувЕренИтет
-сувЕренный
-сумЕречный
-сумЕрки
-тАлант
-тАлантливый
-тЕоретический
-тЕория
-тЕррИториальный
-тЕрритория
-тОржественный
-тОржество
-трАдиционный
-трАдиция
-трАмвай
-трАмвайный
-трАфАрет
-трАфАретный
-трЕвога
-трЕвожить
-трЕвожный
-трОллейбус
-трОллейбусный
-трОстник
-трОстниковый
-трОтуар
-трЯсина
-угОстить
-угОщать
-угОщение
-унИверситет
-унИвЕрситетский
-унИкальный
-унИчтожить
-утрАмбовать
-уЯзвить
-уЯзвлённый
-фАнтастика
-фАнтастический
-фЕстИваль
-фИгура
-фИгурировать
-фИгурист(ка)
-фИгурный
-фИнансовый
-фИнансы
-фиОлетовый
-фрАгмент
-фрАгментарный
-фразЕологический
-фразЕология
-хаОс
-хаОтичный
-хАрактер
-хАрактеризовать
-хАрактерный
-цЕмент
-цЕментный
-цИвИлИзационный
-цИвИлИзация
-цИвИлИзованный
-цИклон
-цИлиндр
-цИлиндрический
-цИстерна
-цИтата
-цИтировать
-чЕлОвек
-чЕлОвеческий
-чЕлОвечный
-чЕмпИон
-чЕмпионат
-чЕмпИонский
-шЕренга
-шОколад
-шОкОладный
-шОссе
-шОссейный
-шОфёр
-шОфёрский
-эвОлюционировать
-эвОлюция
-экОномика
-эконОмический
-экОномичный
-экспЕрИмент
-экспЕрИментальный
-экспЕрИментировать
-экспОнат
-экстрЕмальный
-Электрический
-Электричество
-Электроника
-энцИклОпедист
-энцИклОпедический
-энцИклопедия
-эстАкада
-`.trim().split(/\s+/).filter(Boolean);
+const STORAGE_KEY = 'dict_words_trainer_state_v2';
 
 function parseWord(word) {
-  const chars = [...word];
-  const check = [];
-  chars.forEach((ch, i) => {
-    if (ch === ch.toUpperCase() && ch.match(/[А-ЯЁ]/)) {
-      check.push(i);
-    }
-  });
+  const chars = [...word], check = [];
+  chars.forEach((ch, i) => { if (ch === ch.toUpperCase() && ch.match(/[А-ЯЁ]/)) check.push(i); });
   return { original: word, lower: word.toLowerCase(), check };
 }
 
-export function DictionaryTrainer() {
-  const [words, setWords] = useState([]);
-  const [letterStates, setLetterStates] = useState([]);
-  const [stats, setStats] = useState({ total: 0, correct: 0, wrong: 0 });
-  const [currentWord, setCurrentWord] = useState(0);
-  const [currentLetter, setCurrentLetter] = useState(0);
-  const [showMistakes, setShowMistakes] = useState(false);
-
-  // Инициализация
-  useEffect(() => {
-    const saved = loadState();
-    if (saved) {
-      setWords(saved.words);
-      setLetterStates(saved.letterStates);
-      setStats(saved.stats);
-    } else {
-      reset();
-    }
-  }, []);
-
-  // Сохранение состояния
-  useEffect(() => {
-    if (words.length > 0) {
-      saveState({ words, letterStates, stats });
-    }
-  }, [words, letterStates, stats]);
-
-  // Автофокус
-  useEffect(() => {
-    focusFirstEmpty();
-  }, [letterStates]);
-
-  function shuffleArray(arr) {
-    return arr.sort(() => Math.random() - 0.5);
-  }
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function saveState(state) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
-  }
-
-  function reset() {
-    const shuffled = shuffleArray([...rawWords.map(parseWord)]);
-    const states = shuffled.map(word =>
-      word.check.map(() => ({ done: false, correct: null, input: '' }))
-    );
-    const totalSlots = shuffled.reduce((sum, word) => sum + word.check.length, 0);
-
-    setWords(shuffled);
-    setLetterStates(states);
-    setStats({ total: totalSlots, correct: 0, wrong: 0 });
-    setCurrentWord(0);
-    setCurrentLetter(0);
-    localStorage.removeItem(STORAGE_KEY);
-  }
-
-  function focusFirstEmpty() {
-    for (let w = 0; w < letterStates.length; w++) {
-      for (let l = 0; l < letterStates[w].length; l++) {
-        if (!letterStates[w][l].done) {
-          setCurrentWord(w);
-          setCurrentLetter(l);
-          return;
-        }
-      }
-    }
-  }
+export function DictionaryTrainer({ onExit }) {
+  const {
+    words, letterStates, stats,
+    currentWord, setCurrentWord,
+    currentLetter, setCurrentLetter,
+    showPageMistakes, setShowPageMistakes,
+    showAllMistakes,  setShowAllMistakes,
+    showExitMistakes, setShowExitMistakes,
+    showConfirmReset, setShowConfirmReset,
+    reset, resetPage, focusFirstEmpty, updateLetterState,
+    collectPageMistakes, collectAllMistakes,
+    currentPage, setCurrentPage, totalPages, start, end,
+  } = useLetterTrainer({
+    storageKey: STORAGE_KEY,
+    rawData: dictionaryWords,
+    parseWord,
+    onExit,
+  });
 
   function handleInput(value) {
     if (!value || currentWord >= words.length) return;
-
-    const word = words[currentWord];
-    const letterIndex = currentLetter;
+    const word    = words[currentWord];
     const letters = letterStates[currentWord];
-
-    if (letterIndex >= letters.length || letters[letterIndex].done) {
-      focusFirstEmpty();
-      return;
-    }
-
-    const charIndex = word.check[letterIndex];
+    if (currentLetter >= letters.length || letters[currentLetter].done) { focusFirstEmpty(); return; }
+    const charIndex   = word.check[currentLetter];
     const correctChar = word.lower[charIndex];
-    const isCorrect = value.toLowerCase() === correctChar;
-
-    setLetterStates(prev => {
-      const newStates = [...prev];
-      newStates[currentWord] = [...newStates[currentWord]];
-      newStates[currentWord][letterIndex] = {
-        done: true,
-        correct: isCorrect,
-        input: value.toLowerCase(),
-      };
-      return newStates;
-    });
-
-    setStats(prev => ({
-      ...prev,
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      wrong: prev.wrong + (isCorrect ? 0 : 1),
-    }));
+    const isCorrect   = value.toLowerCase() === correctChar;
+    const newStates = updateLetterState(
+      currentWord, currentLetter,
+      { done: true, correct: isCorrect, input: value.toLowerCase() },
+      isCorrect
+    );
+    const nextLetter = currentLetter + 1;
+    if (nextLetter < letters.length) { setCurrentLetter(nextLetter); return; }
+    for (let w = currentWord + 1; w < end; w++) {
+      if (newStates[w]?.some(ls => !ls.done)) { setCurrentWord(w); setCurrentLetter(0); return; }
+    }
+    for (let w = start; w < currentWord; w++) {
+      if (newStates[w]?.some(ls => !ls.done)) { setCurrentWord(w); setCurrentLetter(0); return; }
+    }
   }
 
-  function collectMistakes() {
-    return words
-      .map((word, i) => {
-        const hasError = letterStates[i]?.some(state => state.done && !state.correct);
-        if (!hasError) return null;
-
-        const chars = [...word.lower];
-        return chars.map((ch, j) => {
-          if (word.check.includes(j)) {
-            return { char: ch.toUpperCase(), highlight: true };
-          }
-          return { char: ch, highlight: false };
-        });
-      })
-      .filter(Boolean);
+  function renderMistake(chars) {
+    return chars.map((item, j) => (
+      <span key={j} style={{ color: item.highlight ? 'green' : 'inherit' }}>{item.char}</span>
+    ));
   }
 
-  const accuracy = stats.total ? Math.round((stats.correct / stats.total) * 100) : 0;
+  const pageNav = (
+    <PageNav currentPage={currentPage} totalPages={totalPages}
+      onPrev={() => setCurrentPage(p => p - 1)}
+      onNext={() => setCurrentPage(p => p + 1)}
+    />
+  );
 
   return (
     <div className="trainer-container">
-      {/* <h1 className="trainer-title">Словарные слова</h1> */}
-
-      <div className="trainer-controls">
-        <button onClick={reset} className="trainer-button">Сбросить</button>
-        <button onClick={() => setShowMistakes(true)} className="trainer-button">
-          Показать ошибки
-        </button>
-      </div>
-
-      <div className="trainer-stats">
-        Всего букв: <span>{stats.total}</span>,
-        верно: <span style={{ color: 'green' }}>{stats.correct}</span>,
-        ошибок: <span style={{ color: 'red' }}>{stats.wrong}</span>,
-        точность: <span>{accuracy}%</span>
-      </div>
+      <TrainerControls
+        onResetAll={() => setShowConfirmReset(true)}
+        onResetPage={resetPage}
+        onMistakes={() => setShowAllMistakes(true)}
+      />
+      {pageNav}
 
       <main className="trainer-words">
-        {words.map((word, wordIndex) => (
-          <WordInput
-            key={wordIndex}
-            word={word}
-            letterStates={letterStates[wordIndex] || []}
-            isActive={currentWord === wordIndex}
-            onInput={handleInput}
-          />
-        ))}
+        {words.slice(start, end).map((word, relIndex) => {
+          const absIndex = start + relIndex;
+          return (
+            <WordInput
+              key={absIndex}
+              word={word}
+              letterStates={letterStates[absIndex] || []}
+              isActive={currentWord === absIndex}
+              onInput={handleInput}
+            />
+          );
+        })}
       </main>
 
-      <div className="trainer-controls">
-        <button onClick={reset} className="trainer-button">Сбросить</button>
-        <button onClick={() => setShowMistakes(true)} className="trainer-button">
-          Показать ошибки
-        </button>
-      </div>
+      {pageNav}  {/* пункт 3 */}
 
-      {showMistakes && (
-        <MistakesPopup
-          mistakes={collectMistakes()}
-          onClose={() => setShowMistakes(false)}
+      {showPageMistakes && (
+        <MistakesPopup title={`Страница ${currentPage + 1} завершена`}
+          mistakes={collectPageMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="букв"
+          onClose={() => { setShowPageMistakes(false); if (currentPage < totalPages - 1) setCurrentPage(p => p + 1); }}
+        />
+      )}
+      {showAllMistakes && (
+        <MistakesPopup title="Все ошибки"
+          mistakes={collectAllMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="букв"
+          onClose={() => setShowAllMistakes(false)}
+        />
+      )}
+      {showExitMistakes && (
+        <MistakesPopup title="Все ошибки"
+          mistakes={collectAllMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="букв"
+          onClose={() => { setShowExitMistakes(false); onExit?.(); }}
+        />
+      )}
+      {showConfirmReset && (
+        <ConfirmPopup message="Начать весь тренажёр сначала?"
+          onConfirm={() => { setShowConfirmReset(false); reset(); }}
+          onCancel={() => setShowConfirmReset(false)}
         />
       )}
     </div>
   );
 }
 
-// Компонент слова с вводом
-// В DictionaryTrainer.jsx, в компоненте WordInput:
-
 function WordInput({ word, letterStates, isActive, onInput }) {
   const hiddenInputRef = useRef(null);
   const chars = [...word.lower];
   let letterIndex = 0;
-
-  function handleClick() {
-    hiddenInputRef.current?.focus();
-  }
-
+  useEffect(() => { if (isActive) hiddenInputRef.current?.focus(); }, [isActive]);
   function handleInput(e) {
     const value = e.target.value;
-    if (value && /[а-яёА-ЯЁ]/i.test(value)) {
-      onInput(value);
-    }
+    if (value && /[а-яёА-ЯЁ]/i.test(value)) onInput(value);
     e.target.value = '';
   }
-
-  useEffect(() => {
-    if (isActive) {
-      hiddenInputRef.current?.focus();
-    }
-  }, [isActive]);
-
   return (
-    <div
-      className={`trainer-word-input ${isActive ? 'trainer-word-input--active' : ''}`}
-      onClick={handleClick}
-    >
+    <div className={`trainer-word-input ${isActive ? 'trainer-word-input--active' : ''}`}
+      onClick={() => hiddenInputRef.current?.focus()}>
       {chars.map((ch, charIndex) => {
         if (word.check.includes(charIndex)) {
           const state = letterStates[letterIndex];
-
-          const className = `trainer-letter ${
-            state?.done
-              ? state.correct
-                ? 'trainer-letter--correct'
-                : 'trainer-letter--wrong'
-              : ''
-          }`;
-
+          const className = `trainer-letter ${state?.done ? (state.correct ? 'trainer-letter--correct' : 'trainer-letter--wrong') : ''}`;
           letterIndex++;
-
           return (
             <span key={charIndex} className={className}>
-              {/* Если ошибка - правильная буква сверху */}
-              {state?.done && !state.correct && (
-                <span className="trainer-letter-correct-above">{ch}</span>
-              )}
-              {/* Основная буква */}
+              {state?.done && !state.correct && <span className="trainer-letter-correct-above">{ch}</span>}
               {state?.done ? state.input : '\u00A0'}
             </span>
           );
         }
         return <span key={charIndex} className="trainer-char">{ch}</span>;
       })}
-
-      <input
-        ref={hiddenInputRef}
-        type="text"
-        className="trainer-hidden-input"
-        autoComplete="off"
-        spellCheck="false"
-        inputMode="text"
-        onInput={handleInput}
-      />
-    </div>
-  );
-}
-
-
-// Попап ошибок
-function MistakesPopup({ mistakes, onClose }) {
-  return (
-    <div className="trainer-popup-overlay" onClick={onClose}>
-      <div className="trainer-popup" onClick={e => e.stopPropagation()}>
-        <h2>Ошибки</h2>
-        <div className="trainer-mistakes-list">
-          {mistakes.length === 0 ? (
-            <div>Ошибок нет! 🎉</div>
-          ) : (
-            mistakes.map((chars, i) => (
-              <div key={i} className="trainer-mistake-word">
-                {chars.map((item, j) => (
-                  <span
-                    key={j}
-                    style={{ color: item.highlight ? 'green' : 'inherit' }}
-                  >
-                    {item.char}
-                  </span>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
-        <div className="trainer-popup-close">
-          <button onClick={onClose} className="trainer-button">Закрыть</button>
-        </div>
-      </div>
+      <input ref={hiddenInputRef} type="text" className="trainer-hidden-input"
+        autoComplete="off" spellCheck="false" inputMode="text" onInput={handleInput} />
     </div>
   );
 }

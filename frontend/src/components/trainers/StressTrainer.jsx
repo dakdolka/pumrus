@@ -1,213 +1,153 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import './trainers.css';
+import { stressWords } from './data/stressWords.js';
+import { useWordTrainer } from './hooks/useWordTrainer.js';
+import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
 
-const STORAGE_KEY = 'stress_trainer_state_v10';
+const STORAGE_KEY = 'stress_trainer_state_v11';
 const vowels = 'аеёиоуыэюя';
 
-const wordsData =  ['аэропОрты', 'бАнты', 'бОроду', 'бухгАлтеров', 'вероисповЕдание', 'водопровОд', 'газопровОд', 'граждАнство', 'дефИс', 'дешевИзна', 'диспансЕр', 'договорЕнность', 'докумЕнт', 'досУг', 'еретИк', 'жалюзИ', 'знАчимость', 'Иксы', 'каталОг', 'квартАл', 'киломЕтр', 'кОнусов', 'корЫсть', 'крАны', 'кремЕнь', 'кремнЯ', 'лЕкторов', 'лОктя', 'лыжнЯ', 'мЕстностей', 'намЕрение', 'нарОст', 'нЕдруг', 'недУг', 'некролОг', 'нЕнависть', 'нефтепровОд', 'новостЕй', 'нОгтя', 'ногтЕй', 'Отрочество', 'партЕр', 'портфЕль', 'пОручни', 'придАное', 'призЫв', 'свЕкла', 'сирОты', 'созЫв', 'сосредотОчение', 'срЕдства', 'стАтуя', 'столЯр', 'тамОжня', 'тОрты', 'тУфля', 'цемЕнт', 'цЕнтнер', 'цепОчка', 'шАрфы', 'шофЕр', 'экспЕрт', 'вернА', 'знАчимый', 'красИвее', 'красИвейший', 'кУхонный', 'ловкА', 'мозаИчный', 'оптОвый', 'прозорлИвый', 'прозорлИва', 'слИвовый', 'бралА', 'бралАсь', 'взялА', 'взялАсь', 'влилАсь', 'ворвалАсь', 'воспринЯть', 'воспринялА', 'воссоздалА', 'вручИт', 'гналА', 'гналАсь', 'добралА', 'добралАсь', 'дождалАсь', 'дозвонИтся', 'дозИровать', 'ждалА', 'жилОсь', 'закУпорить', 'занЯть', 'заперлА', 'запломбировАть', 'защемИт', 'звалА', 'звонИт', 'кАшлянуть', 'клАла', 'клЕить', 'крАлась', 'кровоточИть', 'лгалА', 'лилА', 'лилАсь', 'навралА', 'наделИт', 'надорвалАсь', 'назвалАсь', 'накренИтся', 'налилА', 'нарвалА', 'начАть', 'обзвонИт', 'облегчИть', 'облегчИт', 'облилАсь', 'обнялАсь', 'обогналА', 'ободралА', 'ободрИть', 'ободрИться', 'обострИть', 'одолжИть', 'озлОбить', 'оклЕить', 'окружИт', 'опОшлить', 'освЕдомиться', 'освЕдомится', 'отбылА', 'отдалА', 'откУпорить', 'отозвалА', 'отозвалАсь', 'перезвонИт', 'перелилА', 'плодоносИть', 'пломбировАть', 'повторИт', 'позвалА', 'позвонИт', 'полилА', 'положИть', 'понЯть', 'послАла', 'прибЫть', 'принЯть', 'рвалА', 'сверлИт', 'снялА', 'совралА', 'создалА', 'сорвалА', 'сорИт', 'убралА', 'углубИть', 'укрепИт', 'чЕрпать', 'щемИт', 'щЕлкать', 'довезЕнный', 'зАгнутый', 'зАнятый', 'зАпертый', 'заселЕнный', 'кормЯщий', 'кровоточАщий', 'нажИвший', 'налИвший', 'нанЯвшийся', 'начАвший', 'нАчатый', 'низведЕнный', 'облегчЕнный', 'ободрЕнный', 'обострЕнный', 'отключЕнный', 'повторЕнный', 'поделЕнный', 'понЯвший', 'прИнятый', 'приручЕнный', 'прожИвший', 'снятА', 'сОгнутый', 'углублЕнный', 'закУпорив', 'начАв', 'начАвшись', 'отдАв', 'поднЯв', 'понЯв', 'прибЫв', 'создАв', 'вОвремя', 'дОверху', 'донЕльзя', 'дОнизу', 'дОсуха', 'зАсветло', 'зАтемно', 'красИвее', 'надОлго', 'ненадОлго'];
-
-export function StressTrainer() {
-  const [words, setWords] = useState([]);
-  const [wordResults, setWordResults] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    correct: 0,
-    wrong: 0,
+export function StressTrainer({ onExit }) {
+  const {
+    words, wordResults, stats,
+    showPageMistakes, setShowPageMistakes,
+    showAllMistakes,  setShowAllMistakes,
+    showExitMistakes, setShowExitMistakes,
+    showConfirmReset, setShowConfirmReset,
+    reset, resetPage, updateResult,
+    collectPageMistakes, collectAllMistakes,
+    currentPage, setCurrentPage, totalPages, start, end,
+  } = useWordTrainer({
+    storageKey: STORAGE_KEY,
+    rawData: stressWords,
+    createEmptyResult: () => ({ result: 'none', clicked: [] }),
+    onExit,
   });
-  const [showMistakes, setShowMistakes] = useState(false);
 
-  // Загрузка состояния из localStorage
-  useEffect(() => {
-    const saved = loadState();
-    if (saved) {
-      setWords(saved.words);
-      setWordResults(saved.wordResults);
-      setStats({
-        total: saved.total,
-        correct: saved.correct,
-        wrong: saved.wrong,
-      });
-    } else {
-      reset();
-    }
-  }, []);
-
-  // Сохранение состояния
-  useEffect(() => {
-    saveState({ words, wordResults, ...stats });
-  }, [words, wordResults, stats]);
-
-  function shuffleArray(arr) {
-    return arr.sort(() => Math.random() - 0.5);
-  }
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function saveState(state) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
-  }
-
-  function reset() {
-    const shuffled = shuffleArray([...wordsData]);
-    setWords(shuffled);
-    setWordResults(shuffled.map(() => ({ result: 'none', clicked: [] })));
-    setStats({ total: shuffled.length, correct: 0, wrong: 0 });
-    localStorage.removeItem(STORAGE_KEY);
-  }
-
-  function handleVowelClick(wordIndex, charIndex) {
-    if (wordResults[wordIndex].result !== 'none') return;
-
-    const originalWord = words[wordIndex];
-    const chars = [...originalWord];
-    
-    // Найти ударную букву (заглавная)
+  function handleVowelClick(absIndex, charIndex) {
+    if (wordResults[absIndex]?.result !== 'none') return;
+    const chars = [...words[absIndex]];
     const correctIndex = chars.findIndex(ch => ch !== ch.toLowerCase());
     if (correctIndex === -1) return;
-
     const isCorrect = charIndex === correctIndex;
-    
-    setWordResults(prev => {
-      const newResults = [...prev];
-      newResults[wordIndex] = {
-        result: isCorrect ? 'correct' : 'wrong',
-        clicked: [...newResults[wordIndex].clicked, charIndex],
-        correctIndex,
-      };
-      return newResults;
-    });
-
-    setStats(prev => ({
-      ...prev,
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      wrong: prev.wrong + (isCorrect ? 0 : 1),
-    }));
+    updateResult(absIndex, {
+      result: isCorrect ? 'correct' : 'wrong',
+      clicked: [...(wordResults[absIndex].clicked ?? []), charIndex],
+      correctIndex,
+    }, isCorrect);
   }
 
-  function collectMistakes() {
-    return words
-      .map((word, i) => ({
-        word,
-        result: wordResults[i]?.result,
-      }))
-      .filter(item => item.result === 'wrong');
+  function renderMistake({ word }) {
+    return [...word].map((ch, j) =>
+      ch !== ch.toLowerCase()
+        ? <span key={j} style={{ color: 'green' }}>{ch}</span>
+        : <span key={j}>{ch.toLowerCase()}</span>
+    );
   }
 
-  const accuracy = stats.total ? Math.round((stats.correct / stats.total) * 100) : 0;
+  const pageNav = (
+    <PageNav currentPage={currentPage} totalPages={totalPages}
+      onPrev={() => setCurrentPage(p => p - 1)}
+      onNext={() => setCurrentPage(p => p + 1)}
+    />
+  );
 
   return (
     <div className="trainer-container">
-      {/* <h1 className="trainer-title">Орфоэпический тест</h1> */}
+      <TrainerControls
+        onResetAll={() => setShowConfirmReset(true)}
+        onResetPage={resetPage}
+        onMistakes={() => setShowAllMistakes(true)}  // пункт 4
+      />
+      {pageNav}
 
-      {/* Кнопки сверху */}
-      <div className="trainer-controls">
-        <button onClick={reset} className="trainer-button">
-          Сбросить
-        </button>
-        <button onClick={() => setShowMistakes(true)} className="trainer-button">
-          Показать ошибки
-        </button>
-      </div>
-
-      {/* Статистика */}
-      <div className="trainer-stats">
-        Всего слов: <span>{stats.total}</span>, 
-        верно: <span style={{ color: 'green' }}>{stats.correct}</span>, 
-        ошибок: <span style={{ color: 'red' }}>{stats.wrong}</span>, 
-        точность: <span>{accuracy}%</span>
-      </div>
-
-      {/* Слова */}
       <main className="trainer-words">
-        {words.map((word, wordIndex) => {
-          const result = wordResults[wordIndex];
+        {words.slice(start, end).map((word, relIndex) => {
+          const absIndex = start + relIndex;
           return (
             <WordDisplay
-              key={wordIndex}
+              key={absIndex}
               word={word}
-              result={result}
-              onVowelClick={charIndex => handleVowelClick(wordIndex, charIndex)}
+              result={wordResults[absIndex]}
+              onVowelClick={charIndex => handleVowelClick(absIndex, charIndex)}
             />
           );
         })}
       </main>
 
-      {/* Кнопки снизу */}
-      <div className="trainer-controls">
-        <button onClick={reset} className="trainer-button">
-          Сбросить
-        </button>
-        <button onClick={() => setShowMistakes(true)} className="trainer-button">
-          Показать ошибки
-        </button>
-      </div>
+      {pageNav}  {/* пункт 3 — навигация снизу */}
 
-      {/* Попап ошибок */}
-      {showMistakes && (
+      {/* Автопопап при завершении страницы — показывает ошибки страницы */}
+      {showPageMistakes && (
         <MistakesPopup
-          mistakes={collectMistakes()}
-          onClose={() => setShowMistakes(false)}
+          title={`Страница ${currentPage + 1} завершена`}
+          mistakes={collectPageMistakes()}
+          renderMistake={renderMistake}
+          stats={stats}
+          statsLabel="слов"
+          onClose={() => {
+            setShowPageMistakes(false);
+            if (currentPage < totalPages - 1) setCurrentPage(p => p + 1);
+          }}
+        />
+      )}
+      {/* Кнопка "Ошибки" — показывает все ошибки (пункт 4/5) */}
+      {showAllMistakes && (
+        <MistakesPopup
+          title="Все ошибки"
+          mistakes={collectAllMistakes()}
+          renderMistake={renderMistake}
+          stats={stats}
+          statsLabel="слов"
+          onClose={() => setShowAllMistakes(false)}
+        />
+      )}
+      {/* Попап при выходе — показывает все ошибки */}
+      {showExitMistakes && (
+        <MistakesPopup
+          title="Все ошибки"
+          mistakes={collectAllMistakes()}
+          renderMistake={renderMistake}
+          stats={stats}
+          statsLabel="слов"
+          onClose={() => { setShowExitMistakes(false); onExit?.(); }}
+        />
+      )}
+      {showConfirmReset && (
+        <ConfirmPopup
+          message="Начать весь тренажёр сначала?"
+          onConfirm={() => { setShowConfirmReset(false); reset(); }}
+          onCancel={() => setShowConfirmReset(false)}
         />
       )}
     </div>
   );
 }
 
-// Компонент отображения слова
 function WordDisplay({ word, result, onVowelClick }) {
   const chars = [...word];
   const correctIndex = chars.findIndex(ch => ch !== ch.toLowerCase());
-
   return (
-    <div 
-      className={`trainer-word-display ${result?.result !== 'none' ? 'trainer-word-display--done' : ''}`}
-    >
+    <div className={`trainer-word-display ${result?.result !== 'none' ? 'trainer-word-display--done' : ''}`}>
       {chars.map((ch, charIndex) => {
         const lowerCh = ch.toLowerCase();
-        const isVowel = vowels.includes(lowerCh);
-        
-        if (!isVowel) {
-          return <span key={charIndex} className="trainer-char">{lowerCh}</span>;
-        }
-
-        const isCorrect = charIndex === correctIndex;
-        const wasClicked = result?.clicked?.includes(charIndex);
+        if (!vowels.includes(lowerCh)) return <span key={charIndex} className="trainer-char">{lowerCh}</span>;
+        const isCorrect    = charIndex === correctIndex;
+        const wasClicked   = result?.clicked?.includes(charIndex);
         const isWrongClick = wasClicked && !isCorrect && result?.result === 'wrong';
-        
         let displayChar = lowerCh;
-        let className = 'trainer-vowel-slot';
-
+        let className   = 'trainer-vowel-slot';
         if (result?.result === 'correct' && isCorrect) {
-          className += ' trainer-vowel-slot--correct';
-          displayChar = lowerCh.toUpperCase();
+          className += ' trainer-vowel-slot--correct'; displayChar = lowerCh.toUpperCase();
         } else if (result?.result === 'wrong') {
-          if (isWrongClick) {
-            className += ' trainer-vowel-slot--wrong';
-            // 🆕 НЕ дублируем букву - просто зачёркиваем
-          } else if (isCorrect) {
-            className += ' trainer-vowel-slot--correct';
-            displayChar = lowerCh.toUpperCase();
-          }
+          if (isWrongClick) className += ' trainer-vowel-slot--wrong';
+          else if (isCorrect) { className += ' trainer-vowel-slot--correct'; displayChar = lowerCh.toUpperCase(); }
         } else {
           className += ' trainer-vowel-slot--clickable';
         }
-
         return (
-          <span
-            key={charIndex}
-            className={className}
-            onClick={() => result?.result === 'none' && onVowelClick(charIndex)}
-          >
-            {/* 🆕 Зачёркивание через CSS */}
+          <span key={charIndex} className={className}
+            onClick={() => result?.result === 'none' && onVowelClick(charIndex)}>
             {displayChar}
           </span>
         );
@@ -215,40 +155,3 @@ function WordDisplay({ word, result, onVowelClick }) {
     </div>
   );
 }
-
-// Попап ошибок
-function MistakesPopup({ mistakes, onClose }) {
-  return (
-    <div className="trainer-popup-overlay" onClick={onClose}>
-      <div className="trainer-popup" onClick={e => e.stopPropagation()}>
-        <h2>Ошибки</h2>
-        <div className="trainer-mistakes-list">
-          {mistakes.length === 0 ? (
-            <div>Ошибок нет! 🎉</div>
-          ) : (
-            mistakes.map(({ word }, i) => {
-              const chars = [...word];
-              return (
-                <div key={i} className="trainer-mistake-word">
-                  {chars.map((ch, j) => {
-                    if (ch !== ch.toLowerCase()) {
-                      return <span key={j} style={{ color: 'green' }}>{ch}</span>;
-                    }
-                    return <span key={j}>{ch.toLowerCase()}</span>;
-                  })}
-                </div>
-              );
-            })
-          )}
-        </div>
-        <div className="trainer-popup-close">
-          <button onClick={onClose} className="trainer-button">
-            Закрыть
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
