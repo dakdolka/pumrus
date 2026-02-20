@@ -28,7 +28,11 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
   useEffect(() => {
     const saved = loadState(storageKey);
     if (saved) {
-      setWords(saved.words ?? []);
+      // нормализуем на случай старого формата (строки)
+      const loadedWords = (saved.words ?? []).map(item =>
+        typeof item === 'string' ? { question: item, answer: item } : item
+      );
+      setWords(loadedWords);
       setWordResults(saved.wordResults ?? []);
       setStats({
         total:   saved.total   ?? 0,
@@ -85,13 +89,23 @@ export function useWordTrainer({ storageKey, rawData, createEmptyResult, onExit 
   function _reset() {
     if (!rawData?.length) return;
     const shuffled = shuffleArray([...rawData]);
-    setWords(shuffled);
-    setWordResults(shuffled.map(() => createEmptyResult()));
-    setStats({ total: shuffled.length, correct: 0, wrong: 0 });
+
+    const normalized = shuffled.map(item => {
+      // если строка — делаем объект с question/answer
+      if (typeof item === 'string') {
+        return { question: item, answer: item };
+      }
+      return item;
+    });
+
+    setWords(normalized);
+    setWordResults(normalized.map(() => createEmptyResult()));
+    setStats({ total: normalized.length, correct: 0, wrong: 0 });
     setCurrentPage(0);
     resetShownPages();
     localStorage.removeItem(storageKey);
   }
+
 
   function resetPage() {
     let pageCorrect = 0, pageWrong = 0;

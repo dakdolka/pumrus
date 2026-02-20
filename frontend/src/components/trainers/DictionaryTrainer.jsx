@@ -1,38 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import './trainers.css';
 import { dictionaryWords } from './data/dictionaryWords.js';
-import { useWordTrainer } from './hooks/useWordTrainer.js';
+import { useLetterTrainer } from './hooks/useLetterTrainer.js';
 import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
 
-const STORAGE_KEY = 'dictionary_trainer_state_v3';
+const STORAGE_KEY = 'dictionary_trainer_state_v4';
 
-function normalize(str) {
-  return str.trim().toLowerCase().replace(/ё/g, 'е');
+// заглавная буква = проверяемая, строчная = показываем как есть
+function parseWord(word) {
+  const chars = [...word];
+  const check = [];
+  chars.forEach((ch, i) => {
+    if (ch.match(/[А-ЯЁ]/)) check.push(i);
+  });
+  return { original: word, lower: word.toLowerCase(), check };
 }
 
 export function DictionaryTrainer({ onExit, exitRef }) {
-  const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef(null);
+  const activeRef = useRef(null);
 
   const {
-    words, wordResults, stats,
+    words, letterStates, stats,
+    currentWord, setCurrentWord,
+    currentLetter, setCurrentLetter,
     showPageMistakes, setShowPageMistakes,
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
     isExiting, setIsExiting,
     showConfirmReset, setShowConfirmReset,
-    reset, resetPage, updateResult,
+    reset, resetPage, focusFirstEmpty, updateLetterState,
     collectPageMistakes, collectAllMistakes,
     triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
-  } = useWordTrainer({
+  } = useLetterTrainer({
     storageKey: STORAGE_KEY,
     rawData: dictionaryWords,
-    createEmptyResult: () => ({ result: 'none', value: '' }),
+    parseWord,
     onExit,
   });
 
-  // даём App доступ к triggerExit для кнопки в шапке
   useEffect(() => {
     if (exitRef) exitRef.current = triggerExit;
     return () => { if (exitRef) exitRef.current = null; };
@@ -40,54 +47,71 @@ export function DictionaryTrainer({ onExit, exitRef }) {
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [activeIndex, currentPage]);
+  }, [currentWord, currentLetter, currentPage]);
 
   useEffect(() => {
-    const first = wordResults.findIndex((r, i) => i >= start && i < end && r?.result === 'none');
-    setActiveIndex(first !== -1 ? first : start);
-  }, [currentPage]);
+    activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [currentWord]);
 
-  function handleChange(e) {
-    const value = e.target.value;
-    const word  = words[activeIndex];
-    if (!word) return;
+  function handleInput(e) {
+    const raw = e.target.value;
+    if (!raw) return;
 
-    const isCorrect = normalize(value) === normalize(word.answer);
-    const newResult = {
-      result: isCorrect ? 'correct' : 'none',
-      value,
-    };
+    // берём последний введённый символ
+    const letter = raw[raw.length - 1];
+    e.target.value = '';
 
-    updateResult(activeIndex, newResult, isCorrect);
+    handleChoice(letter);
   }
 
-  function handleKeyDown(e) {
-    if (e.key === 'Enter') {
-      const word  = words[activeIndex];
-      const state = wordResults[activeIndex];
-      if (!word || !state) return;
+  function handleChoice(letter) {
+    if (currentWord >= words.length) return;
+    const word    = words[currentWord];
+    const letters = letterStates[currentWord];
+    if (!letters || currentLetter >= letters.length || letters[currentLetter].done) {
+      focusFirstEmpty();
+      return;
+    }
 
-      const isCorrect = normalize(state.value) === normalize(word.answer);
-      const finalResult = {
-        result: isCorrect ? 'correct' : 'wrong',
-        value: state.value,
-      };
-      const updated = updateResult(activeIndex, finalResult, isCorrect);
+    const charIndex   = word.check[currentLetter];
+    const correctChar = word.lower[charIndex];
+    const isCorrect   = letter.toLowerCase() === correctChar.toLowerCase();
 
-      let next = updated.findIndex((r, i) => i > activeIndex && i < end && r.result === 'none');
-      if (next === -1) next = updated.findIndex((r, i) => i >= start && i < end && r.result === 'none');
-      if (next !== -1) setActiveIndex(next);
+    const newStates = updateLetterState(
+      currentWord, currentLetter,
+      { done: true, correct: isCorrect, input: letter.toLowerCase() },
+      isCorrect
+    );
+
+    // переходим к следующей незаполненной букве
+    const nextLetter = currentLetter + 1;
+    if (nextLetter < letters.length) {
+      setCurrentLetter(nextLetter);
+      return;
+    }
+    // следующее незаполненное слово
+    for (let w = currentWord + 1; w < end; w++) {
+      if (newStates[w]?.some(ls => !ls.done)) {
+        setCurrentWord(w);
+        setCurrentLetter(0);
+        return;
+      }
+    }
+    for (let w = start; w < currentWord; w++) {
+      if (newStates[w]?.some(ls => !ls.done)) {
+        setCurrentWord(w);
+        setCurrentLetter(0);
+        return;
+      }
     }
   }
 
-  function renderMistake({ word }) {
-    return (
-      <>
-        <span>{word.question}</span>
-        {' — '}
-        <span style={{ color: 'green' }}>{word.answer}</span>
-      </>
-    );
+  function renderMistake(chars) {
+    return chars.map((item, j) => (
+      <span key={j} style={{ color: item.highlight ? 'green' : 'inherit' }}>
+        {item.char}
+      </span>
+    ));
   }
 
   const pageNav = (
@@ -108,36 +132,34 @@ export function DictionaryTrainer({ onExit, exitRef }) {
       />
       {pageNav}
 
-      <main className="trainer-words">
-        <input
-          ref={inputRef}
-          className="trainer-hidden-input"
-          value={wordResults[activeIndex]?.value ?? ''}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-        />
-        {words.slice(start, end).map((entry, relIndex) => {
-          const absIndex = start + relIndex;
-          const state    = wordResults[absIndex];
-          const done     = state?.result !== 'none';
-          let cls        = 'trainer-word-input';
-          if (absIndex === activeIndex && !done) cls += ' trainer-word-input--active';
-          if (done && state.result === 'correct') cls += ' trainer-word-input--correct';
-          if (done && state.result === 'wrong')   cls += ' trainer-word-input--wrong';
+      {/* скрытый инпут для ввода с клавиатуры */}
+      <input
+        ref={inputRef}
+        className="trainer-hidden-input"
+        onInput={handleInput}
+        readOnly={false}
+      />
 
+      <main className="trainer-words">
+        {words.slice(start, end).map((word, relIndex) => {
+          const absIndex = start + relIndex;
           return (
-            <div
+            <WordInput
               key={absIndex}
-              className={cls}
+              word={word}
+              letterStates={letterStates[absIndex] || []}
+              isActive={currentWord === absIndex}
+              innerRef={currentWord === absIndex ? activeRef : null}
               onClick={() => {
-                if (state?.result === 'none') {
-                  setActiveIndex(absIndex);
+                if (letterStates[absIndex]?.some(ls => !ls.done)) {
+                  setCurrentWord(absIndex);
+                  setCurrentLetter(
+                    letterStates[absIndex].findIndex(ls => !ls.done)
+                  );
                   setTimeout(() => inputRef.current?.focus(), 0);
                 }
               }}
-            >
-              <span className="trainer-char">{entry.question}</span>
-            </div>
+            />
           );
         })}
       </main>
@@ -150,23 +172,25 @@ export function DictionaryTrainer({ onExit, exitRef }) {
           mistakes={collectPageMistakes()}
           renderMistake={renderMistake}
           stats={stats}
-          statsLabel="слов"
+          statsLabel="букв"
           onClose={() => {
             setShowPageMistakes(false);
             if (currentPage < totalPages - 1) setCurrentPage(p => p + 1);
           }}
         />
       )}
+
       {showAllMistakes && (
         <MistakesPopup
           title="Все ошибки"
           mistakes={collectAllMistakes()}
           renderMistake={renderMistake}
           stats={stats}
-          statsLabel="слов"
+          statsLabel="букв"
           onClose={() => setShowAllMistakes(false)}
         />
       )}
+
       {showExitMistakes && (
         <MistakesPopup
           title="Все ошибки"
@@ -184,6 +208,7 @@ export function DictionaryTrainer({ onExit, exitRef }) {
           }}
         />
       )}
+
       {showConfirmReset && (
         <ConfirmPopup
           message="Начать весь тренажёр сначала?"
@@ -191,6 +216,43 @@ export function DictionaryTrainer({ onExit, exitRef }) {
           onCancel={() => setShowConfirmReset(false)}
         />
       )}
+    </div>
+  );
+}
+
+function WordInput({ word, letterStates, isActive, innerRef, onClick }) {
+  const chars = [...word.lower];
+  return (
+    <div
+      ref={innerRef}
+      className={`trainer-word-input${isActive ? ' trainer-word-input--active' : ''}`}
+      onClick={onClick}
+    >
+      {chars.map((ch, charIndex) => {
+        const checkIdx = word.check.indexOf(charIndex);
+
+        // обычная буква — просто показываем
+        if (checkIdx === -1) {
+          return <span key={charIndex} className="trainer-char">{ch}</span>;
+        }
+
+        // проверяемая буква
+        const ls = letterStates[checkIdx];
+        let cls  = 'trainer-letter';
+        let display = '';
+        if (ls?.done) {
+          cls += ls.correct ? ' trainer-letter--correct' : ' trainer-letter--wrong';
+          display = ls.input;
+        }
+        return (
+          <span key={charIndex} className={cls}>
+            {ls?.done && !ls.correct && (
+              <span className="trainer-letter-correct-above">{ch}</span>
+            )}
+            {display}
+          </span>
+        );
+      })}
     </div>
   );
 }
