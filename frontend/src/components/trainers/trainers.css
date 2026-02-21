@@ -1,10 +1,8 @@
 @import url('/src/static.css');
 
-
 /* ============================================================
    ОБЩИЕ СТИЛИ ТРЕНАЖЁРОВ
    ============================================================ */
-
 
 .trainer-container {
   width: 90%;
@@ -16,9 +14,7 @@
   box-sizing: border-box;
 }
 
-
 /* ── Кнопки управления ───────────────────────────────────── */
-
 
 .trainer-controls {
   display: flex;
@@ -44,7 +40,9 @@
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.4s ease, border-color 0.4s ease, transform 0.4s ease;
+  /* ↓ было 0.4s — приведено к общему 0.2s */
+  transition: background 0.2s ease, border-color 0.2s ease,
+              transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -53,7 +51,8 @@
   font-size: 15px;
 }
 
-.trainer-button:active {
+.trainer-button:active,
+.trainer-button.is-pressed {
   background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
   border-color: var(--active-color);
   transform: translateY(1px);
@@ -64,9 +63,7 @@
   outline: none;
 }
 
-
 /* ── Пагинация ───────────────────────────────────────────── */
-
 
 .trainer-page-nav {
   display: flex;
@@ -85,9 +82,7 @@
   opacity: 0.7;
 }
 
-
 /* ── Статистика ──────────────────────────────────────────── */
-
 
 .trainer-stats {
   text-align: center;
@@ -104,14 +99,13 @@
 .trainer-words {
   margin: 20px 0;
   box-sizing: border-box;
-  overflow-x: hidden;
+  /* ↓ убран overflow-x: hidden — он блокировал scrollIntoView */
+  overflow: visible;
 }
-
 
 /* ============================================================
    ОРФОЭПИЯ (УДАРЕНИЯ)
    ============================================================ */
-
 
 .trainer-word-display {
   font-size: 1.8em;
@@ -153,11 +147,9 @@
   background: color-mix(in srgb, var(--exception-color) 10%, transparent);
 }
 
-
 /* ============================================================
    ПРЕ/ПРИ И СЛОВАРНЫЕ
    ============================================================ */
-
 
 .trainer-word-input {
   font-size: 1.8em;
@@ -165,12 +157,28 @@
   padding: 6px 12px;
   cursor: text;
   position: relative;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  /* ↓ добавлены transform и box-shadow как у .element */
+  transition: background 0.2s ease, border-color 0.2s ease,
+              transform 0.2s ease, box-shadow 0.2s ease;
   border-radius: var(--border-size);
   border: 2px solid transparent;
   word-break: break-word;
   box-sizing: border-box;
   line-height: 1.4;
+  overflow: hidden;
+}
+
+/* ↓ акцентная полоска слева — как у .element::before */
+.trainer-word-input::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--active-color);
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .trainer-word-input--active {
@@ -178,9 +186,13 @@
   border-color: var(--active-color);
 }
 
+.trainer-word-input--active::before {
+  opacity: 1;
+}
+
 .trainer-letter {
   display: inline-block;
-  width: 1.3ch;
+  min-width: 1.6ch;
   text-align: center;
   border-bottom: 2px solid color-mix(in srgb, var(--text-color) 35%, transparent);
   margin: 0 2px;
@@ -226,11 +238,9 @@
   pointer-events: none;
 }
 
-
 /* ============================================================
    ПОПАП
    ============================================================ */
-
 
 .trainer-popup-overlay {
   position: fixed;
@@ -275,14 +285,23 @@
   word-break: break-word;
 }
 
+/* ↓ теперь как theory__example--fieldset: hover со сдвигом */
 .trainer-mistake-word {
   margin: 8px 0;
   font-size: 1.5em;
   padding: 8px 12px;
-  background: color-mix(in srgb, var(--text-color) 5%, transparent);
+  background: color-mix(in srgb, var(--block-color) 90%, transparent);
   border-radius: var(--border-size);
-  border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10);
   word-break: break-word;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.trainer-mistake-word:hover {
+  transform: translateX(2px);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+  border-color: color-mix(in srgb, var(--active-color) 35%, transparent);
 }
 
 .trainer-popup-close {
@@ -292,11 +311,9 @@
   gap: 10px;
 }
 
-
 /* ============================================================
    14 ЗАДАНИЕ — СЛИТНО / РАЗДЕЛЬНО
    ============================================================ */
-
 
 .spelling-trainer-container {
   padding-bottom: 160px;
@@ -312,7 +329,7 @@
   font-size: 1.1rem;
   font-family: var(--text-font);
   color: var(--text-color);
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .spelling-item--active {
@@ -372,10 +389,12 @@
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.4s ease, border-color 0.4s ease, transform 0.4s ease;
+  transition: background 0.2s ease, border-color 0.2s ease,
+              transform 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
-.spelling-key:active:not(:disabled) {
+.spelling-key:active:not(:disabled),
+.spelling-key.is-pressed {
   background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
   border-color: var(--active-color);
   transform: scale(0.96);
@@ -391,44 +410,51 @@
   cursor: default;
 }
 
-
 /* ============================================================
    HOVER — только на устройствах с настоящим курсором
    ============================================================ */
-
-.trainer-button.is-pressed {
-  background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
-  border-color: var(--active-color);
-  transform: translateY(1px);
-}
-
-.spelling-key.is-pressed {
-  background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
-  border-color: var(--active-color);
-  transform: scale(0.96);
-}
-
 
 @media (hover: hover) {
   .trainer-word-display:hover {
     background: color-mix(in srgb, var(--text-color) 4%, transparent);
   }
 
-  .trainer-word-input:hover {
+  /* ↓ hover как у .element: подъём + полоска */
+  .trainer-word-input:hover:not(.trainer-word-input--active) {
     background: color-mix(in srgb, var(--text-color) 4%, transparent);
+    border-color: color-mix(in srgb, var(--active-color) 35%, transparent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+
+  .trainer-word-input:hover:not(.trainer-word-input--active)::before {
+    opacity: 0.5;
   }
 
   .trainer-vowel-slot--clickable:hover {
     background: color-mix(in srgb, var(--active-color) 18%, transparent);
     transform: scale(1.1);
   }
-}
 
+  /* ↓ добавлен hover для кнопок — раньше его не было вовсе */
+  .trainer-button:hover {
+    background: color-mix(in srgb, var(--active-color) 12%, var(--block-color));
+    border-color: var(--active-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+
+  .spelling-key:not(:disabled):hover {
+    background: color-mix(in srgb, var(--active-color) 12%, var(--block-color));
+    border-color: var(--active-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  }
+}
 
 /* ============================================================
    АДАПТИВНОСТЬ
    ============================================================ */
-
 
 @media (max-width: 600px) {
   .trainer-container {
@@ -476,18 +502,38 @@
   }
 }
 
-
 * { box-sizing: border-box; }
 .trainer-container * { max-width: 100%; }
-
 
 /* ============================================================
    СВЕТЛАЯ ТЕМА
    ============================================================ */
 
-
 body.theme--light .trainer-stats {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+}
+
+/* ↓ новое */
+body.theme--light .trainer-button {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--active-color) 35%, transparent);
+}
+
+body.theme--light .trainer-button:hover {
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 25%, transparent);
+}
+
+/* ↓ новое */
+body.theme--light .trainer-word-input {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+body.theme--light .trainer-word-input--active {
+  border-color: var(--active-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--active-color) 25%, transparent),
+              0 3px 10px color-mix(in srgb, var(--active-color) 15%, transparent);
 }
 
 body.theme--light .trainer-popup {
@@ -495,7 +541,9 @@ body.theme--light .trainer-popup {
 }
 
 body.theme--light .trainer-mistake-word {
-  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+  background: color-mix(in srgb, var(--text-color) 3%, #ffffff);
+  border-color: color-mix(in srgb, var(--text-color) 10%, transparent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 body.theme--light .trainer-vowel-slot--correct {
@@ -514,6 +562,7 @@ body.theme--light .trainer-letter-correct-above {
 
 body.theme--light .spelling-item {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-color: color-mix(in srgb, var(--text-color) 10%, transparent);
 }
 
 body.theme--light .spelling-item--active {
@@ -526,11 +575,22 @@ body.theme--light .spelling-item--correct {
   background: color-mix(in srgb, rgba(56, 176, 120, 0.9) 7%, #ffffff);
 }
 
+/* ↓ новое */
+body.theme--light .spelling-key {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+body.theme--light .spelling-key:not(:disabled):hover {
+  box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 25%, transparent);
+}
+
+body.theme--light .spelling-keyboard {
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
 
 /* ============================================================
    АНИМАЦИИ
    ============================================================ */
-
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-8px); }

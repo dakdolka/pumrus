@@ -50,8 +50,26 @@ export function DictionaryTrainer({ onExit, exitRef }) {
   }, [currentWord, currentLetter, currentPage]);
 
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, [currentWord]);
+    if (!activeRef.current) return;
+
+    const el = activeRef.current;
+    const vv = window.visualViewport;
+
+    if (vv) {
+      // rect.top — позиция элемента относительно видимой области
+      const rect = el.getBoundingClientRect();
+      // центр видимой области (без клавиатуры)
+      const visibleCenter = vv.height / 2;
+      const elementCenter = rect.top + rect.height / 2;
+      window.scrollBy({
+        top: elementCenter - visibleCenter,
+        behavior: 'smooth',
+      });
+    } else {
+      // fallback для браузеров без visualViewport
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [currentWord, currentPage]);
 
   function handleInput(e) {
     const raw = e.target.value;
