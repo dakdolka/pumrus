@@ -1,10 +1,12 @@
 import React from 'react';
 
-// blur после клика — сбрасывает выделение кнопки (пункт 6)
+
 const b = e => e.currentTarget.blur();
 
+
 export function TrainerStats({ stats, label = 'слов' }) {
-  const accuracy = stats.total ? Math.round((stats.correct / stats.total) * 100) : 0;
+  const answered = stats.correct + stats.wrong;
+  const accuracy = answered > 0 ? Math.round((stats.correct / answered) * 100) : 0;
   return (
     <div className="trainer-stats">
       Всего {label}: <span>{stats.total}</span>,{' '}
@@ -15,7 +17,7 @@ export function TrainerStats({ stats, label = 'слов' }) {
   );
 }
 
-// Компактные кнопки управления (пункт 2)
+
 export function TrainerControls({ onResetAll, onResetPage, onMistakes }) {
   return (
     <div className="trainer-controls trainer-controls--compact">
@@ -25,6 +27,7 @@ export function TrainerControls({ onResetAll, onResetPage, onMistakes }) {
     </div>
   );
 }
+
 
 export function PageNav({ currentPage, totalPages, onPrev, onNext }) {
   return (
@@ -36,8 +39,7 @@ export function PageNav({ currentPage, totalPages, onPrev, onNext }) {
   );
 }
 
-// stats теперь отображается внутри попапа (пункт 1)
-// renderMistake(item) → JSX
+
 export function MistakesPopup({
   mistakes,
   onClose,
@@ -67,7 +69,7 @@ export function MistakesPopup({
             onClick={e => { b(e); onClose(); }}
             className="trainer-button"
           >
-            {isExit ? 'Выйти' : 'Закрыть'}   {/* текст для ясности */}
+            {isExit ? 'Выйти' : 'Закрыть'}
           </button>
         </div>
       </div>

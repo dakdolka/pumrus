@@ -4,9 +4,10 @@ import { dictionaryWords } from './data/dictionaryWords.js';
 import { useLetterTrainer } from './hooks/useLetterTrainer.js';
 import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
 
+
 const STORAGE_KEY = 'dictionary_trainer_state_v4';
 
-// заглавная буква = проверяемая, строчная = показываем как есть
+
 function parseWord(word) {
   const chars = [...word];
   const check = [];
@@ -16,9 +17,22 @@ function parseWord(word) {
   return { original: word, lower: word.toLowerCase(), check };
 }
 
+
+function getScrollParent(el) {
+  let node = el.parentElement;
+  while (node) {
+    const { overflow, overflowY } = window.getComputedStyle(node);
+    if (/(auto|scroll)/.test(overflow + overflowY)) return node;
+    node = node.parentElement;
+  }
+  return document.documentElement;
+}
+
+
 export function DictionaryTrainer({ onExit, exitRef }) {
   const inputRef = useRef(null);
   const activeRef = useRef(null);
+
 
   const {
     words, letterStates, stats,
@@ -40,47 +54,55 @@ export function DictionaryTrainer({ onExit, exitRef }) {
     onExit,
   });
 
+
   useEffect(() => {
     if (exitRef) exitRef.current = triggerExit;
     return () => { if (exitRef) exitRef.current = null; };
   }, [exitRef, triggerExit]);
 
+
   useEffect(() => {
     inputRef.current?.focus();
   }, [currentWord, currentLetter, currentPage]);
+
 
   useEffect(() => {
     if (!activeRef.current) return;
 
     const el = activeRef.current;
-    const vv = window.visualViewport;
 
-    if (vv) {
-      // rect.top — позиция элемента относительно видимой области
-      const rect = el.getBoundingClientRect();
-      // центр видимой области (без клавиатуры)
-      const visibleCenter = vv.height / 2;
-      const elementCenter = rect.top + rect.height / 2;
-      window.scrollBy({
-        top: elementCenter - visibleCenter,
-        behavior: 'smooth',
-      });
-    } else {
-      // fallback для браузеров без visualViewport
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    function scrollToCenter() {
+      if (!activeRef.current) return;
+      const vv        = window.visualViewport;
+      const container = getScrollParent(activeRef.current);
+      const rect      = activeRef.current.getBoundingClientRect();
+      const elCenter  = rect.top + rect.height / 2;
+      const visibleH  = vv ? vv.height : window.innerHeight;
+      container.scrollBy({ top: elCenter - visibleH / 2, behavior: 'smooth' });
     }
+
+    // сразу — если клавиатура уже открыта
+    const timer = setTimeout(scrollToCenter, 50);
+
+    // когда клавиатура дооткрылась — досчитываем заново
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', scrollToCenter);
+
+    return () => {
+      clearTimeout(timer);
+      vv?.removeEventListener('resize', scrollToCenter);
+    };
   }, [currentWord, currentPage]);
+
 
   function handleInput(e) {
     const raw = e.target.value;
     if (!raw) return;
-
-    // берём последний введённый символ
     const letter = raw[raw.length - 1];
     e.target.value = '';
-
     handleChoice(letter);
   }
+
 
   function handleChoice(letter) {
     if (currentWord >= words.length) return;
@@ -101,13 +123,11 @@ export function DictionaryTrainer({ onExit, exitRef }) {
       isCorrect
     );
 
-    // переходим к следующей незаполненной букве
     const nextLetter = currentLetter + 1;
     if (nextLetter < letters.length) {
       setCurrentLetter(nextLetter);
       return;
     }
-    // следующее незаполненное слово
     for (let w = currentWord + 1; w < end; w++) {
       if (newStates[w]?.some(ls => !ls.done)) {
         setCurrentWord(w);
@@ -124,6 +144,7 @@ export function DictionaryTrainer({ onExit, exitRef }) {
     }
   }
 
+
   function renderMistake(chars) {
     return chars.map((item, j) => (
       <span key={j} style={{ color: item.highlight ? 'green' : 'inherit' }}>
@@ -131,6 +152,7 @@ export function DictionaryTrainer({ onExit, exitRef }) {
       </span>
     ));
   }
+
 
   const pageNav = (
     <PageNav
@@ -141,6 +163,7 @@ export function DictionaryTrainer({ onExit, exitRef }) {
     />
   );
 
+
   return (
     <div className="trainer-container">
       <TrainerControls
@@ -150,7 +173,6 @@ export function DictionaryTrainer({ onExit, exitRef }) {
       />
       {pageNav}
 
-      {/* скрытый инпут для ввода с клавиатуры */}
       <input
         ref={inputRef}
         className="trainer-hidden-input"
@@ -238,6 +260,7 @@ export function DictionaryTrainer({ onExit, exitRef }) {
   );
 }
 
+
 function WordInput({ word, letterStates, isActive, innerRef, onClick }) {
   const chars = [...word.lower];
   return (
@@ -249,12 +272,10 @@ function WordInput({ word, letterStates, isActive, innerRef, onClick }) {
       {chars.map((ch, charIndex) => {
         const checkIdx = word.check.indexOf(charIndex);
 
-        // обычная буква — просто показываем
         if (checkIdx === -1) {
           return <span key={charIndex} className="trainer-char">{ch}</span>;
         }
 
-        // проверяемая буква
         const ls = letterStates[checkIdx];
         let cls  = 'trainer-letter';
         let display = '';
