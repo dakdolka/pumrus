@@ -1,113 +1,276 @@
+## Request flow diagrams
+
+<table>
+<tr>
+<td>
+
+<b>Получение теории</b>
+
 ```mermaid
-flowchart LR
-    %% ========== LEGEND ==========
-    subgraph Legend["PUMRUS Backend DDD layers"]
-        L1[Interface Layer\napp/api/theory]
-        L2[Application Layer\napp/core/theory/use_cases.py]
-        L3[Domain Layer\napp/core/theory\nentities.py, enums.py,\nrepository.py]
-        L4[Infrastructure Layer\napp/infra/theory\nmodels.py, repository_impl.py]
-        L5[Core and DB\napp/core/db.py,\napp/core/config.py,\napp/main.py, app/scripts]
-    end
+flowchart TB
+    Client[Client]
 
-    %% ========== INTERFACE LAYER ==========
-    subgraph InterfaceLayer["Interface Layer"]
-        R[router.py\nFastAPI endpoints]
-        S[schemas.py\nPydantic DTO\nrequests and responses]
-        C[crud.py\noptional\nCRUD helpers]
-    end
+    Client --> GET_THEORY[GET /api/theory/get_theory]
 
-    %% ========== DOMAIN LAYER ==========
-    subgraph DomainLayer["Domain Layer"]
-        E[entities.py\nTheory\nTheoryBlock\nTaskTheory\nTaskTheoryGroup\nTaskTheoryWithOrder]
-        EN[enums.py\nBlockType\nTheoryType\nTheorySubject]
-        RI[repository.py\nITheoryRepository\nabstraction for data access]
-    end
+    GET_THEORY --> Router[router.py
+endpoint get_theory]
+    Router --> Schemas_Resp[schemas.py
+TheoryResponse
+TheoryBlockResponse]
 
-    %% ========== APPLICATION LAYER ==========
-    subgraph ApplicationLayer["Application Layer"]
-        UC_CreateTheory[CreateTheoryBaseUseCase\ncreate theory]
-        UC_GetTheory[GetTheoryByIdUseCase\nget theory with blocks]
-        UC_AllTheory[GetAllTheoriesForSubjectUseCase\nall theory for subject]
-        UC_AllDop[GetAllTheoryDopInfoUseCase\nextra theory info]
+    Router --> UC_GetTheory[GetTheoryByIdUseCase]
 
-        UC_Block[Create Update Delete\nTheoryBlockUseCase\nmanage blocks]
-        UC_TaskGroup[Create Update Delete\nTaskTheoryGroupUseCase\ntask groups]
-        UC_Task[Create Update Delete\nTaskTheoryUseCase\ntasks]
-        UC_Links[UpdateTaskTheoryLinksUseCase\nlinks between task and theories]
-    end
+    UC_GetTheory --> Domain_Theory[entities.py
+Theory
+TheoryBlock]
+    UC_GetTheory --> RepoPort[repository.py
+ITheoryRepository]
 
-    %% ========== INFRASTRUCTURE LAYER ==========
-    subgraph InfraLayer["Infrastructure Layer"]
-        M[models.py\nTheoryBD\nTheoryBlockBD\nTaskTheoryGroupBD\nTaskTheoryBD\nTaskTheoryAssociation\nTheorySubjectBD\nTheoryTypeBD\ntheory2theory_type table]
-        RImpl[repository_impl.py\nTheoryRepositoryImpl\nSQLAlchemy async\nCRUD and mapping\nDomain to ORM]
-    end
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Theory[models.py
+TheoryBD
+TheoryBlockBD]
+    Orm_Theory --> DbCore[db.py
+AsyncSession
+MySQL]
 
-    %% ========== CORE / DB / MAIN / SCRIPTS ==========
-    subgraph CoreLayer["Core and DB"]
-        CFG[config.py\nsettings]
-        DB[db.py\nasync_engine\nasync_session_factory\nBase]
-    end
+    DbCore --> Orm_Theory
+    Orm_Theory --> RepoImpl
+    RepoImpl --> UC_GetTheory
+    UC_GetTheory --> Router
+    Router --> Client
+</td> <td>
+<b>Создание теории</b>
 
-    subgraph AppLayer["FastAPI App"]
-        MAIN[main.py\nFastAPI app\nlifespan\nCORS\nrouters\ncreate_all]
-    end
+text
+flowchart TB
+    Client[Client]
 
-    subgraph ScriptsLayer["Scripts"]
-        CR[create.py\ninit database schema\ncreate_all]
-        PT[parse_theory.py\nparse txt\ncreate theories\nblocks and tasks\nlegacy]
-    end
+    Client --> POST_THEORY[POST /api/theory]
 
-    %% ========== REQUEST FLOW ==========
-    Client(("Client\nFrontend or API consumer")) -->|HTTP JSON\nGET POST PUT| R
+    POST_THEORY --> Router[router.py
+endpoint create_theory]
+    Router --> Schemas_Req[schemas.py
+TheoryCreateRequest]
 
-    %% Interface → Application
-    R -->|validation\nwith Pydantic DTO| S
-    R -->|call use case| UC_CreateTheory
-    R --> UC_GetTheory
-    R --> UC_AllTheory
-    R --> UC_AllDop
-    R --> UC_Block
-    R --> UC_TaskGroup
-    R --> UC_Task
-    R --> UC_Links
-    C -->|optional\nCRUD helpers| UC_GetTheory
+    Router --> UC_CreateTheory[CreateTheoryBaseUseCase]
 
-    %% Application → Domain
-    UC_CreateTheory -->|works with\nDomain Entities| E
-    UC_GetTheory --> E
-    UC_AllTheory --> E
-    UC_AllDop --> E
-    UC_Block --> E
-    UC_TaskGroup --> E
-    UC_Task --> E
-    UC_Links --> E
-    EN --> E
+    UC_CreateTheory --> Domain_Create[entities.py
+Theory]
+    UC_CreateTheory --> DomainEnums[enums.py
+TheorySubject
+TheoryType]
+    UC_CreateTheory --> RepoPort[repository.py
+ITheoryRepository]
 
-    %% Application → Repository
-    UC_CreateTheory -->|through repository\ninterface| RI
-    UC_GetTheory --> RI
-    UC_AllTheory --> RI
-    UC_AllDop --> RI
-    UC_Block --> RI
-    UC_TaskGroup --> RI
-    UC_Task --> RI
-    UC_Links --> RI
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Create[models.py
+TheoryBD
+theory2theory_type]
+    Orm_Create --> DbCore[db.py
+AsyncSession
+MySQL]
 
-    %% Repository → Infrastructure
-    RI -->|implementation| RImpl
-    RImpl -->|ORM operations\nSQLAlchemy| M
-    RImpl -->|AsyncSession\ntransactions| DB
+    DbCore --> Orm_Create
+    Orm_Create --> RepoImpl
+    RepoImpl --> UC_CreateTheory
+    UC_CreateTheory --> Router
+    Router --> Client
+</td> </tr> <tr> <td>
+<b>Создание / изменение / удаление блока теории</b>
 
-    %% Core / Main / Scripts
-    MAIN --> R
-    MAIN --> CFG
-    MAIN --> DB
+text
+flowchart TB
+    Client[Client]
 
-    CR -->|create_all\ncreate tables| DB
-    PT -->|bulk load\ntheory and tasks| M
-    PT --> DB
+    Client --> POST_BLOCK[POST /api/theory/theory_id/blocks]
+    Client --> PUT_BLOCK[PUT /api/theory/blocks/block_id]
+    Client --> DELETE_BLOCK[DELETE /api/theory/blocks/block_id]
 
-    %% Domain ↔ Persistence mapping (simplified for GitHub)
-    E --> M
-    EN --> M
-```
+    POST_BLOCK --> Router[router.py
+block endpoints]
+    PUT_BLOCK --> Router
+    DELETE_BLOCK --> Router
+
+    Router --> Schemas_Block[schemas.py
+TheoryBlockCreateRequest]
+
+    Router --> UC_CreateBlock[CreateTheoryBlockUseCase]
+    Router --> UC_UpdateBlock[UpdateTheoryBlockUseCase]
+    Router --> UC_DeleteBlock[DeleteTheoryBlockUseCase]
+
+    UC_CreateBlock --> Domain_Block[entities.py
+TheoryBlock
+Theory]
+    UC_UpdateBlock --> Domain_Block
+    UC_DeleteBlock --> Domain_Block
+
+    UC_CreateBlock --> RepoPort[repository.py
+ITheoryRepository]
+    UC_UpdateBlock --> RepoPort
+    UC_DeleteBlock --> RepoPort
+
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Block[models.py
+TheoryBlockBD
+parent and children]
+    Orm_Block --> DbCore[db.py
+AsyncSession
+MySQL]
+
+    DbCore --> Orm_Block
+    Orm_Block --> RepoImpl
+    RepoImpl --> UC_CreateBlock
+    RepoImpl --> UC_UpdateBlock
+    RepoImpl --> UC_DeleteBlock
+
+    UC_CreateBlock --> Router
+    UC_UpdateBlock --> Router
+    UC_DeleteBlock --> Router
+    Router --> Client
+</td> <td>
+<b>Получение заданий по предмету</b>
+
+text
+flowchart TB
+    Client[Client]
+
+    Client --> GET_TASKS_SUBJ[GET /api/theory/get_tasks_theory_for_subject]
+
+    GET_TASKS_SUBJ --> Router[router.py
+endpoint get_tasks_theory_for_subject]
+
+    Router --> UC_GetTasksSubj[GetAllTaskTheoryGroupsForSubjectUseCase]
+
+    UC_GetTasksSubj --> Domain_Tasks[entities.py
+TaskTheoryGroup
+TaskTheory
+TaskTheoryWithOrder]
+    UC_GetTasksSubj --> RepoPort[repository.py
+ITheoryRepository]
+
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Tasks[models.py
+TaskTheoryGroupBD
+TaskTheoryBD
+TaskTheoryAssociation]
+    Orm_Tasks --> DbCore[db.py
+AsyncSession
+MySQL]
+
+    DbCore --> Orm_Tasks
+    Orm_Tasks --> RepoImpl
+    RepoImpl --> UC_GetTasksSubj
+    UC_GetTasksSubj --> Router
+    Router --> Client
+</td> </tr> <tr> <td>
+<b>Создание / изменение / удаление группы заданий</b>
+
+text
+flowchart TB
+    Client[Client]
+
+    Client --> POST_GROUP[POST /api/theory/task-groups]
+    Client --> PUT_GROUP[PUT /api/theory/task-groups/group_id]
+    Client --> DELETE_GROUP[DELETE /api/theory/task-groups/group_id]
+
+    POST_GROUP --> Router[router.py
+task group endpoints]
+    PUT_GROUP --> Router
+    DELETE_GROUP --> Router
+
+    Router --> UC_CreateGroup[CreateTaskTheoryGroupUseCase]
+    Router --> UC_UpdateGroup[UpdateTaskTheoryGroupUseCase]
+    Router --> UC_DeleteGroup[DeleteTaskTheoryGroupUseCase]
+
+    UC_CreateGroup --> Domain_Group[entities.py
+TaskTheoryGroup]
+    UC_UpdateGroup --> Domain_Group
+    UC_DeleteGroup --> Domain_Group
+
+    UC_CreateGroup --> RepoPort[repository.py
+ITheoryRepository]
+    UC_UpdateGroup --> RepoPort
+    UC_DeleteGroup --> RepoPort
+
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Group[models.py
+TaskTheoryGroupBD]
+    Orm_Group --> DbCore[db.py
+AsyncSession
+MySQL]
+
+    DbCore --> Orm_Group
+    Orm_Group --> RepoImpl
+    RepoImpl --> UC_CreateGroup
+    RepoImpl --> UC_UpdateGroup
+    RepoImpl --> UC_DeleteGroup
+
+    UC_CreateGroup --> Router
+    UC_UpdateGroup --> Router
+    UC_DeleteGroup --> Router
+    Router --> Client
+</td> <td>
+<b>Создание / изменение / удаление задания
+и привязка к теориям</b>
+
+text
+flowchart TB
+    Client[Client]
+
+    Client --> POST_TASK[POST /api/theory/task-groups/group_id/tasks]
+    Client --> PUT_TASK[PUT /api/theory/tasks/task_id]
+    Client --> DELETE_TASK[DELETE /api/theory/tasks/task_id]
+    Client --> PUT_TASK_THEORIES[PUT /api/theory/tasks/task_id/theories]
+
+    POST_TASK --> Router[router.py
+task endpoints]
+    PUT_TASK --> Router
+    DELETE_TASK --> Router
+    PUT_TASK_THEORIES --> Router
+
+    Router --> UC_CreateTask[CreateTaskTheoryUseCase]
+    Router --> UC_UpdateTask[UpdateTaskTheoryUseCase]
+    Router --> UC_DeleteTask[DeleteTaskTheoryUseCase]
+    Router --> UC_UpdateTaskLinks[UpdateTaskTheoryLinksUseCase]
+
+    UC_CreateTask --> Domain_Task[entities.py
+TaskTheory
+TaskTheoryWithOrder]
+    UC_UpdateTask --> Domain_Task
+    UC_DeleteTask --> Domain_Task
+    UC_UpdateTaskLinks --> Domain_Task
+
+    UC_CreateTask --> RepoPort[repository.py
+ITheoryRepository]
+    UC_UpdateTask --> RepoPort
+    UC_DeleteTask --> RepoPort
+    UC_UpdateTaskLinks --> RepoPort
+
+    RepoPort --> RepoImpl[repository_impl.py
+TheoryRepositoryImpl]
+    RepoImpl --> Orm_Task[models.py
+TaskTheoryBD
+TaskTheoryAssociation]
+    Orm_Task --> DbCore[db.py
+AsyncSession
+MySQL]
+
+    DbCore --> Orm_Task
+    Orm_Task --> RepoImpl
+    RepoImpl --> UC_CreateTask
+    RepoImpl --> UC_UpdateTask
+    RepoImpl --> UC_DeleteTask
+    RepoImpl --> UC_UpdateTaskLinks
+
+    UC_CreateTask --> Router
+    UC_UpdateTask --> Router
+    UC_DeleteTask --> Router
+    UC_UpdateTaskLinks --> Router
+    Router --> Client
+</td> </tr> </table> ```
