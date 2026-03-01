@@ -19,7 +19,3 @@ class TheoryType(str, Enum):
     punctuation = "Пунктуация"
     database = "База данных"
     encoding = "Кодировка"
-
-class TheorySubject(str, Enum):
-    infa = "Информатика"
-    rus = "Русский язык"

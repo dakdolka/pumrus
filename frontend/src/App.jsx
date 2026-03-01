@@ -1,12 +1,11 @@
-import { useRef, useState, useEffect } from 'react'
-import './General.css'
-import Chapter from './components/Chapter/chapter.jsx'
-import { Element, TaskElement, Popup } from './components.jsx'
-import { StressTrainer }     from './components/trainers/StressTrainer.jsx'
-import { PrefixTrainer }     from './components/trainers/PrefixTrainer.jsx'
-import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx'
-import { SpellingTrainer }   from './components/trainers/SpellingTrainer.jsx'
-
+import { useRef, useState, useEffect } from 'react';
+import './General.css';
+import Chapter from './components/Chapter/chapter.jsx';
+import { Element, TaskElement, Popup } from './components.jsx';
+import { StressTrainer }     from './components/trainers/StressTrainer.jsx';
+import { PrefixTrainer }     from './components/trainers/PrefixTrainer.jsx';
+import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx';
+import { SpellingTrainer }   from './components/trainers/SpellingTrainer.jsx';
 
 function saveInfo(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
@@ -17,12 +16,11 @@ function getInfo(key) {
 }
 
 const TRAINERS = [
-  { id: 'stress',   label: 'Орфоэпия',         Component: StressTrainer     },
-  { id: 'prefix',   label: 'ПРЕ/ПРИ',           Component: PrefixTrainer     },
-  { id: 'dict',     label: 'Словарные слова',    Component: DictionaryTrainer },
-  { id: 'spelling', label: 'Слитно / Раздельно', Component: SpellingTrainer   },
+  { id: 'stress',   label: 'Орфоэпия',             Component: StressTrainer     },
+  { id: 'prefix',   label: 'ПРЕ/ПРИ',              Component: PrefixTrainer     },
+  { id: 'dict',     label: 'Словарные слова',      Component: DictionaryTrainer },
+  { id: 'spelling', label: 'Слитно / Раздельно',   Component: SpellingTrainer   },
 ];
-
 
 function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
@@ -45,7 +43,6 @@ function Option({ children, onSelect, theme_id }) {
   );
 }
 
-
 function TheoryChoose({
   object, preloadedRules, preloadedTasks,
   isPopup, setPopup, content, setContent,
@@ -62,21 +59,24 @@ function TheoryChoose({
   const [rules, setRules] = useState(preloadedRules || []);
   const [tasks, setTasks] = useState(preloadedTasks || []);
 
+  // теперь грузим глобально, без subject
   useEffect(() => {
     if (!preloadedRules) {
-      fetch(`/api/theory/all_theory_for_subject/${object.id}`)
+      fetch(`/api/theory/all_theory`)
         .then(r => r.json())
-        .then(setRules);
+        .then(setRules)
+        .catch(console.error);
     }
-  }, [object.id, preloadedRules]);
+  }, [preloadedRules]);
 
   useEffect(() => {
     if (!preloadedTasks) {
-      fetch(`/api/theory/get_tasks_theory_for_subject/${object.id}`)
+      fetch(`/api/theory/get_tasks_theory`)
         .then(r => r.json())
-        .then(setTasks);
+        .then(setTasks)
+        .catch(console.error);
     }
-  }, [object.id, preloadedTasks]);
+  }, [preloadedTasks]);
 
   console.log("-----< Правила >-----", rules);
 
@@ -139,7 +139,7 @@ function TheoryChoose({
         ? "theoryChoose__block theoryChoose__block--active"
         : "theoryChoose__block--hidden"}
       >
-        {object.types.map((item, index) => (
+        {(object?.types || []).map((item, index) => (
           <Option key={index} onSelect={handleSelect} theme_id={item.id}>
             {item.name}
           </Option>
@@ -169,23 +169,22 @@ function TheoryChoose({
   );
 }
 
-
 function App() {
   const day_task = useRef();
   const task     = useRef();
   const theory   = useRef();
   const analysis = useRef();
   const title    = useRef();
-  const trainerExitRef = useRef(null); // ← для вызова triggerExit из тренажёра
+  const trainerExitRef = useRef(null);
 
-  const [subjects,             getSubjects]             = useState([]);
-  const [object,               chooseSubject]           = useState();
-  const [selectedTrainer,      setSelectedTrainer]      = useState(null);
-  const [isFadingOut,          setIsFadingOut]          = useState(false);
+  const [subjects,         getSubjects]         = useState([]);
+  const [object,           chooseSubject]       = useState();
+  const [selectedTrainer,  setSelectedTrainer]  = useState(null);
+  const [isFadingOut,      setIsFadingOut]      = useState(false);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
-  const [isContentReady,       setIsContentReady]       = useState(false);
-  const [theoryCache,          setTheoryCache]          = useState({});
-  const [page,                 setPage]                 = useState("main");
+  const [isContentReady,   setIsContentReady]   = useState(false);
+  const [theoryCache,      setTheoryCache]      = useState({});
+  const [page,             setPage]             = useState("main");
 
   const [isTheoryPopupOpen,  setIsTheoryPopupOpen]  = useState(false);
   const [theoryPopupContent, setTheoryPopupContent] = useState({
@@ -193,13 +192,15 @@ function App() {
     blocks: [],
   });
 
+  // пока оставляем предметы как UI-группировку, бэк их больше не использует
   useEffect(() => {
     fetch("/api/theory/all_theory_dop_info")
       .then(r => r.json())
       .then(data => {
         getSubjects(data);
         console.log("-----< Полученные предметы >-----", data);
-      });
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -258,7 +259,9 @@ function App() {
 
     setIsContentReady(true);
     await new Promise(resolve => {
-      requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 50)));
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setTimeout(resolve, 50))
+      );
     });
 
     clearTimeout(loadingTimer);
@@ -280,7 +283,6 @@ function App() {
         return;
       }
 
-      // Когда открыт тренажёр — back обрабатывается внутри хука тренажёра
       if (page === 'trainers' && selectedTrainer) {
         return;
       }
@@ -316,22 +318,25 @@ function App() {
     requestAnimationFrame(() => requestAnimationFrame(() => setIsContentReady(true)));
   }, []);
 
-  async function preloadTheoryData(objectId) {
-    console.log(`📥 Предзагрузка данных для theory, object.id: ${objectId}`);
-    if (theoryCache[objectId]) {
+  // кэшируем теперь по ключу 'global', а не по subjectId
+  async function preloadTheoryData() {
+    const cacheKey = 'global';
+    console.log(`📥 Предзагрузка данных для theory (global)`);
+
+    if (theoryCache[cacheKey]) {
       console.log(`✅ Данные уже в кэше`);
-      return theoryCache[objectId];
+      return theoryCache[cacheKey];
     }
 
     const [rulesRes, tasksRes] = await Promise.all([
-      fetch(`/api/theory/all_theory_for_subject/${objectId}`),
-      fetch(`/api/theory/get_tasks_theory_for_subject/${objectId}`),
+      fetch(`/api/theory/all_theory`),
+      fetch(`/api/theory/get_tasks_theory`),
     ]);
     const rules = await rulesRes.json();
     const tasks = await tasksRes.json();
     const data  = { rules, tasks };
 
-    setTheoryCache(prev => ({ ...prev, [objectId]: data }));
+    setTheoryCache(prev => ({ ...prev, [cacheKey]: data }));
     console.log(`✅ Данные загружены и закэшированы`);
     return data;
   }
@@ -340,7 +345,7 @@ function App() {
     console.log(`🚀 Переход на: ${targetPage}`);
     await performTransition(async () => {
       const t0 = performance.now();
-      if (targetPage === 'theory' && object) await preloadTheoryData(object.id);
+      if (targetPage === 'theory') await preloadTheoryData();
       setPage(targetPage);
       if (resetTrainer) setSelectedTrainer(null);
       console.log(`⏱️ Время подготовки: ${(performance.now() - t0).toFixed(2)}ms`);
@@ -355,7 +360,9 @@ function App() {
       <div className="mainTitle__text">
         Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
         <br />
-        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
+        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">
+          Узнать больше
+        </a>
       </div>
     </div>
   );
@@ -389,10 +396,18 @@ function App() {
     content = (
       <>
         {header}
-        <Chapter ref={day_task} func={() => navigateToPage("day-task")}>Ежедневное задание</Chapter>
-        <Chapter ref={task}     func={() => navigateToPage("trainers", { resetTrainer: true })}>Практика</Chapter>
-        <Chapter ref={theory}   func={() => navigateToPage("theory")}>Теория</Chapter>
-        <Chapter ref={analysis} func={() => navigateToPage("analysis")}>Аналитика</Chapter>
+        <Chapter ref={day_task} func={() => navigateToPage("day-task")}>
+          Ежедневное задание
+        </Chapter>
+        <Chapter ref={task} func={() => navigateToPage("trainers", { resetTrainer: true })}>
+          Практика
+        </Chapter>
+        <Chapter ref={theory} func={() => navigateToPage("theory")}>
+          Теория
+        </Chapter>
+        <Chapter ref={analysis} func={() => navigateToPage("analysis")}>
+          Аналитика
+        </Chapter>
         <div className="back-to-subjects-button" onClick={() => navigateToPage("main")} />
       </>
     );
@@ -426,7 +441,7 @@ function App() {
               </Chapter>
             ))}
           </div>
-          <div className="back-to-subjects-button" onClick={() => navigateToPage('subject')} />
+          <div className="back-to-subjects-button" onClick={() => navigateToPage("subject")} />
         </>
       );
     } else {
@@ -435,7 +450,6 @@ function App() {
 
       content = (
         <>
-          {/* ← func теперь вызывает triggerExit через ref */}
           <Chapter
             isValue="true"
             func={() => {
@@ -449,7 +463,7 @@ function App() {
           {trainer?.Component && (
             <trainer.Component
               onExit={onExit}
-              exitRef={trainerExitRef}   // ← передаём ref
+              exitRef={trainerExitRef}
             />
           )}
         </>
@@ -458,10 +472,12 @@ function App() {
   }
 
   if (page === "theory") {
-    const cachedData = object ? theoryCache[object.id] : null;
+    const cachedData = theoryCache['global'] || null;
     content = (
       <>
-        <Chapter isValue="true" func={() => navigateToPage("subject")}>Теория</Chapter>
+        <Chapter isValue="true" func={() => navigateToPage("subject")}>
+          Теория
+        </Chapter>
         <TheoryChoose
           object={object}
           preloadedRules={cachedData?.rules}

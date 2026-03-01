@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import types
 from typing import Any, Optional, List
-from .enums import BlockType, TheoryType, TheorySubject
+from .enums import BlockType, TheoryType
 
 @dataclass
 class TheoryBlock:
@@ -16,7 +16,6 @@ class TheoryBlock:
 @dataclass
 class Theory:
     name: str
-    subj: TheorySubject
     id: Optional[int] = None
     blocks: List[Optional[TheoryBlock]] = field(default_factory=list)
     types: Optional[List[TheoryType]] = field(default_factory=list)
@@ -26,11 +25,6 @@ class AllTheory:
     id: Optional[int]
     name: str
     types: List[TheoryType]
-    
-@dataclass
-class TheorySubject:
-    name: TheorySubject
-    id: Optional[int] = None
     
 @dataclass
 class TheoryType:
@@ -52,6 +46,5 @@ class TaskTheory:
 class TaskTheoryGroup:
     group_name: str
     is_single: bool
-    subject: TheorySubject | int
     tasks_theories: Optional[List["TaskTheory"]] = None
     id: Optional[int] = None

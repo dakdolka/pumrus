@@ -1,25 +1,24 @@
-from urllib import response
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
-from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTaskTheoryGroupUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsForSubjectUseCase, GetAllTheoryDopInfoUseCase, GetTheoryByIdUseCase, GetAllTheoriesForSubjectUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
+from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTaskTheoryGroupUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsUseCase, GetAllTheoryTypes, GetTheoryByIdUseCase, GetAllTheoriesUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
 from .schemas import AllTheoryDopInfoResponse, TaskTheoryCreateRequest, TaskTheoryGroupCreateRequest, TaskTheoryGroupUpdateRequest, TaskTheoryLinksUpdateRequest, TaskTheoryUpdateRequest, TheoryBlockCreateRequest, TheoryBlockUpdateRequest, TheoryCreateRequest, TheoryResponse, AllTheoryResponse, TaskGroupsResponse, TheoryUpdateRequest
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
 
-@router.get("/all_theory_for_subject/{subject_id}", response_model=list[AllTheoryResponse])
-async def get_all_theories(subject_id: int):
+@router.get("/all_theory", response_model=list[AllTheoryResponse])
+async def get_all_theories():
     repo = TheoryRepositoryImpl()
-    usecase = GetAllTheoriesForSubjectUseCase(repo)
-    theories = await usecase.execute(subject_id)
+    usecase = GetAllTheoriesUseCase(repo)
+    theories = await usecase.execute()
     return theories
 
 
 @router.get("/all_theory_dop_info", response_model=list[AllTheoryDopInfoResponse])
 async def get_all_theory_dop_info():
     repo = TheoryRepositoryImpl()
-    usecase = GetAllTheoryDopInfoUseCase(repo)
+    usecase = GetAllTheoryTypes(repo)
     theories = await usecase.execute()
     return theories
 
@@ -35,11 +34,11 @@ async def get_theory(theory_id: int):
     return theory
     
     
-@router.get("/get_tasks_theory_for_subject/{subject_id}", response_model=list[TaskGroupsResponse])
-async def get_tasks_theory_for_subject(subject_id: int):
+@router.get("/get_tasks_theory", response_model=list[TaskGroupsResponse])
+async def get_tasks_theory():
     repo = TheoryRepositoryImpl()
-    usecase = GetAllTaskTheoryGroupsForSubjectUseCase(repo)
-    theories = await usecase.execute(subject_id)
+    usecase = GetAllTaskTheoryGroupsUseCase(repo)
+    theories = await usecase.execute()
     return theories
 
 ### Форма
@@ -48,7 +47,7 @@ async def get_tasks_theory_for_subject(subject_id: int):
 async def create_theory(body: TheoryCreateRequest):
     repo = TheoryRepositoryImpl()
     usecase = CreateTheoryBaseUseCase(repo)
-    theory = await usecase.execute(body.name, body.subject, body.type_ids)
+    theory = await usecase.execute(body.name, body.type_ids)
     return TheoryResponse(id=theory.id, name=theory.name, blocks=[])
 
 
@@ -56,7 +55,7 @@ async def create_theory(body: TheoryCreateRequest):
 async def update_theory(theory_id: int, body: TheoryUpdateRequest):
     repo = TheoryRepositoryImpl()
     usecase = UpdateTheoryBaseUseCase(repo)
-    await usecase.execute(theory_id, body.name, body.subject, body.type_ids)
+    await usecase.execute(theory_id, body.name, body.type_ids)
     get_usecase = GetTheoryByIdUseCase(repo)
     theory = await get_usecase.execute(theory_id)
     if not theory:

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
 from app.core.db import Base, str_256
-from app.core.theory.enums import TheoryType, TheorySubject, BlockType
+from app.core.theory.enums import TheoryType, BlockType
 
 theory2theory_type = Table(
     "theory2theory_type",
@@ -23,30 +23,12 @@ class TaskTheoryAssociation(Base):
     theory: Mapped["TheoryBD"] = relationship(back_populates="task_associations")
     task: Mapped["TaskTheoryBD"] = relationship(back_populates="theory_associations")
 
-class TheorySubjectBD(Base):
-    __tablename__ = "theory_subject"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[TheorySubject] = mapped_column(Enum(TheorySubject), unique=True)
-    theories: Mapped[list["TheoryBD"]] = relationship(
-        back_populates="subject"
-    )
-    task_theory_groups: Mapped[List["TaskTheoryGroupBD"]] = relationship(
-        back_populates="subject"
-    )
-    types: Mapped[list["TheoryTypeBD"]] = relationship(
-        back_populates="subject"
-    )
-
 class TheoryTypeBD(Base):
     __tablename__ = "theory_type"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[TheoryType] = mapped_column(Enum(TheoryType), unique=True)
-    subject_key = mapped_column(Integer, ForeignKey("theory_subject.id"))
     theories: Mapped[list["TheoryBD"]] = relationship(
         secondary=theory2theory_type,
-        back_populates="types"
-    )
-    subject: Mapped["TheorySubjectBD"] = relationship(
         back_populates="types"
     )
 
@@ -54,10 +36,6 @@ class TheoryBD(Base):
     __tablename__ = "theory"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str_256]
-    subject_id: Mapped[int | None] = mapped_column(ForeignKey("theory_subject.id"), nullable=True)
-    subject: Mapped["TheorySubjectBD"] = relationship(
-        back_populates="theories"
-    )
     types: Mapped[List["TheoryTypeBD"]] = relationship(
         secondary=theory2theory_type,
         back_populates="theories"
@@ -99,10 +77,6 @@ class TaskTheoryGroupBD(Base):
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)
     name: Mapped[str_256]
     is_single: Mapped[bool]
-    subject_id: Mapped[int] = mapped_column(ForeignKey("theory_subject.id"), nullable=True)
-    subject: Mapped["TheorySubjectBD"] = relationship(
-        back_populates="task_theory_groups"
-    )
     tasks_theories: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
 
 

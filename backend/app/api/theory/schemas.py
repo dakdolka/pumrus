@@ -1,11 +1,7 @@
 from asyncio.base_tasks import _task_get_stack
 from pydantic import BaseModel, Field
 from typing import List, Optional
-from app.core.theory.enums import BlockType, TheoryType, TheorySubject
-
-class SubjResponse(BaseModel):
-    id: int
-    name: TheorySubject
+from app.core.theory.enums import BlockType, TheoryType
 
 class TheoryTypesResponse(BaseModel):
     id: int
@@ -13,7 +9,6 @@ class TheoryTypesResponse(BaseModel):
 
 class AllTheoryDopInfoResponse(BaseModel):
     id: int
-    subject: TheorySubject
     types: List[TheoryTypesResponse]
 
 class TheoryBlockResponse(BaseModel):
@@ -57,13 +52,11 @@ class TaskGroupsResponse(BaseModel):
 
 class TheoryCreateRequest(BaseModel):
     name: str
-    subject: TheorySubject
     type_ids: list[int]  # id типов теории
 
 
 class TheoryUpdateRequest(BaseModel):
     name: Optional[str] = None
-    subject: Optional[TheorySubject] = None
     type_ids: Optional[list[int]] = None
 
 
@@ -85,7 +78,6 @@ class TheoryBlockUpdateRequest(BaseModel):
 class TaskTheoryGroupCreateRequest(BaseModel):
     name: str = Field(..., example="Уравнения 7 класс")
     is_single: bool = Field(..., description="True, если в группе всегда одна задача активна")
-    subject_id: int = Field(..., description="ID предмета (theory_subject.id)")
 
 
 class TaskTheoryGroupUpdateRequest(BaseModel):

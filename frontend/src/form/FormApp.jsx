@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./form.css";
 
-import { SubjectSelect } from "./components/SubjectSelect";
 import { TheorySelect } from "./components/TheorySelect";
 import { BlocksTree } from "./components/BlocksTree";
 import { BlockEditor } from "./components/BlockEditor";
@@ -9,9 +8,7 @@ import { TheoryTypeSelect } from "./components/TheoryTypeSelect";
 import { TasksTheoryEditor } from "./components/TasksTheoryEditor";
 
 function FormApp() {
-  const [subjects, setSubjects] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
-
+  const [theoryTypes, setTheoryTypes] = useState([]); // [{id, name}]
   const [theories, setTheories] = useState([]);
   const [selectedTheoryId, setSelectedTheoryId] = useState(null);
   const [theory, setTheory] = useState(null);
@@ -30,8 +27,7 @@ function FormApp() {
 
   const [activeTab, setActiveTab] = useState("theory"); // "theory" | "tasks"
 
-  const currentSubject = subjects.find((s) => s.id === selectedSubjectId);
-  const availableTheoryTypes = currentSubject?.types || [];
+  const availableTheoryTypes = theoryTypes;
 
   function resetTheoryState() {
     setSelectedTheoryId(null);
@@ -43,14 +39,17 @@ function FormApp() {
       parent_id: null,
       order: 0,
     });
+    setSelectedTheoryTypeIds([]);
+    setIsCreatingTheory(false);
+    setNewTheoryName("");
   }
 
-  // Функция для конвертации \\n в \n при загрузке с API
+  // конвертация \\n → \n при загрузке
   function convertBlocksFromAPI(blocks) {
-    return blocks.map(block => {
+    return blocks.map((block) => {
       const converted = {
         ...block,
-        content: (block.content || '').replace(/\\n/g, '\n')
+        content: (block.content || "").replace(/\\n/g, "\n"),
       };
       if (block.children && block.children.length > 0) {
         converted.children = convertBlocksFromAPI(block.children);
@@ -59,15 +58,14 @@ function FormApp() {
     });
   }
 
-  // Функция для конвертации \n в \\n перед отправкой на API
+  // конвертация \n → \\n перед отправкой
   function convertBlockForAPI(block) {
     return {
       ...block,
-      content: (block.content || '').replace(/\n/g, '\\n')
+      content: (block.content || "").replace(/\n/g, "\\n"),
     };
   }
 
-  // плоский список ТОЛЬКО для поиска блока по id
   function flattenBlocks(nodes) {
     if (!Array.isArray(nodes)) return [];
     const res = [];
@@ -83,7 +81,6 @@ function FormApp() {
     return res;
   }
 
-  // собрать id всех детей (для фильтрации "грязных" корней)
   function collectAllChildIds(blocks) {
     const ids = new Set();
     const walk = (nodes) => {
@@ -99,9 +96,6 @@ function FormApp() {
     return ids;
   }
 
-  // собрать детей конкретного родителя по дереву:
-  // - parentId == null -> корневые блоки, КОТОРЫЕ НЕ являются ничьими детьми
-  // - иначе -> children найденной группы
   function collectChildrenForParent(blocks, parentId) {
     if (parentId == null) {
       const childIds = collectAllChildIds(blocks);
@@ -124,7 +118,6 @@ function FormApp() {
     return res;
   }
 
-  // создать блок в корне или группе и вернуть обновлённую теорию
   async function createBlockAt(theoryId, parentId) {
     const currentTheory = theory;
     const blocks = currentTheory?.blocks || [];
@@ -147,8 +140,8 @@ function FormApp() {
       body: JSON.stringify({
         type: "text",
         content: "",
-        parent_id: parentId, // null для корня, id группы для вложения
-        order, // обязателен по схеме
+        parent_id: parentId,
+        order,
       }),
     });
 
@@ -156,12 +149,10 @@ function FormApp() {
       `/api/theory/get_theory/${theoryId}`
     ).then((r) => r.json());
 
-    // Конвертируем \\n в \n при загрузке
     if (updatedTheory.blocks) {
       updatedTheory.blocks = convertBlocksFromAPI(updatedTheory.blocks);
     }
 
-    // выбираем только что добавленный блок как активный
     const flat = flattenBlocks(updatedTheory.blocks || []);
     if (flat.length > 0) {
       const maxIdBlock = flat.reduce(
@@ -176,19 +167,17 @@ function FormApp() {
     return updatedTheory;
   }
 
-  // 1. загрузка предметов + типов
+  // 1. грузим типы теории
   useEffect(() => {
     fetch("/api/theory/all_theory_dop_info")
       .then((r) => r.json())
-      .then(setSubjects)
+      .then(setTheoryTypes)
       .catch(console.error);
   }, []);
 
-  // 2. выбор предмета -> загрузка теорий по предмету
+  // 2. грузим все теории (без предмета)
   useEffect(() => {
-    if (!selectedSubjectId) return;
-
-    fetch(`/api/theory/all_theory_for_subject/${selectedSubjectId}`)
+    fetch(`/api/theory/all_theory`)
       .then((r) => r.json())
       .then((data) => {
         setTheories(data);
@@ -204,9 +193,9 @@ function FormApp() {
         }
       })
       .catch(console.error);
-  }, [selectedSubjectId]);
+  }, []);
 
-  // 3. выбор теории -> загрузка теории с блоками
+  // 3. выбор теории -> загрузка блоков
   useEffect(() => {
     if (!selectedTheoryId) return;
 
@@ -220,7 +209,6 @@ function FormApp() {
     fetch(`/api/theory/get_theory/${selectedTheoryId}`)
       .then((r) => r.json())
       .then((data) => {
-        // Конвертируем \\n в реальные переносы при загрузке
         if (data.blocks) {
           data.blocks = convertBlocksFromAPI(data.blocks);
         }
@@ -236,7 +224,7 @@ function FormApp() {
       .catch(console.error);
   }, [selectedTheoryId, theories]);
 
-  // 4. когда выбрали блок — заполняем форму его данными
+  // 4. выбранный блок -> драфт
   useEffect(() => {
     if (!theory || !selectedBlockId) return;
     const allBlocks = flattenBlocks(theory.blocks || []);
@@ -245,25 +233,19 @@ function FormApp() {
 
     setBlockDraft({
       type: block.type,
-      content: block.content, // уже содержит реальные \n после конвертации
+      content: block.content,
       parent_id: null,
       order: block.order ?? 0,
     });
   }, [selectedBlockId, theory]);
 
-  // --- handlers теории ---
-
   function handleStartCreateTheory() {
     resetTheoryState();
-    setSelectedTheoryTypeIds([]);
     setIsCreatingTheory(true);
-    setNewTheoryName("");
   }
 
   function handleSaveNewTheory() {
-    if (!newTheoryName.trim() || !selectedSubjectId) return;
-
-    const subjectObj = subjects.find((s) => s.id === selectedSubjectId);
+    if (!newTheoryName.trim()) return;
 
     fetch("/api/theory/", {
       method: "POST",
@@ -272,7 +254,6 @@ function FormApp() {
       },
       body: JSON.stringify({
         name: newTheoryName.trim(),
-        subject: subjectObj?.subject,
         type_ids: selectedTheoryTypeIds,
       }),
     })
@@ -321,12 +302,9 @@ function FormApp() {
       .catch(console.error);
   }
 
-  // --- блоки: только обновление/удаление через форму ---
-
   function handleSaveBlock() {
     if (!selectedBlockId) return;
 
-    // Конвертируем \n в \\n перед отправкой
     const blockToSave = convertBlockForAPI(blockDraft);
 
     fetch(`/api/theory/blocks/${selectedBlockId}`, {
@@ -343,7 +321,6 @@ function FormApp() {
         )
       )
       .then((data) => {
-        // Конвертируем обратно при получении
         if (data.blocks) {
           data.blocks = convertBlocksFromAPI(data.blocks);
         }
@@ -365,7 +342,6 @@ function FormApp() {
         )
       )
       .then((data) => {
-        // Конвертируем \\n в \n при загрузке
         if (data.blocks) {
           data.blocks = convertBlocksFromAPI(data.blocks);
         }
@@ -390,10 +366,15 @@ function FormApp() {
     const target = allBlocks.find((b) => b.id === blockId);
     if (!target) return;
 
-    const siblings = collectChildrenForParent(theory.blocks || [], target.parent_id);
+    const siblings = collectChildrenForParent(
+      theory.blocks || [],
+      target.parent_id
+    );
     if (!siblings.length) return;
 
-    const sorted = [...siblings].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const sorted = [...siblings].sort(
+      (a, b) => (a.order ?? 0) - (b.order ?? 0)
+    );
     const index = sorted.findIndex((b) => b.id === blockId);
     if (index === -1) return;
 
@@ -408,15 +389,12 @@ function FormApp() {
     const newOrder = target.order ?? 0;
     const swapOrder = swapWith.order ?? 0;
 
-    // меняем order локально
     target.order = swapOrder;
     swapWith.order = newOrder;
 
-    // Конвертируем перед отправкой
     const targetToSave = convertBlockForAPI(target);
     const swapToSave = convertBlockForAPI(swapWith);
 
-    // отправляем два PUT-а на бэк
     fetch(`/api/theory/blocks/${target.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -440,10 +418,11 @@ function FormApp() {
         })
       )
       .then(() =>
-        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) => r.json())
+        fetch(`/api/theory/get_theory/${selectedTheoryId}`).then((r) =>
+          r.json()
+        )
       )
       .then((data) => {
-        // Конвертируем обратно при получении
         if (data.blocks) {
           data.blocks = convertBlocksFromAPI(data.blocks);
         }
@@ -474,7 +453,6 @@ function FormApp() {
                 : "form-tab"
             }
             onClick={() => setActiveTab("tasks")}
-            disabled={!selectedSubjectId}
           >
             Теория для заданий
           </button>
@@ -482,15 +460,6 @@ function FormApp() {
       </div>
 
       <div className="form-top">
-        <div className="form-top__group">
-          <label>Предмет</label>
-          <SubjectSelect
-            subjects={subjects}
-            selectedSubjectId={selectedSubjectId}
-            onChange={setSelectedSubjectId}
-          />
-        </div>
-
         <div className="form-top__group">
           <label>Типы</label>
           <TheoryTypeSelect
@@ -511,7 +480,7 @@ function FormApp() {
               setSelectedTheoryId(id);
             }}
             onCreateNew={handleStartCreateTheory}
-            disabled={!selectedSubjectId}
+            disabled={false}
           />
         </div>
 
@@ -593,11 +562,7 @@ function FormApp() {
       )}
 
       {activeTab === "tasks" && (
-        <TasksTheoryEditor
-          key={`tasks-${selectedSubjectId}-${activeTab}`}
-          subjectId={selectedSubjectId}
-          theories={theories}
-        />
+        <TasksTheoryEditor key={`tasks-${activeTab}`} theories={theories} />
       )}
     </div>
   );
