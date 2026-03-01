@@ -2,8 +2,8 @@ from typing import List, Optional
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.core.theory.enums import TheorySubject
 from app.core.tasks.entities import Task, TaskItem
 from app.core.tasks.enums import TrainerType, InputMode
 from app.core.tasks.repository import ITaskRepository
@@ -12,7 +12,6 @@ from .models import TaskBD, TaskItemBD
 
 
 def _bd_to_domain_task(bd: TaskBD) -> Task:
-
     items = [
         TaskItem(
             id=item.id,
@@ -31,7 +30,6 @@ def _bd_to_domain_task(bd: TaskBD) -> Task:
     return Task(
         id=bd.id,
         name=bd.name,
-        subj=TheorySubject(bd.subject_id),  # если используешь Enum с id, или маппинг иначе
         trainer_type=TrainerType(bd.trainer_type),
         input_mode=InputMode(bd.input_mode),
         is_active=bd.is_active,
@@ -43,7 +41,6 @@ class TaskRepositoryImpl(ITaskRepository):
     async def create_task(self, session: AsyncSession, task: Task) -> Task:
         bd = TaskBD(
             name=task.name,
-            subject_id=task.subj.value if hasattr(task.subj, "value") else task.subj,
             trainer_type=task.trainer_type.value,
             input_mode=task.input_mode.value,
             is_active=task.is_active,
@@ -54,15 +51,14 @@ class TaskRepositoryImpl(ITaskRepository):
         return task
 
     async def update_task(self, session: AsyncSession, task: Task) -> Task:
-        q = await session.get(TaskBD, task.id)
-        if not q:
+        bd = await session.get(TaskBD, task.id)
+        if not bd:
             raise ValueError("Task not found")
 
-        q.name = task.name
-        q.subject_id = task.subj.value if hasattr(task.subj, "value") else task.subj
-        q.trainer_type = task.trainer_type.value
-        q.input_mode = task.input_mode.value
-        q.is_active = task.is_active
+        bd.name = task.name
+        bd.trainer_type = task.trainer_type.value
+        bd.input_mode = task.input_mode.value
+        bd.is_active = task.is_active
 
         await session.flush()
         return task
@@ -71,7 +67,7 @@ class TaskRepositoryImpl(ITaskRepository):
         stmt = (
             select(TaskBD)
             .where(TaskBD.id == task_id)
-            .options(TaskBD.items)  # при необходимости добавить selectinload
+            .options(selectinload(TaskBD.items))
         )
         res = await session.execute(stmt)
         bd = res.scalars().one_or_none()
@@ -79,10 +75,8 @@ class TaskRepositoryImpl(ITaskRepository):
             return None
         return _bd_to_domain_task(bd)
 
-    async def get_tasks_for_subject(
-        self, session: AsyncSession, subject_id: int
-    ) -> List[Task]:
-        stmt = select(TaskBD).where(TaskBD.subject_id == subject_id)
+    async def get_all_tasks(self, session: AsyncSession) -> List[Task]:
+        stmt = select(TaskBD).options(selectinload(TaskBD.items))
         res = await session.execute(stmt)
         bds = res.scalars().all()
         return [_bd_to_domain_task(bd) for bd in bds]
@@ -90,11 +84,9 @@ class TaskRepositoryImpl(ITaskRepository):
     async def replace_task_items(
         self, session: AsyncSession, task_id: int, items: List[TaskItem]
     ) -> None:
-        # удалить старые
         await session.execute(
             delete(TaskItemBD).where(TaskItemBD.task_id == task_id)
         )
-        # добавить новые
         for it in items:
             bd_item = TaskItemBD(
                 task_id=task_id,

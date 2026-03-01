@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import async_session_factory
 from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTaskTheoryGroupUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsUseCase, GetAllTheoryTypes, GetTheoryByIdUseCase, GetAllTheoriesUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
-from .schemas import AllTheoryDopInfoResponse, TaskTheoryCreateRequest, TaskTheoryGroupCreateRequest, TaskTheoryGroupUpdateRequest, TaskTheoryLinksUpdateRequest, TaskTheoryUpdateRequest, TheoryBlockCreateRequest, TheoryBlockUpdateRequest, TheoryCreateRequest, TheoryResponse, AllTheoryResponse, TaskGroupsResponse, TheoryUpdateRequest
+from .schemas import TaskTheoryCreateRequest, TaskTheoryGroupCreateRequest, TaskTheoryGroupUpdateRequest, TaskTheoryLinksUpdateRequest, TaskTheoryUpdateRequest, TheoryBlockCreateRequest, TheoryBlockUpdateRequest, TheoryCreateRequest, TheoryResponse, AllTheoryResponse, TaskGroupsResponse, TheoryTypesResponse, TheoryUpdateRequest
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
 
@@ -15,7 +15,7 @@ async def get_all_theories():
     return theories
 
 
-@router.get("/all_theory_dop_info", response_model=list[AllTheoryDopInfoResponse])
+@router.get("/all_theory_types", response_model=list[TheoryTypesResponse])
 async def get_all_theory_dop_info():
     repo = TheoryRepositoryImpl()
     usecase = GetAllTheoryTypes(repo)

@@ -18,7 +18,6 @@ class TaskItemDTO(BaseModel):
 
 class TaskBase(BaseModel):
     name: str
-    subject_id: int
     trainer_type: TrainerType
     input_mode: InputMode
     is_active: bool = True
@@ -38,7 +37,7 @@ class TaskDetailResponse(TaskResponse):
 
 class ParseRawRequest(BaseModel):
     trainer_type: TrainerType
-    raw_content: Any  # строка или уже распарсенный массив (зависит от формы)
+    raw_content: Any  # для STRESS/PREFIX/DICTIONARY: список строк; для SPELLING: список объектов
 
 
 class ParseRawResponse(BaseModel):

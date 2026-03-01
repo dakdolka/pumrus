@@ -4,8 +4,6 @@ from sqlalchemy import Integer, String, Boolean, ForeignKey, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.core.theory.enums import TheorySubject
-from app.infra.theory.models import TheorySubjectBD  # если нужен subject_id маппинг
 
 
 class TaskBD(Base):
@@ -13,11 +11,6 @@ class TaskBD(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-
-    subject_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("theory_subject.id"), nullable=False
-    )
-    subject: Mapped["TheorySubjectBD"] = relationship()  # чтобы достучаться до name(enum)
 
     trainer_type: Mapped[str] = mapped_column(String(32), nullable=False)
     input_mode: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -28,7 +21,6 @@ class TaskBD(Base):
         cascade="all, delete-orphan",
         order_by="TaskItemBD.item_order",
     )
-
 
 
 class TaskItemBD(Base):

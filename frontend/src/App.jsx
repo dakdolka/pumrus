@@ -1,11 +1,11 @@
-import { useRef, useState, useEffect } from 'react';
-import './General.css';
-import Chapter from './components/Chapter/chapter.jsx';
-import { Element, TaskElement, Popup } from './components.jsx';
-import { StressTrainer }     from './components/trainers/StressTrainer.jsx';
-import { PrefixTrainer }     from './components/trainers/PrefixTrainer.jsx';
-import { DictionaryTrainer } from './components/trainers/DictionaryTrainer.jsx';
-import { SpellingTrainer }   from './components/trainers/SpellingTrainer.jsx';
+import { useRef, useState, useEffect } from "react";
+import "./General.css";
+import Chapter from "./components/Chapter/chapter.jsx";
+import { Element, TaskElement, Popup } from "./components.jsx";
+import { StressTrainer } from "./components/trainers/StressTrainer.jsx";
+import { PrefixTrainer } from "./components/trainers/PrefixTrainer.jsx";
+import { DictionaryTrainer } from "./components/trainers/DictionaryTrainer.jsx";
+import { SpellingTrainer } from "./components/trainers/SpellingTrainer.jsx";
 
 function saveInfo(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
@@ -16,10 +16,10 @@ function getInfo(key) {
 }
 
 const TRAINERS = [
-  { id: 'stress',   label: 'Орфоэпия',             Component: StressTrainer     },
-  { id: 'prefix',   label: 'ПРЕ/ПРИ',              Component: PrefixTrainer     },
-  { id: 'dict',     label: 'Словарные слова',      Component: DictionaryTrainer },
-  { id: 'spelling', label: 'Слитно / Раздельно',   Component: SpellingTrainer   },
+  { id: "stress",   label: "Орфоэпия",           Component: StressTrainer },
+  { id: "prefix",   label: "ПРЕ/ПРИ",            Component: PrefixTrainer },
+  { id: "dict",     label: "Словарные слова",    Component: DictionaryTrainer },
+  { id: "spelling", label: "Слитно / Раздельно", Component: SpellingTrainer },
 ];
 
 function Option({ children, onSelect, theme_id }) {
@@ -29,13 +29,19 @@ function Option({ children, onSelect, theme_id }) {
       className="option"
       data-ischosen={isChosen.toString()}
       onClick={() => {
-        setMood(prev => {
+        setMood((prev) => {
           onSelect(theme_id, !prev);
           return !prev;
         });
       }}
     >
-      <div className={isChosen ? "option__button option__button--active" : "option__button"} />
+      <div
+        className={
+          isChosen
+            ? "option__button option__button--active"
+            : "option__button"
+        }
+      />
       <div className="option__nameBlock">
         <div className="option__name">{children}</div>
       </div>
@@ -44,26 +50,28 @@ function Option({ children, onSelect, theme_id }) {
 }
 
 function TheoryChoose({
-  object, preloadedRules, preloadedTasks,
-  isPopup, setPopup, content, setContent,
+  preloadedRules,
+  preloadedTasks,
+  isPopup,
+  setPopup,
+  content,
+  setContent,
 }) {
-  console.log("-----< Полученный предмет >-----", object);
-
-  const task  = useRef();
+  const task = useRef();
   const theme = useRef();
 
-  const [isTaskActive,  setTaskMood]  = useState(false);
+  const [isTaskActive, setTaskMood] = useState(false);
   const [isThemeActive, setThemeMood] = useState(false);
   const [chosenBlock, setChosenBlock] = useState([]);
-  const [viewRules,   setViewRules]   = useState([]);
+  const [viewRules, setViewRules] = useState([]);
   const [rules, setRules] = useState(preloadedRules || []);
   const [tasks, setTasks] = useState(preloadedTasks || []);
 
-  // теперь грузим глобально, без subject
+  // Глобальная загрузка теории (без subject)
   useEffect(() => {
     if (!preloadedRules) {
       fetch(`/api/theory/all_theory`)
-        .then(r => r.json())
+        .then((r) => r.json())
         .then(setRules)
         .catch(console.error);
     }
@@ -72,19 +80,19 @@ function TheoryChoose({
   useEffect(() => {
     if (!preloadedTasks) {
       fetch(`/api/theory/get_tasks_theory`)
-        .then(r => r.json())
+        .then((r) => r.json())
         .then(setTasks)
         .catch(console.error);
     }
   }, [preloadedTasks]);
 
-  console.log("-----< Правила >-----", rules);
-
   function handleSelect(id, isChoose) {
-    setChosenBlock(prev =>
+    setChosenBlock((prev) =>
       isChoose
-        ? prev.includes(id) ? prev : [...prev, id]
-        : prev.filter(item => item !== id)
+        ? prev.includes(id)
+          ? prev
+          : [...prev, id]
+        : prev.filter((item) => item !== id)
     );
   }
 
@@ -93,8 +101,8 @@ function TheoryChoose({
       setViewRules(rules);
     } else {
       const filtered = [];
-      rules.forEach(item => {
-        item.types.forEach(type => {
+      rules.forEach((item) => {
+        (item.types || []).forEach((type) => {
           if (chosenBlock.includes(type.id)) filtered.push(item);
         });
       });
@@ -104,10 +112,10 @@ function TheoryChoose({
 
   function showContent(parent) {
     if (parent === "task") {
-      setTaskMood(prev => !prev);
+      setTaskMood((prev) => !prev);
       if (isThemeActive) setThemeMood(false);
     } else {
-      setThemeMood(prev => !prev);
+      setThemeMood((prev) => !prev);
       if (isTaskActive) setTaskMood(false);
     }
   }
@@ -117,39 +125,54 @@ function TheoryChoose({
       <div className="theoryChoose">
         <div
           ref={task}
-          className={isTaskActive
-            ? "theoryChoose__elem theoryChoose__task--active"
-            : "theoryChoose__elem theoryChoose__task--hidden"}
+          className={
+            isTaskActive
+              ? "theoryChoose__elem theoryChoose__task--active"
+              : "theoryChoose__elem theoryChoose__task--hidden"
+          }
           onClick={() => showContent("task")}
         >
           Задания
         </div>
         <div
           ref={theme}
-          className={isThemeActive
-            ? "theoryChoose__elem theoryChoose__theme--active"
-            : "theoryChoose__elem theoryChoose__theme--hidden"}
+          className={
+            isThemeActive
+              ? "theoryChoose__elem theoryChoose__theme--active"
+              : "theoryChoose__elem theoryChoose__theme--hidden"
+          }
           onClick={() => showContent("theme")}
         >
           Темы
         </div>
       </div>
 
-      <div className={isThemeActive
-        ? "theoryChoose__block theoryChoose__block--active"
-        : "theoryChoose__block--hidden"}
+      {/* пока фильтры по типам отключены, так как нет object.types */}
+      <div
+        className={
+          isThemeActive
+            ? "theoryChoose__block theoryChoose__block--active"
+            : "theoryChoose__block--hidden"
+        }
       >
-        {(object?.types || []).map((item, index) => (
-          <Option key={index} onSelect={handleSelect} theme_id={item.id}>
-            {item.name}
-          </Option>
-        ))}
+        {/* сюда можно будет вернуть фильтр по типам, если захочешь */}
       </div>
 
-      <div className={isThemeActive ? "elementBlock elementBlock--small" : "elementBlock elementBlock--big"}>
+      <div
+        className={
+          isThemeActive
+            ? "elementBlock elementBlock--small"
+            : "elementBlock elementBlock--big"
+        }
+      >
         {isTaskActive === false
           ? viewRules.map((item, index) => (
-              <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>
+              <Element
+                key={index}
+                theory_id={item.id}
+                setPopup={setPopup}
+                setContent={setContent}
+              >
                 {item.name}
               </Element>
             ))
@@ -171,37 +194,24 @@ function TheoryChoose({
 
 function App() {
   const day_task = useRef();
-  const task     = useRef();
-  const theory   = useRef();
+  const task = useRef();
+  const theory = useRef();
   const analysis = useRef();
-  const title    = useRef();
+  const title = useRef();
   const trainerExitRef = useRef(null);
 
-  const [subjects,         getSubjects]         = useState([]);
-  const [object,           chooseSubject]       = useState();
-  const [selectedTrainer,  setSelectedTrainer]  = useState(null);
-  const [isFadingOut,      setIsFadingOut]      = useState(false);
+  const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [isFadingOut, setIsFadingOut] = useState(false);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
-  const [isContentReady,   setIsContentReady]   = useState(false);
-  const [theoryCache,      setTheoryCache]      = useState({});
-  const [page,             setPage]             = useState("main");
+  const [isContentReady, setIsContentReady] = useState(false);
+  const [theoryCache, setTheoryCache] = useState({});
+  const [page, setPage] = useState("subject"); // сразу экран Практика/Теория/Аналитика
 
-  const [isTheoryPopupOpen,  setIsTheoryPopupOpen]  = useState(false);
+  const [isTheoryPopupOpen, setIsTheoryPopupOpen] = useState(false);
   const [theoryPopupContent, setTheoryPopupContent] = useState({
     title: "Отсутствует",
     blocks: [],
   });
-
-  // пока оставляем предметы как UI-группировку, бэк их больше не использует
-  useEffect(() => {
-    fetch("/api/theory/all_theory_dop_info")
-      .then(r => r.json())
-      .then(data => {
-        getSubjects(data);
-        console.log("-----< Полученные предметы >-----", data);
-      })
-      .catch(console.error);
-  }, []);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp || {};
@@ -209,56 +219,66 @@ function App() {
     tg.expand?.();
 
     const params = tg.themeParams || {};
-    const isDark = tg.colorScheme === 'dark';
-    const root   = document.documentElement;
-    const setVar = (name, value) => { if (value) root.style.setProperty(`--${name}`, value); };
+    const isDark = tg.colorScheme === "dark";
+    const root = document.documentElement;
+    const setVar = (name, value) => {
+      if (value) root.style.setProperty(`--${name}`, value);
+    };
 
-    document.body.classList.toggle('theme--light', !isDark);
-    document.body.classList.toggle('theme--dark',   isDark);
+    document.body.classList.toggle("theme--light", !isDark);
+    document.body.classList.toggle("theme--dark", isDark);
 
-    setVar('text-color',  params.text_color);
-    setVar('main-color',  params.bg_color);
-    setVar('block-color', params.secondary_bg_color || params.section_bg_color);
+    setVar("text-color", params.text_color);
+    setVar("main-color", params.bg_color);
+    setVar("block-color", params.secondary_bg_color || params.section_bg_color);
 
-    const accent = isDark ? 'rgb(255, 200, 100)' : (params.header_bg_color || '#3b6fd4');
-    const mix    = isDark ? '10%' : '7%';
-    setVar('active-color', accent);
-    root.style.setProperty('--rule-color', `color-mix(in srgb, ${accent} ${mix}, transparent)`);
+    const accent = isDark
+      ? "rgb(255, 200, 100)"
+      : params.header_bg_color || "#3b6fd4";
+    const mix = isDark ? "10%" : "7%";
+    setVar("active-color", accent);
+    root.style.setProperty(
+      "--rule-color",
+      `color-mix(in srgb, ${accent} ${mix}, transparent)`
+    );
   }, []);
 
   useEffect(() => {
-    const onStart = e => {
-      const btn = e.target.closest('button');
-      if (btn) btn.classList.add('is-pressed');
+    const onStart = (e) => {
+      const btn = e.target.closest("button");
+      if (btn) btn.classList.add("is-pressed");
     };
-    const onEnd = e => {
-      const btn = e.target.closest('button');
-      if (btn) setTimeout(() => btn.classList.remove('is-pressed'), 270);
+    const onEnd = (e) => {
+      const btn = e.target.closest("button");
+      if (btn) setTimeout(() => btn.classList.remove("is-pressed"), 270);
     };
-    document.addEventListener('touchstart', onStart, { passive: true });
-    document.addEventListener('touchend',   onEnd,   { passive: true });
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
     return () => {
-      document.removeEventListener('touchstart', onStart);
-      document.removeEventListener('touchend',   onEnd);
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchend", onEnd);
     };
   }, []);
 
   async function performTransition(action, { withLoadingSpinner = true } = {}) {
     setIsFadingOut(true);
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     setIsContentReady(false);
 
     let loadingTimer;
     if (withLoadingSpinner) {
-      loadingTimer = setTimeout(() => setShowLoadingIndicator(true), 300);
+      loadingTimer = setTimeout(
+        () => setShowLoadingIndicator(true),
+        300
+      );
     }
 
     await action?.();
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     setIsContentReady(true);
-    await new Promise(resolve => {
+    await new Promise((resolve) => {
       requestAnimationFrame(() =>
         requestAnimationFrame(() => setTimeout(resolve, 50))
       );
@@ -283,16 +303,15 @@ function App() {
         return;
       }
 
-      if (page === 'trainers' && selectedTrainer) {
+      if (page === "trainers" && selectedTrainer) {
         return;
       }
 
       const backMap = {
-        theory:     'subject',
-        trainers:   'subject',
-        analysis:   'subject',
-        'day-task': 'subject',
-        subject:    'main',
+        theory: "subject",
+        trainers: "subject",
+        analysis: "subject",
+        "day-task": "subject",
       };
 
       const targetPage = backMap[page];
@@ -301,32 +320,30 @@ function App() {
         return;
       }
 
-      await performTransition(() => setPage(targetPage), { withLoadingSpinner: false });
+      await performTransition(() => setPage(targetPage), {
+        withLoadingSpinner: false,
+      });
     };
 
-    if (['subject', 'theory', 'trainers', 'analysis', 'day-task'].includes(page)) {
+    if (["subject", "theory", "trainers", "analysis", "day-task"].includes(page)) {
       backButton.show();
-      tg.onEvent('backButtonClicked', handleBack);
+      tg.onEvent("backButtonClicked", handleBack);
     } else {
       backButton.hide();
     }
 
-    return () => tg.offEvent?.('backButtonClicked', handleBack);
+    return () => tg.offEvent?.("backButtonClicked", handleBack);
   }, [page, isTheoryPopupOpen, selectedTrainer]);
 
   useEffect(() => {
-    requestAnimationFrame(() => requestAnimationFrame(() => setIsContentReady(true)));
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => setIsContentReady(true))
+    );
   }, []);
 
-  // кэшируем теперь по ключу 'global', а не по subjectId
   async function preloadTheoryData() {
-    const cacheKey = 'global';
-    console.log(`📥 Предзагрузка данных для theory (global)`);
-
-    if (theoryCache[cacheKey]) {
-      console.log(`✅ Данные уже в кэше`);
-      return theoryCache[cacheKey];
-    }
+    const cacheKey = "global";
+    if (theoryCache[cacheKey]) return theoryCache[cacheKey];
 
     const [rulesRes, tasksRes] = await Promise.all([
       fetch(`/api/theory/all_theory`),
@@ -334,23 +351,22 @@ function App() {
     ]);
     const rules = await rulesRes.json();
     const tasks = await tasksRes.json();
-    const data  = { rules, tasks };
+    const data = { rules, tasks };
 
-    setTheoryCache(prev => ({ ...prev, [cacheKey]: data }));
-    console.log(`✅ Данные загружены и закэшированы`);
+    setTheoryCache((prev) => ({ ...prev, [cacheKey]: data }));
     return data;
   }
 
   async function navigateToPage(targetPage, { resetTrainer = false } = {}) {
-    console.log(`🚀 Переход на: ${targetPage}`);
     await performTransition(async () => {
       const t0 = performance.now();
-      if (targetPage === 'theory') await preloadTheoryData();
+      if (targetPage === "theory") await preloadTheoryData();
       setPage(targetPage);
       if (resetTrainer) setSelectedTrainer(null);
-      console.log(`⏱️ Время подготовки: ${(performance.now() - t0).toFixed(2)}ms`);
+      console.log(
+        `⏱️ Время подготовки: ${(performance.now() - t0).toFixed(2)}ms`
+      );
     });
-    console.log(`✅ Переход завершён: ${targetPage}`);
   }
 
   const header = (
@@ -360,7 +376,10 @@ function App() {
       <div className="mainTitle__text">
         Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
         <br />
-        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">
+        <a
+          href="https://github.com/dakdolka/pumrus"
+          className="mainTitle__link"
+        >
           Узнать больше
         </a>
       </div>
@@ -369,29 +388,6 @@ function App() {
 
   let content;
 
-  if (page === "main") {
-    content = (
-      <>
-        {header}
-        <div className="subject__block">
-          {subjects.map((item, index) => (
-            <Chapter
-              key={index}
-              subject="true"
-              func={() => {
-                chooseSubject(item);
-                navigateToPage("subject");
-                console.log("------< Предмет >------", item.subject);
-              }}
-            >
-              {item.subject}
-            </Chapter>
-          ))}
-        </div>
-      </>
-    );
-  }
-
   if (page === "subject") {
     content = (
       <>
@@ -399,7 +395,10 @@ function App() {
         <Chapter ref={day_task} func={() => navigateToPage("day-task")}>
           Ежедневное задание
         </Chapter>
-        <Chapter ref={task} func={() => navigateToPage("trainers", { resetTrainer: true })}>
+        <Chapter
+          ref={task}
+          func={() => navigateToPage("trainers", { resetTrainer: true })}
+        >
           Практика
         </Chapter>
         <Chapter ref={theory} func={() => navigateToPage("theory")}>
@@ -408,7 +407,6 @@ function App() {
         <Chapter ref={analysis} func={() => navigateToPage("analysis")}>
           Аналитика
         </Chapter>
-        <div className="back-to-subjects-button" onClick={() => navigateToPage("main")} />
       </>
     );
   }
@@ -428,7 +426,9 @@ function App() {
           <div className="mainTitle">
             <div className="mainTitle__picture" />
             <div className="mainTitle__title">PumRus</div>
-            <div className="mainTitle__text">Выберите тренажёр для практики</div>
+            <div className="mainTitle__text">
+              Выберите тренажёр для практики
+            </div>
           </div>
           <div className="subject__block">
             {TRAINERS.map(({ id, label }) => (
@@ -441,12 +441,18 @@ function App() {
               </Chapter>
             ))}
           </div>
-          <div className="back-to-subjects-button" onClick={() => navigateToPage("subject")} />
+          <div
+            className="back-to-subjects-button"
+            onClick={() => navigateToPage("subject")}
+          />
         </>
       );
     } else {
-      const trainer = TRAINERS.find(t => t.id === selectedTrainer);
-      const onExit  = () => performTransition(() => setSelectedTrainer(null), { withLoadingSpinner: false });
+      const trainer = TRAINERS.find((t) => t.id === selectedTrainer);
+      const onExit = () =>
+        performTransition(() => setSelectedTrainer(null), {
+          withLoadingSpinner: false,
+        });
 
       content = (
         <>
@@ -461,10 +467,7 @@ function App() {
           </Chapter>
 
           {trainer?.Component && (
-            <trainer.Component
-              onExit={onExit}
-              exitRef={trainerExitRef}
-            />
+            <trainer.Component onExit={onExit} exitRef={trainerExitRef} />
           )}
         </>
       );
@@ -472,14 +475,13 @@ function App() {
   }
 
   if (page === "theory") {
-    const cachedData = theoryCache['global'] || null;
+    const cachedData = theoryCache["global"] || null;
     content = (
       <>
         <Chapter isValue="true" func={() => navigateToPage("subject")}>
           Теория
         </Chapter>
         <TheoryChoose
-          object={object}
           preloadedRules={cachedData?.rules}
           preloadedTasks={cachedData?.tasks}
           isPopup={isTheoryPopupOpen}
@@ -506,7 +508,7 @@ function App() {
 
   return (
     <>
-      <div className={`main ${isFadingOut ? 'main--fading-out' : ''}`}>
+      <div className={`main ${isFadingOut ? "main--fading-out" : ""}`}>
         {isContentReady ? content : null}
       </div>
       {showLoadingIndicator && (

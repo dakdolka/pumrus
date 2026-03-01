@@ -8,12 +8,11 @@ from app.core.tasks.use_cases import (
     CreateTaskUseCase,
     UpdateTaskUseCase,
     GetTaskByIdUseCase,
-    GetTasksForSubjectUseCase,
+    GetAllTasksUseCase,
     ReplaceTaskItemsUseCase,
     ParseRawContentUseCase,
 )
-from app.core.tasks.entities import TaskItem, Task
-from app.core.theory.enums import TheorySubject
+from app.core.tasks.entities import TaskItem
 from .schemas import (
     TaskCreateRequest,
     TaskResponse,
@@ -23,9 +22,8 @@ from .schemas import (
     ParseRawResponse,
 )
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
-# временно создаём репозиторий прямо тут; позже можно перевести на DI
 repo: ITaskRepository = TaskRepositoryImpl()
 
 
@@ -34,18 +32,32 @@ async def create_task(payload: TaskCreateRequest):
     usecase = CreateTaskUseCase(repo)
     task = await usecase.execute(
         name=payload.name,
-        subject=TheorySubject(payload.subject_id),  # адаптируй под свой enum
         trainer_type=payload.trainer_type,
         input_mode=payload.input_mode,
     )
     return TaskResponse(
         id=task.id,
         name=task.name,
-        subject_id=payload.subject_id,
         trainer_type=task.trainer_type,
         input_mode=task.input_mode,
         is_active=task.is_active,
     )
+
+
+@router.get("/", response_model=List[TaskResponse])
+async def get_all_tasks():
+    usecase = GetAllTasksUseCase(repo)
+    tasks = await usecase.execute()
+    return [
+        TaskResponse(
+            id=t.id,
+            name=t.name,
+            trainer_type=t.trainer_type,
+            input_mode=t.input_mode,
+            is_active=t.is_active,
+        )
+        for t in tasks
+    ]
 
 
 @router.get("/{task_id}", response_model=TaskDetailResponse)
@@ -58,7 +70,6 @@ async def get_task(task_id: int):
     return TaskDetailResponse(
         id=task.id,
         name=task.name,
-        subject_id=task.subj.value if hasattr(task.subj, "value") else task.subj,
         trainer_type=task.trainer_type,
         input_mode=task.input_mode,
         is_active=task.is_active,
@@ -78,23 +89,6 @@ async def get_task(task_id: int):
     )
 
 
-@router.get("/for_subject/{subject_id}", response_model=List[TaskResponse])
-async def get_tasks_for_subject(subject_id: int):
-    usecase = GetTasksForSubjectUseCase(repo)
-    tasks = await usecase.execute(subject_id)
-    return [
-        TaskResponse(
-            id=t.id,
-            name=t.name,
-            subject_id=subject_id,
-            trainer_type=t.trainer_type,
-            input_mode=t.input_mode,
-            is_active=t.is_active,
-        )
-        for t in tasks
-    ]
-
-
 @router.put("/{task_id}", response_model=TaskResponse)
 async def update_task(task_id: int, payload: TaskCreateRequest):
     usecase = UpdateTaskUseCase(repo)
@@ -108,7 +102,6 @@ async def update_task(task_id: int, payload: TaskCreateRequest):
     return TaskResponse(
         id=task.id,
         name=task.name,
-        subject_id=payload.subject_id,
         trainer_type=task.trainer_type,
         input_mode=task.input_mode,
         is_active=task.is_active,

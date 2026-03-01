@@ -1,7 +1,6 @@
 from typing import List, Any, Optional
 
 from app.core.db import async_session_factory
-from app.core.theory.enums import TheorySubject
 
 from .entities import Task, TaskItem
 from .enums import TrainerType, InputMode
@@ -16,14 +15,12 @@ class CreateTaskUseCase:
     async def execute(
         self,
         name: str,
-        subject: TheorySubject,
         trainer_type: TrainerType,
         input_mode: InputMode,
     ) -> Task:
         task = Task(
             id=None,
             name=name,
-            subj=subject,
             trainer_type=trainer_type,
             input_mode=input_mode,
             is_active=True,
@@ -73,13 +70,13 @@ class GetTaskByIdUseCase:
             return await self.repo.get_task_by_id(session, task_id)
 
 
-class GetTasksForSubjectUseCase:
+class GetAllTasksUseCase:
     def __init__(self, repo: ITaskRepository):
         self.repo = repo
 
-    async def execute(self, subject_id: int) -> List[Task]:
+    async def execute(self) -> List[Task]:
         async with async_session_factory() as session:
-            return await self.repo.get_tasks_for_subject(session, subject_id)
+            return await self.repo.get_all_tasks(session)
 
 
 class ReplaceTaskItemsUseCase:
@@ -98,7 +95,6 @@ class ParseRawContentUseCase:
     """
 
     def __init__(self):
-        # репозиторий тут не нужен, только доменная логика парсинга
         ...
 
     async def execute(
@@ -107,5 +103,4 @@ class ParseRawContentUseCase:
         raw_content: Any,
         task_id: int = 0,
     ) -> List[TaskItem]:
-        # task_id здесь может быть 0/None, нужен только чтобы проставить в сущности
         return parse_raw_content(task_id, trainer_type, raw_content)

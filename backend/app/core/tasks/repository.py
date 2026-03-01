@@ -4,7 +4,6 @@ from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .entities import Task, TaskItem
-from app.core.theory.enums import TheorySubject
 
 
 class ITaskRepository(ABC):
@@ -21,9 +20,7 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
-    async def get_tasks_for_subject(
-        self, session: AsyncSession, subject_id: int
-    ) -> List[Task]:
+    async def get_all_tasks(self, session: AsyncSession) -> List[Task]:
         ...
 
     @abstractmethod

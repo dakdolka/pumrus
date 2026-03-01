@@ -4,12 +4,6 @@ from .entities import TaskItem
 from .enums import TrainerType
 
 
-from typing import Any, Iterable, List
-
-from .entities import TaskItem
-from .enums import TrainerType
-
-
 def parse_words_with_capitals(
     task_id: int,
     trainer_type: TrainerType,
@@ -18,7 +12,7 @@ def parse_words_with_capitals(
     """
     Общий парсер для тренажёров, где raw = 'слОво' с заглавными буквами
     (ударения, ПРЕ/ПРИ, словарные).
-    Сейчас делаем: один TaskItem = одна проверяемая буква.
+    Один TaskItem = одна заглавная буква.
     """
     items: List[TaskItem] = []
     order = 0
@@ -27,7 +21,7 @@ def parse_words_with_capitals(
         lower = word.lower()
         for char_index, ch in enumerate(word):
             if ch == ch.lower():
-                continue  # не заглавная, не проверяем
+                continue
 
             correct_char = lower[char_index]
             visible = lower
@@ -53,12 +47,11 @@ def parse_words_with_capitals(
 
 def parse_spelling_raw(task_id: int, raw_entries: Iterable[dict[str, Any]]) -> List[TaskItem]:
     """
-    raw_entries: [{ "word": "в(течение) дня", "correct": "separate" }, ...]
+    raw_entries: [{ "word": "в(течение) дня", "correct": "separate" | "solid" }, ...]
     """
-    def resolve_word(word: str, correct: str) -> str:
-        # адаптация твоей функции resolveWord из SpellingTrainer.jsx [file:22]
-        import re
+    import re
 
+    def resolve_word(word: str, correct: str) -> str:
         parts: list[str] = []
         regex = re.compile(r"\(([^)]+)\)")
         last_index = 0
@@ -78,7 +71,7 @@ def parse_spelling_raw(task_id: int, raw_entries: Iterable[dict[str, Any]]) -> L
     for idx, entry in enumerate(raw_entries):
         word = entry["word"]
         correct = entry["correct"]  # "solid" | "separate"
-        visible = word  # можно так же хранить исходник
+        visible = word
         correct_visible = resolve_word(word, correct)
 
         items.append(
@@ -102,12 +95,15 @@ def parse_raw_content(
     trainer_type: TrainerType,
     raw_content: Any,
 ) -> List[TaskItem]:
+    """
+    Универсальная точка входа:
+    - STRESS / PREFIX / DICTIONARY: raw_content = список строк ["прИморье", ...]
+    - SPELLING: raw_content = список объектов { word, correct }
+    """
     if trainer_type in (TrainerType.STRESS, TrainerType.PREFIX, TrainerType.DICTIONARY):
-        # raw_content здесь — список строк: ["прИморье", "бАнты", ...]
         return parse_words_with_capitals(task_id, trainer_type, raw_content)
 
     if trainer_type == TrainerType.SPELLING:
         return parse_spelling_raw(task_id, raw_content)
 
     raise ValueError(f"Unsupported trainer_type: {trainer_type}")
-

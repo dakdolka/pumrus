@@ -24,7 +24,6 @@ class GetAllTheoryTypes:
     async def execute(self) -> List[dict]:
         async with async_session_factory() as session:
             res = await self.repo.get_all_theory_types(session)
-            res = sorted([{"id": el[0], "types": [{"id":e.id, "name":e.name.value} for e in el[2]]} for el in res], key=lambda x: x["id"])
             return res
 
 class GetTheoryByIdUseCase:

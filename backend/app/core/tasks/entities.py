@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional, List
 
-from app.core.theory.enums import TheorySubject
 from .enums import TrainerType, InputMode
 
 
@@ -15,14 +14,13 @@ class TaskItem:
     visible: str
     correct_option: str
     correct_visible: str
-    extra: Optional[dict[str, Any]] = field(default_factory=dict)
+    extra: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class Task:
     id: Optional[int]
     name: str
-    subj: TheorySubject
     trainer_type: TrainerType
     input_mode: InputMode
     is_active: bool = True

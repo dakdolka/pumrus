@@ -129,7 +129,7 @@ class TheoryRepositoryImpl(ITheoryRepository):
         res = result.scalars().all()
         return res
     
-    async def get_all_task_groups(self, session: AsyncSession) -> list[TaskTheoryGroupBD]:
+    async def get_all_task_theory_groups(self, session: AsyncSession) -> list[TaskTheoryGroupBD]:
         stmt = (
             select(TaskTheoryGroupBD)
             .options(

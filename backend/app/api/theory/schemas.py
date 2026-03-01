@@ -7,10 +7,6 @@ class TheoryTypesResponse(BaseModel):
     id: int
     name: TheoryType
 
-class AllTheoryDopInfoResponse(BaseModel):
-    id: int
-    types: List[TheoryTypesResponse]
-
 class TheoryBlockResponse(BaseModel):
     id: int
     type: BlockType
