@@ -1,11 +1,25 @@
 @import url('/src/static.css');
 
+
+/* ============================================================
+   СБРОС
+   ============================================================ */
+
 * {
     margin: 0;
     padding: 0;
-
     cursor: default;
+    box-sizing: border-box;
 }
+
+a, button, [role="button"] {
+    cursor: pointer;
+}
+
+
+/* ============================================================
+   MAIN
+   ============================================================ */
 
 .main {
     width: 100vw;
@@ -17,30 +31,39 @@
     align-items: center;
 
     background-color: var(--main-color);
-
     overflow-y: scroll;
-    &::-webkit-scrollbar {
-        display: none;
-    }
+
+    opacity: 1;
+    transition: opacity 0.3s ease-in-out;
 }
+
+.main::-webkit-scrollbar {
+    display: none;
+}
+
+.main--fading-out {
+    opacity: 0;
+}
+
+
+/* ============================================================
+   MAIN TITLE
+   ============================================================ */
 
 .mainTitle {
     margin-top: 10px;
     margin-bottom: 30px;
     width: 95%;
-    padding: 10px 0px;
+    padding: 10px 0;
 
     display: flex;
     flex-direction: column;
     align-items: center;
-
-    /* background-color: rgb(200, 200, 255); */
 }
 
 .mainTitle__picture {
-    width: calc(200px - 5px);
-    height: calc(200px - 5px);
-
+    width: 195px;
+    height: 195px;
     border-radius: 50%;
     background-image: url('/picture.jpg');
     background-position: center;
@@ -48,7 +71,7 @@
 }
 
 .mainTitle__title {
-    margin: 10px 0px;
+    margin: 10px 0;
     font-size: 2em;
     font-family: var(--chapter-text);
     color: var(--text-color);
@@ -68,48 +91,52 @@
     font-family: var(--chapter-text);
     letter-spacing: 1px;
     text-decoration: none;
+    cursor: pointer;
+}
+
+.mainTitle__link:hover {
+    text-decoration: underline;
 }
 
 
+/* ============================================================
+   SUBJECT BLOCK
+   ============================================================ */
 
 .subject__block {
     margin-top: 10px;
     width: 90%;
-
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
 
+/* ============================================================
+   THEORY CHOOSE
+   ============================================================ */
 
 .theoryChoose {
     margin-top: 10px;
     width: 90%;
     min-height: 70px;
-    
-
     border-radius: var(--border-size);
-
     display: flex;
     flex-direction: row;
-
     overflow: hidden;
 }
 
 .theoryChoose__elem {
     width: 50%;
     height: 100%;
-    
     font-size: medium;
     font-family: var(--chapter-text);
     color: var(--text-color);
-
     display: flex;
     justify-content: center;
     align-items: center;
-
-    transition: all 0.2s;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    cursor: pointer;
 }
 
 .theoryChoose__task--hidden {
@@ -137,40 +164,43 @@
 .theoryChoose__block:not(.theoryChoose__block--hidden) {
     margin-top: 5px;
     width: calc(90% - 10px);
-    padding: 5px 0px;
+    padding: 5px 0;
     height: auto;
     max-height: 220px;
-
     overflow-y: scroll;
-    &::-webkit-scrollbar {
-        display: none;
-    }
-
     border-radius: var(--border-size);
     background-color: transparent;
-
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+.theoryChoose__block:not(.theoryChoose__block--hidden)::-webkit-scrollbar {
+    display: none;
 }
 
 .theoryChoose__block--hidden {
     display: none;
 }
 
+
+/* ============================================================
+   OPTION
+   ============================================================ */
+
 .option {
     position: relative;
     width: 100%;
     height: 50px;
-
     border-radius: var(--border-size);
     background-color: var(--block-color);
     overflow: hidden;
+    transition: opacity 0.15s ease;
+    cursor: pointer;
+}
 
-    transition: all 0.1s;
-    &:active {
-        opacity: 0.9;
-    }
+.option:active {
+    opacity: 0.75;
 }
 
 .option + .option {
@@ -181,14 +211,11 @@
     position: absolute;
     top: 10px;
     left: 10px;
-
     width: 30px;
     height: 30px;
     border-radius: 50%;
-
     z-index: 1;
-    transition: all 0.2s;
-
+    transition: background-color 0.2s ease, outline 0.2s ease;
     outline: 2px solid var(--active-color);
 }
 
@@ -201,18 +228,17 @@
     position: absolute;
     top: 0;
     left: 60px;
-    width: calc(100% - 60px - 5px);
+    width: calc(100% - 65px);
     height: 100%;
     padding-right: 5px;
-
     display: flex;
     flex-direction: column;
     justify-content: center;
-
     overflow-x: scroll;
-    &::-webkit-scrollbar {
-        display: none;
-    }
+}
+
+.option__nameBlock::-webkit-scrollbar {
+    display: none;
 }
 
 .option__name {
@@ -223,52 +249,187 @@
 }
 
 
+/* ============================================================
+   ELEMENT BLOCK
+   ============================================================ */
 
 .elementBlock {
     margin-top: 10px;
     width: 90%;
-    /* max-height: calc(100% - 425px);   */
-    padding: 10px 0px;
-
+    padding: 10px 0;
     overflow-y: scroll;
-    &::-webkit-scrollbar {
-        display: none;
-    }
+}
+
+.elementBlock::-webkit-scrollbar {
+    display: none;
 }
 
 .elementBlock--small {
     height: calc(100% - 385px - 20px);
-    /* ? 20px = padding: 10px 0px; */
 }
-
 
 .elementBlock--big {
     height: calc(100% - 160px - 20px);
-    /* ? 20px = padding: 10px 0px; */
 }
 
 
+/* ============================================================
+   BACK BUTTON
+   ============================================================ */
+
 .back-to-subjects-button {
     position: fixed;
-    width: calc(40px - 4px);
-    height: calc(40px - 4px - 4px);
-    padding-bottom: 4px;
+    width: 36px;
+    height: 36px;
     top: 30px;
     left: 30px;
 
     border-radius: var(--border-size);
     border: 2px solid var(--block-color);
     z-index: 10;
+    cursor: pointer;
 
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
 
-    &::before {
-        content: var(--back-icon);
-        font-family: var(--text-font);
-        font-size: 1.5em;
-        color: var(--text-color);
+    background-color: transparent;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.back-to-subjects-button::before {
+    content: var(--back-icon);
+    font-family: var(--text-font);
+    font-size: 1.5em;
+    color: var(--text-color);
+    transition: color 0.2s ease;
+}
+
+.back-to-subjects-button:hover {
+    border-color: var(--active-color);
+    background-color: var(--active-color);
+}
+
+.back-to-subjects-button:hover::before {
+    color: var(--main-color);
+}
+
+.back-to-subjects-button:active {
+    transform: scale(0.93);
+}
+
+
+/* ============================================================
+   СПИННЕР (универсальный — используется везде)
+   ============================================================ */
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid color-mix(in srgb, var(--active-color) 20%, transparent);
+    border-top-color: var(--active-color);
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+}
+
+
+/* ============================================================
+   LOADING INDICATOR
+   ============================================================ */
+
+.loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    animation: fadeInIndicator 0.3s ease-in-out;
+}
+
+.loading-text {
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 500;
+    font-family: var(--text-font);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+
+/* ============================================================
+   АНИМАЦИИ (общие — используются и в components.css)
+   ============================================================ */
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50%       { opacity: 1; }
+}
+
+@keyframes fadeInIndicator {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.85);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
     }
 }
+
+
+/* ============================================================
+   АДАПТИВНОСТЬ
+   ============================================================ */
+
+@media (max-width: 600px) {
+    .back-to-subjects-button {
+        top: 10px;
+        left: 10px;
+        width: 32px;
+        height: 32px;
+    }
+
+    .back-to-subjects-button::before {
+        font-size: 1.2em;
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border-width: 3px;
+    }
+
+    .loading-text {
+        font-size: 0.95rem;
+    }
+}
+
+body.theme--light .element:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+}
+
+body.theme--light .back-to-subjects-button {
+    border-color: color-mix(in srgb, var(--text-color) 20%, transparent);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+body.theme--light .back-to-subjects-button:hover {
+    box-shadow: none;
+}
+
+body.theme--light .option {
+    border: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
+}
+
+body.theme--light .theoryChoose {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+

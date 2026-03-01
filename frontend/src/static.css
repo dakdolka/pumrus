@@ -1,56 +1,75 @@
 @font-face {
     font-family: 'chapter-text';
-    src: url("/Unbounded.ttf") format("truetype"); 
+    src: url("/Unbounded.ttf") format("truetype");
+    font-display: swap;
 }
 
 @keyframes disable {
-    from {
-        opacity: 1;
-    }
-    to {
-        opacity: 0;
-    }
-}
-
-@keyframes chapter-text {
-    to {
-        transform: translateX(50px);
-        /* text-align: right; */
-        padding-right: 20px;
-        padding-left: 0px;
-    }
-    from {
-        transform: translateX(0px);
-        /* text-align: left; */
-        padding-right: 0px;
-        padding-left: 20px;
-    }
+    from { opacity: 1; }
+    to   { opacity: 0; }
 }
 
 .all--disabled {
     display: none !important;
 }
 
+/* ============================================================
+   БАЗА: ТЁМНАЯ ТЕМА (дефолт, если Telegram ничего не дал)
+   ============================================================ */
+
 :root {
     --chapter-text: 'chapter-text';
     --text-font: system-ui, -apple-system, "SF Pro Text", "SF UI Text",
-             "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-    /* ? все эти значения - заглушки на случай отсутствия tg-тем */
-    --text-color: white;
-    --main-color: rgb(70, 70, 70);
-    --block-color: rgb(100, 100, 100);
+    /* Тёмная палитра по умолчанию */
+    --text-color:   #e8e8f0;
+    --main-color:   #111018;   /* фон приложения */
+    --block-color:  #1c1b24;   /* фон карточек */
+
+    /* Брендовый тёплый акцент (жёлто-оранжевый) */
     --active-color: rgb(255, 200, 100);
 
-    --rule-color: rgb(200, 90, 90);
-    --important-color: rgb(255, 200, 100);
-    --exception-color: rgb(255, 100, 100);
+    /* Состояния для callout-блоков (success / warning / danger) [web:97][web:102] */
+    /* Правило — спокойный зелёный, без ядовитости */
+    --rule-color:       rgba(90, 200, 140, 0.13);   /* фон карточки Правила */
+    /* Можно использовать этот же цвет для бордера, если захочешь */
+    /* Важно — тёплый янтарный, чуть темнее, чтобы не светиться как фонарик */
+    --important-color:  #f0a547;
+    /* Исключение — красный, но чуть приглушённый, ближе к error из UI-систем [web:104] */
+    --exception-color:  #ff6b6b;
 
     --border-size: 7px;
 
-    --go-icon: ">";
-    --back-icon: "<";
-    --close-icon: "⨯";
-    --open-group-icon: "▼";
-    --close-group-icon: "▲";  
+    --go-icon:           ">";
+    --back-icon:         "<";
+    --close-icon:        "⨯";
+    --open-group-icon:   "▼";
+    --close-group-icon:  "▲";
 }
+
+
+/* ============================================================
+   СВЕТЛАЯ ТЕМА (если на body есть класс theme--light)
+   ============================================================ */
+
+body.theme--light {
+    --text-color:   #1a1a2e;
+    --main-color:   #f2f2f7;  /* общий фон */
+    --block-color:  #ffffff;  /* карточки */
+
+    /* Акцент в светлой теме — синий (ссылки/активные элементы) */
+    --active-color: #3b6fd4;
+
+    /* Правило — холодный зелёный подсвет, как success-инфо [web:97][web:102] */
+    --rule-color:       rgba(56, 176, 120, 0.10);
+
+    /* Важно — мягкий жёлто-оранжевый (warning), но без токсичности */
+    --important-color:  #f2a93a;
+
+    /* Исключение — спокойный красный/малиновый (danger) */
+    --exception-color:  #e25555;
+}
+
+
+/* Старый блок @media (prefers-color-scheme: light) не нужен */
