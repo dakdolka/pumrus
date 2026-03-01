@@ -1,28 +1,113 @@
-# Архитектура бэкенда
-app/
-├── api/                     # Внешний слой: FastAPI + Pydantic + роутеры
-│   ├── main.py              # Точка входа FastAPI
-│   └── theory/
-│       ├── router.py        # маршруты /theory
-│       ├── crud.py          # вызовы use_cases и репозиториев
-│       └── schemas.py       # Pydantic DTO
-├── core/                    # Ядро проекта: бизнес-логика, интерфейсы
-│   ├── config.py            # Настройки (env, DB URL и т.д.)
-│   ├── db.py                # AsyncEngine, session_factory, Base
-│   └── theory/
-│       ├── entities.py      # Доменные сущности (TheoryBlock, Theory)
-│       ├── repository.py    # Интерфейс доступа к данным (ITheoryRepository)
-│       └── use_cases.py     # Бизнес-логика (CreateTheoryUseCase  )
-├── infra/                   # Реализация инфраструктуры (БД, внешние сервисы)
-│   └── theory/
-│       ├── models.py        # SQLAlchemy ORM-модели (TheoryBlockDB, TheoryDB)
-│       └── repository_impl.py  # Реализация ITheoryRepository через SQLAlchemy
-├── scripts/                 # CLI / вспомогательные скрипты
-│   └── parse_theory.py      # Парсер .txt → БД
-└── __main__.py              # Можно запускать проект через python -m app
-.env
+```mermaid
+flowchart LR
+    %% ========== LEGEND ==========
+    subgraph Legend["PUMRUS Backend DDD layers"]
+        L1[Interface Layer\napp/api/theory]
+        L2[Application Layer\napp/core/theory/use_cases.py]
+        L3[Domain Layer\napp/core/theory\nentities.py, enums.py,\nrepository.py]
+        L4[Infrastructure Layer\napp/infra/theory\nmodels.py, repository_impl.py]
+        L5[Core and DB\napp/core/db.py,\napp/core/config.py,\napp/main.py, app/scripts]
+    end
 
-# Запросы к бэку
-С фронта просто по соотв путям
-/api/theory/all_theory - названия всей теории
-и т.д. 
+    %% ========== INTERFACE LAYER ==========
+    subgraph InterfaceLayer["Interface Layer"]
+        R[router.py\nFastAPI endpoints]
+        S[schemas.py\nPydantic DTO\nrequests and responses]
+        C[crud.py\noptional\nCRUD helpers]
+    end
+
+    %% ========== DOMAIN LAYER ==========
+    subgraph DomainLayer["Domain Layer"]
+        E[entities.py\nTheory\nTheoryBlock\nTaskTheory\nTaskTheoryGroup\nTaskTheoryWithOrder]
+        EN[enums.py\nBlockType\nTheoryType\nTheorySubject]
+        RI[repository.py\nITheoryRepository\nabstraction for data access]
+    end
+
+    %% ========== APPLICATION LAYER ==========
+    subgraph ApplicationLayer["Application Layer"]
+        UC_CreateTheory[CreateTheoryBaseUseCase\ncreate theory]
+        UC_GetTheory[GetTheoryByIdUseCase\nget theory with blocks]
+        UC_AllTheory[GetAllTheoriesForSubjectUseCase\nall theory for subject]
+        UC_AllDop[GetAllTheoryDopInfoUseCase\nextra theory info]
+
+        UC_Block[Create Update Delete\nTheoryBlockUseCase\nmanage blocks]
+        UC_TaskGroup[Create Update Delete\nTaskTheoryGroupUseCase\ntask groups]
+        UC_Task[Create Update Delete\nTaskTheoryUseCase\ntasks]
+        UC_Links[UpdateTaskTheoryLinksUseCase\nlinks between task and theories]
+    end
+
+    %% ========== INFRASTRUCTURE LAYER ==========
+    subgraph InfraLayer["Infrastructure Layer"]
+        M[models.py\nTheoryBD\nTheoryBlockBD\nTaskTheoryGroupBD\nTaskTheoryBD\nTaskTheoryAssociation\nTheorySubjectBD\nTheoryTypeBD\ntheory2theory_type table]
+        RImpl[repository_impl.py\nTheoryRepositoryImpl\nSQLAlchemy async\nCRUD and mapping\nDomain to ORM]
+    end
+
+    %% ========== CORE / DB / MAIN / SCRIPTS ==========
+    subgraph CoreLayer["Core and DB"]
+        CFG[config.py\nsettings]
+        DB[db.py\nasync_engine\nasync_session_factory\nBase]
+    end
+
+    subgraph AppLayer["FastAPI App"]
+        MAIN[main.py\nFastAPI app\nlifespan\nCORS\nrouters\ncreate_all]
+    end
+
+    subgraph ScriptsLayer["Scripts"]
+        CR[create.py\ninit database schema\ncreate_all]
+        PT[parse_theory.py\nparse txt\ncreate theories\nblocks and tasks\nlegacy]
+    end
+
+    %% ========== REQUEST FLOW ==========
+    Client(("Client\nFrontend or API consumer")) -->|HTTP JSON\nGET POST PUT| R
+
+    %% Interface → Application
+    R -->|validation\nwith Pydantic DTO| S
+    R -->|call use case| UC_CreateTheory
+    R --> UC_GetTheory
+    R --> UC_AllTheory
+    R --> UC_AllDop
+    R --> UC_Block
+    R --> UC_TaskGroup
+    R --> UC_Task
+    R --> UC_Links
+    C -->|optional\nCRUD helpers| UC_GetTheory
+
+    %% Application → Domain
+    UC_CreateTheory -->|works with\nDomain Entities| E
+    UC_GetTheory --> E
+    UC_AllTheory --> E
+    UC_AllDop --> E
+    UC_Block --> E
+    UC_TaskGroup --> E
+    UC_Task --> E
+    UC_Links --> E
+    EN --> E
+
+    %% Application → Repository (порт)
+    UC_CreateTheory -->|through repository\ninterface| RI
+    UC_GetTheory --> RI
+    UC_AllTheory --> RI
+    UC_AllDop --> RI
+    UC_Block --> RI
+    UC_TaskGroup --> RI
+    UC_Task --> RI
+    UC_Links --> RI
+
+    %% Repository → Infrastructure (адаптер)
+    RI -->|implementation| RImpl
+    RImpl -->|ORM operations\nSQLAlchemy| M
+    RImpl -->|AsyncSession\ntransactions| DB
+
+    %% Core / Main / Scripts
+    MAIN --> R
+    MAIN --> CFG
+    MAIN --> DB
+
+    CR -->|create_all\ncreate tables| DB
+    PT -->|bulk load\ntheory and tasks| M
+    PT --> DB
+
+    %% Domain ↔ Persistence mapping
+    E -.mapping of entities\nto ORM models./-> M
+    EN -.enums and reference\nvalues./-> M
+```
