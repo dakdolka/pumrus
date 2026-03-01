@@ -83,7 +83,7 @@ flowchart LR
     UC_Links --> E
     EN --> E
 
-    %% Application → Repository (порт)
+    %% Application → Repository
     UC_CreateTheory -->|through repository\ninterface| RI
     UC_GetTheory --> RI
     UC_AllTheory --> RI
@@ -93,7 +93,7 @@ flowchart LR
     UC_Task --> RI
     UC_Links --> RI
 
-    %% Repository → Infrastructure (адаптер)
+    %% Repository → Infrastructure
     RI -->|implementation| RImpl
     RImpl -->|ORM operations\nSQLAlchemy| M
     RImpl -->|AsyncSession\ntransactions| DB
@@ -107,7 +107,7 @@ flowchart LR
     PT -->|bulk load\ntheory and tasks| M
     PT --> DB
 
-    %% Domain ↔ Persistence mapping
-    E -.mapping of entities\nto ORM models./-> M
-    EN -.enums and reference\nvalues./-> M
+    %% Domain ↔ Persistence mapping (simplified for GitHub)
+    E --> M
+    EN --> M
 ```
