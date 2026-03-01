@@ -4,7 +4,7 @@
 <tr>
 <td>
 
-<b>Получение теории</b>
+<strong>Получение теории</strong>
 
 ```mermaid
 flowchart TB
@@ -41,7 +41,7 @@ MySQL]
     UC_GetTheory --> Router
     Router --> Client
 </td> <td>
-<b>Создание теории</b>
+<strong>Создание теории</strong>
 
 text
 flowchart TB
@@ -79,7 +79,7 @@ MySQL]
     UC_CreateTheory --> Router
     Router --> Client
 </td> </tr> <tr> <td>
-<b>Создание / изменение / удаление блока теории</b>
+<strong>Блоки теории</strong>
 
 text
 flowchart TB
@@ -132,7 +132,7 @@ MySQL]
     UC_DeleteBlock --> Router
     Router --> Client
 </td> <td>
-<b>Получение заданий по предмету</b>
+<strong>Задания по предмету</strong>
 
 text
 flowchart TB
@@ -168,7 +168,7 @@ MySQL]
     UC_GetTasksSubj --> Router
     Router --> Client
 </td> </tr> <tr> <td>
-<b>Создание / изменение / удаление группы заданий</b>
+<strong>Группы заданий</strong>
 
 text
 flowchart TB
@@ -216,8 +216,7 @@ MySQL]
     UC_DeleteGroup --> Router
     Router --> Client
 </td> <td>
-<b>Создание / изменение / удаление задания
-и привязка к теориям</b>
+<strong>Задания и связи с теориями</strong>
 
 text
 flowchart TB
