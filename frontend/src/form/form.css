@@ -59,7 +59,7 @@ html, body {
   cursor: default;
 }
 
-/* верхняя панель: предмет + типы + теория */
+/* верхняя панель */
 .form-top {
   display: flex;
   flex-direction: column;
@@ -88,7 +88,6 @@ html, body {
   font-family: var(--text-font);
 }
 
-/* КНОПКИ СВЕРХУ: тёмный текст на жёлтом фоне */
 .form-top__group button {
   padding: 4px 8px;
   border-radius: 6px;
@@ -103,7 +102,7 @@ html, body {
   color: #1b1b1b !important;
 }
 
-/* основная область: дерево + редактор */
+/* основная область */
 .form-main {
   flex: 1;
   display: flex;
@@ -129,14 +128,12 @@ html, body {
   margin-bottom: 6px;
 }
 
-/* скролл только внутри списка блоков */
 .form-tree__scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* элементы дерева */
 .form-tree__item {
   display: flex;
   flex-direction: row;
@@ -148,23 +145,19 @@ html, body {
   font-size: 0.9rem;
 }
 
-/* НЕвыбранные блоки: лёгкий серый hover */
 .form-tree__item:hover {
   background-color: rgba(255, 255, 255, 0.04);
 }
 
-/* ВЫБРАННЫЙ блок: жёлтый фон + тонкая белая рамка */
 .form-tree__item--active {
   background-color: var(--active-color);
   border: 1px solid #ffffff;
 }
 
-/* чтобы при hover по выбранному блоку фон не менялся */
 .form-tree__item--active:hover {
   background-color: var(--active-color);
 }
 
-/* базовые цвета содержимого */
 .form-tree__order {
   font-family: var(--chapter-text);
   font-size: 0.8rem;
@@ -185,14 +178,12 @@ html, body {
   text-overflow: ellipsis;
 }
 
-/* ВЫБРАННЫЙ блок: содержимое серым */
 .form-tree__item--active .form-tree__order,
 .form-tree__item--active .form-tree__type,
 .form-tree__item--active .form-tree__content {
   color: rgba(0, 0, 0, 0.6);
 }
 
-/* КНОПКИ ДОБАВЛЕНИЯ В ДЕРЕВЕ */
 .form-tree__add {
   margin-top: 8px;
   padding: 4px 8px;
@@ -212,7 +203,6 @@ html, body {
   margin-top: 4px;
 }
 
-/* стрелки перемещения */
 .form-tree__move-vertical {
   display: inline-flex;
   flex-direction: column;
@@ -231,18 +221,15 @@ html, body {
   opacity: 0.8;
 }
 
-/* hover на стрелке для НЕвыбранного блока */
 .form-tree__move-btn:hover {
   opacity: 1;
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* выбранный блок: по умолчанию тёмные стрелки */
 .form-tree__item--active .form-tree__move-btn {
   color: rgba(0, 0, 0, 0.8);
 }
 
-/* и только при hover — серее */
 .form-tree__item--active .form-tree__move-btn:hover {
   color: rgba(0, 0, 0, 0.6);
 }
@@ -264,6 +251,7 @@ html, body {
   margin-bottom: 6px;
 }
 
+/* ── поле формы ── */
 .form-editor__field {
   display: flex;
   flex-direction: row;
@@ -274,9 +262,12 @@ html, body {
 
 .form-editor__field label {
   min-width: 90px;
+  font-size: 0.9rem;
+  opacity: 0.85;
 }
 
-.form-editor__field input {
+/* text input */
+.form-editor__field input[type="text"] {
   flex: 1;
   padding: 4px 6px;
   border-radius: 6px;
@@ -284,6 +275,64 @@ html, body {
   background-color: transparent;
   color: var(--text-color);
   font-family: var(--text-font);
+  font-size: 0.9rem;
+  transition: border-color 0.15s;
+}
+
+.form-editor__field input[type="text"]:focus {
+  outline: none;
+  border-color: var(--active-color);
+}
+
+/* select */
+.form-editor__field select {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: var(--block-color);
+  color: var(--text-color);
+  font-family: var(--text-font);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.form-editor__field select:focus {
+  outline: none;
+  border-color: var(--active-color);
+}
+
+/* textarea (raw-массив) */
+.form-editor__field textarea {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--text-color);
+  background-color: rgba(0, 0, 0, 0.18);
+  color: var(--text-color);
+  font-family: monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+
+.form-editor__field textarea:focus {
+  outline: none;
+  border-color: var(--active-color);
+}
+
+/* подсказка рядом с label */
+.form-editor__field .field-hint {
+  font-size: 0.75rem;
+  opacity: 0.45;
+  font-weight: normal;
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
 }
 
 .form-editor__field--textarea {
@@ -296,16 +345,9 @@ html, body {
   flex: 1;
   min-height: 0;
   height: 100%;
-  resize: vertical;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--text-color);
-  background-color: transparent;
-  color: var(--text-color);
-  font-family: var(--text-font);
 }
 
-/* КНОПКИ РЕДАКТОРА: тёмный текст на жёлтом */
+/* кнопки редактора */
 .form-editor__actions {
   margin-top: 8px;
   display: flex;
@@ -314,13 +356,24 @@ html, body {
 }
 
 .form-editor__actions button {
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 6px;
   border: none;
   font-family: var(--chapter-text);
+  font-size: 0.9rem;
   cursor: pointer;
   background-color: var(--active-color);
   color: #1b1b1b;
+  transition: opacity 0.15s;
+}
+
+.form-editor__actions button:hover {
+  opacity: 0.85;
+}
+
+.form-editor__actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .form-editor__actions button * {
@@ -328,11 +381,15 @@ html, body {
 }
 
 .form-editor__delete {
-  background-color: #b00020;
-  color: #ffffff;
+  background-color: #b00020 !important;
+  color: #ffffff !important;
 }
 
-/* зелёная кнопка "Сохранить теорию" */
+.form-editor__delete * {
+  color: #ffffff !important;
+}
+
+/* зелёная кнопка */
 .form-button--save-theory {
   background-color: #2e7d32 !important;
   color: #ffffff !important;
@@ -342,7 +399,7 @@ html, body {
   color: #ffffff !important;
 }
 
-/* выпадающий список типов теории / блоков */
+/* чипы типов теории */
 .form-types-select {
   display: flex;
   flex-wrap: wrap;
@@ -379,7 +436,7 @@ html, body {
   padding: 2px 6px;
 }
 
-/* кнопка Bold в редакторе */
+/* Bold кнопка */
 .form-editor__bold-btn {
   display: inline-block;
   padding: 2px 8px;
@@ -391,14 +448,13 @@ html, body {
   font-family: var(--chapter-text);
   cursor: pointer;
   text-align: center;
-  width: auto;
 }
 
 .form-editor__bold-btn:hover {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* ЖЁСТКО фиксируем цвет текста внутри активного блока дерева */
+/* активный блок дерева — всё содержимое тёмное */
 .form-tree__item--active,
 .form-tree__item--active * {
   color: rgba(0, 0, 0, 0.6) !important;

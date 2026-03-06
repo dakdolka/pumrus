@@ -28,3 +28,9 @@ class ITaskRepository(ABC):
         self, session: AsyncSession, task_id: int, items: List[TaskItem]
     ) -> None:
         ...
+        
+    @abstractmethod
+    async def delete_task_by_id(
+        self, session: AsyncSession, task_id: int
+    ) -> None:
+        ...

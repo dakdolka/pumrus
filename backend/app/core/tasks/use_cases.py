@@ -87,6 +87,13 @@ class ReplaceTaskItemsUseCase:
         async with async_session_factory() as session:
             await self.repo.replace_task_items(session, task_id, items)
 
+class DeleteTaskUseCase:
+    def __init__(self, repo: ITaskRepository):
+        self.repo = repo
+        
+    async def execute(self, task_id: int):
+        async with async_session_factory() as session:
+            await self.repo.delete_task_by_id(session, task_id)
 
 class ParseRawContentUseCase:
     """

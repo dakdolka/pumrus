@@ -48,6 +48,7 @@ class TaskRepositoryImpl(ITaskRepository):
         session.add(bd)
         await session.flush()
         task.id = bd.id
+        await session.commit()
         return task
 
     async def update_task(self, session: AsyncSession, task: Task) -> Task:
@@ -79,6 +80,7 @@ class TaskRepositoryImpl(ITaskRepository):
         stmt = select(TaskBD).options(selectinload(TaskBD.items))
         res = await session.execute(stmt)
         bds = res.scalars().all()
+        print(bds)
         return [_bd_to_domain_task(bd) for bd in bds]
 
     async def replace_task_items(
@@ -99,4 +101,11 @@ class TaskRepositoryImpl(ITaskRepository):
                 extra_json=it.extra or {},
             )
             session.add(bd_item)
-        await session.flush()
+        await session.commit()
+    
+    async def delete_task_by_id(
+        self, session: AsyncSession, task_id: int
+    ) -> None:
+        await session.execute(delete(TaskItemBD).where(TaskItemBD.task_id == task_id))
+        await session.execute(delete(TaskBD).where(TaskBD.id == task_id))
+        await session.commit()

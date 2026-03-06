@@ -6,6 +6,7 @@ from app.core.tasks.repository import ITaskRepository
 from app.infra.tasks.repository_impl import TaskRepositoryImpl
 from app.core.tasks.use_cases import (
     CreateTaskUseCase,
+    DeleteTaskUseCase,
     UpdateTaskUseCase,
     GetTaskByIdUseCase,
     GetAllTasksUseCase,
@@ -107,6 +108,10 @@ async def update_task(task_id: int, payload: TaskCreateRequest):
         is_active=task.is_active,
     )
 
+@router.delete("/{task_id}")
+async def delete_task_by_id(task_id: int):
+    usecase = DeleteTaskUseCase(repo)
+    await usecase.execute(task_id)
 
 @router.put("/{task_id}/items")
 async def replace_task_items(task_id: int, items: List[TaskItemDTO]):
