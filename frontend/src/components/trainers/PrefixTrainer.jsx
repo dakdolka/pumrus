@@ -1,10 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import './trainers.css';
-import { prefixWords } from './data/prefixWords.js';
 import { useLetterTrainer } from './hooks/useLetterTrainer.js';
 import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
-
-const STORAGE_KEY = 'pre_pri_trainer_state_v4';
 
 function parseWord(word) {
   const chars = [...word], check = [];
@@ -12,7 +9,7 @@ function parseWord(word) {
   return { original: word, lower: word.toLowerCase(), check };
 }
 
-export function PrefixTrainer({ onExit, exitRef }) {
+export function PrefixTrainer({ onExit, exitRef, rawData, storageKey }) {
   const activeRef = useRef(null);
 
   const {
@@ -28,12 +25,7 @@ export function PrefixTrainer({ onExit, exitRef }) {
     collectPageMistakes, collectAllMistakes,
     triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
-  } = useLetterTrainer({
-    storageKey: STORAGE_KEY,
-    rawData: prefixWords,
-    parseWord,
-    onExit,
-  });
+  } = useLetterTrainer({ storageKey, rawData, parseWord, onExit });
 
   useEffect(() => {
     if (exitRef) exitRef.current = triggerExit;
@@ -130,22 +122,17 @@ export function PrefixTrainer({ onExit, exitRef }) {
       {showExitMistakes && (
         <MistakesPopup
           title="Все ошибки"
-          mistakes={collectAllMistakes()}
-          renderMistake={renderMistake}
-          stats={stats}
-          statsLabel="слов"
+          mistakes={collectAllMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="букв"
           isExit={isExiting}
           onClose={() => {
             setShowExitMistakes(false);
-            if (isExiting) {
-              setIsExiting(false);
-              onExit?.();
-            }
+            if (isExiting) { setIsExiting(false); onExit?.(); }
           }}
         />
       )}
       {showConfirmReset && (
-        <ConfirmPopup message="Начать весь тренажёр сначала?"
+        <ConfirmPopup message="Начать задание сначала?"
           onConfirm={() => { setShowConfirmReset(false); reset(); }}
           onCancel={() => setShowConfirmReset(false)}
         />
@@ -164,8 +151,7 @@ function WordInput({ word, letterStates, isActive, innerRef }) {
         const checkIdx = word.check.indexOf(charIndex);
         if (checkIdx === -1) return <span key={charIndex} className="trainer-char">{ch}</span>;
         const ls = letterStates[checkIdx];
-        let cls = 'trainer-letter';
-        let display = '';
+        let cls = 'trainer-letter', display = '';
         if (ls?.done) {
           cls += ls.correct ? ' trainer-letter--correct' : ' trainer-letter--wrong';
           display = ls.input;

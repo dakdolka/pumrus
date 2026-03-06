@@ -61,7 +61,7 @@ class TaskRepositoryImpl(ITaskRepository):
         bd.input_mode = task.input_mode.value
         bd.is_active = task.is_active
 
-        await session.flush()
+        await session.commit()
         return task
 
     async def get_task_by_id(self, session: AsyncSession, task_id: int) -> Optional[Task]:

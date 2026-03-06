@@ -22,17 +22,18 @@ const RAW_HINTS = {
 };
 
 export function TasksAdmin() {
-  const [tasks, setTasks]               = useState([]);
+  const [tasks,          setTasks]          = useState([]);
   const [selectedTaskId, setSelectedTaskId] = useState(null);
 
-  const [nameDraft, setNameDraft]       = useState("");
-  const [trainerType, setTrainerType]   = useState("stress");
-  const [inputMode, setInputMode]       = useState("letter_by_letter");
-  const [isActive, setIsActive]         = useState(true);
-  const [rawText, setRawText]           = useState("");
-  const [parsedItems, setParsedItems]   = useState([]);
-  const [parseError, setParseError]     = useState("");
-  const [isCreating, setIsCreating]     = useState(false);
+  const [nameDraft,    setNameDraft]    = useState("");
+  const [trainerType,  setTrainerType]  = useState("stress");
+  const [originalType, setOriginalType] = useState("stress"); // тип как в БД
+  const [inputMode,    setInputMode]    = useState("letter_by_letter");
+  const [isActive,     setIsActive]     = useState(true);
+  const [rawText,      setRawText]      = useState("");
+  const [parsedItems,  setParsedItems]  = useState([]);
+  const [parseError,   setParseError]   = useState("");
+  const [isCreating,   setIsCreating]   = useState(false);
 
   function reloadTasks() {
     fetch("/api/tasks/")
@@ -53,6 +54,7 @@ export function TasksAdmin() {
       .then((data) => {
         setNameDraft(data.name || "");
         setTrainerType(data.trainer_type || "stress");
+        setOriginalType(data.trainer_type || "stress");
         setInputMode(data.input_mode || "letter_by_letter");
         setIsActive(data.is_active ?? true);
         setParsedItems(data.items || []);
@@ -65,7 +67,7 @@ export function TasksAdmin() {
           });
           setRawText(JSON.stringify(raw, null, 2));
         } else {
-          const raw = (data.items || []).map((it) => it.raw);
+          const raw    = (data.items || []).map((it) => it.raw);
           const unique = [...new Set(raw)];
           setRawText(JSON.stringify(unique, null, 2));
         }
@@ -78,6 +80,7 @@ export function TasksAdmin() {
     setIsCreating(true);
     setNameDraft("");
     setTrainerType("stress");
+    setOriginalType("stress");
     setInputMode("letter_by_letter");
     setIsActive(true);
     setRawText("");
@@ -146,6 +149,7 @@ export function TasksAdmin() {
     reloadTasks();
     setIsCreating(false);
     setSelectedTaskId(created.id);
+    setOriginalType(trainerType);
   }
 
   async function handleUpdate() {
@@ -163,12 +167,24 @@ export function TasksAdmin() {
     });
 
     if (parsedItems.length > 0) {
+      // Есть свежесгенерированные items — сохраняем
       await fetch(`/api/tasks/${selectedTaskId}/items`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsedItems),
       });
+      setOriginalType(trainerType);
+    } else if (trainerType !== originalType) {
+      // Тип сменили, но новый raw не сгенерировали — предупреждаем
+      alert(
+        `Тип тренажёра изменён с «${originalType}» на «${trainerType}», ` +
+        `но элементы не обновлены.\n\n` +
+        `Вставьте новый raw-массив и нажмите «Сгенерировать» — иначе тренажёр сломается.`
+      );
+      reloadTasks();
+      return;
     }
+    // Если тип не менялся и items не трогали — просто сохраняем мета-поля, всё ок
 
     reloadTasks();
   }
@@ -187,7 +203,8 @@ export function TasksAdmin() {
     reloadTasks();
   }
 
-  const isEditing = !!selectedTaskId || isCreating;
+  const isEditing     = !!selectedTaskId || isCreating;
+  const typeChanged   = !isCreating && trainerType !== originalType;
 
   return (
     <div className="form-main">
@@ -266,6 +283,21 @@ export function TasksAdmin() {
                 ))}
               </select>
             </div>
+
+            {/* Предупреждение о смене типа */}
+            {typeChanged && (
+              <div style={{
+                color: "#f0a500",
+                fontSize: "0.82rem",
+                marginBottom: 6,
+                padding: "5px 8px",
+                borderRadius: 6,
+                background: "rgba(240,165,0,0.08)",
+                border: "1px solid rgba(240,165,0,0.25)",
+              }}>
+                ⚠️ Тип изменён — обновите raw-массив и нажмите «Сгенерировать»
+              </div>
+            )}
 
             {/* Режим ввода */}
             <div className="form-editor__field">
@@ -346,13 +378,7 @@ export function TasksAdmin() {
                 <div style={{ fontWeight: 600, marginBottom: 6, fontSize: "0.9rem" }}>
                   Элементов: {parsedItems.length}
                 </div>
-                <table
-                  style={{
-                    width: "100%",
-                    fontSize: "0.82rem",
-                    borderCollapse: "collapse",
-                  }}
-                >
+                <table style={{ width: "100%", fontSize: "0.82rem", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ opacity: 0.6 }}>
                       <th style={{ textAlign: "left", paddingBottom: 4 }}>#</th>
@@ -364,16 +390,11 @@ export function TasksAdmin() {
                   </thead>
                   <tbody>
                     {parsedItems.map((item, idx) => (
-                      <tr
-                        key={idx}
-                        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-                      >
+                      <tr key={idx} style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                         <td style={{ padding: "3px 6px 3px 0" }}>{idx + 1}</td>
                         <td style={{ padding: "3px 6px" }}>{item.raw}</td>
                         <td style={{ padding: "3px 6px" }}>{item.visible}</td>
-                        <td style={{ padding: "3px 6px", fontWeight: 600 }}>
-                          {item.correct_option}
-                        </td>
+                        <td style={{ padding: "3px 6px", fontWeight: 600 }}>{item.correct_option}</td>
                         <td style={{ padding: "3px 6px" }}>{item.correct_visible}</td>
                       </tr>
                     ))}

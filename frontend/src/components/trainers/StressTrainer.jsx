@@ -1,15 +1,11 @@
 import React, { useEffect } from 'react';
 import './trainers.css';
-import { stressWords } from './data/stressWords.js';
 import { useWordTrainer } from './hooks/useWordTrainer.js';
 import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
 
-
-const STORAGE_KEY = 'stress_trainer_state_v11';
 const vowels = 'аеёиоуыэюя';
 
-
-export function StressTrainer({ onExit, exitRef }) {
+export function StressTrainer({ onExit, exitRef, rawData, storageKey }) {
   const {
     words, wordResults, stats,
     showPageMistakes, setShowPageMistakes,
@@ -22,22 +18,20 @@ export function StressTrainer({ onExit, exitRef }) {
     triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
   } = useWordTrainer({
-    storageKey: STORAGE_KEY,
-    rawData: stressWords,
+    storageKey,
+    rawData,
     createEmptyResult: () => ({ result: 'none', clicked: [] }),
     onExit,
   });
-
 
   useEffect(() => {
     if (exitRef) exitRef.current = triggerExit;
     return () => { if (exitRef) exitRef.current = null; };
   }, [exitRef, triggerExit]);
 
-
   function handleVowelClick(absIndex, charIndex) {
     if (wordResults[absIndex]?.result !== 'none') return;
-    const chars = [...words[absIndex].question]; // ← строка из объекта
+    const chars = [...words[absIndex].question];
     const correctIndex = chars.findIndex(ch => ch !== ch.toLowerCase());
     if (correctIndex === -1) return;
     const isCorrect = charIndex === correctIndex;
@@ -48,15 +42,13 @@ export function StressTrainer({ onExit, exitRef }) {
     }, isCorrect);
   }
 
-
   function renderMistake({ word }) {
-    return [...word.question].map((ch, j) => // ← строка из объекта
+    return [...word.question].map((ch, j) =>
       ch !== ch.toLowerCase()
         ? <span key={j} style={{ color: 'green' }}>{ch}</span>
         : <span key={j}>{ch.toLowerCase()}</span>
     );
   }
-
 
   const pageNav = (
     <PageNav currentPage={currentPage} totalPages={totalPages}
@@ -64,7 +56,6 @@ export function StressTrainer({ onExit, exitRef }) {
       onNext={() => setCurrentPage(p => p + 1)}
     />
   );
-
 
   return (
     <div className="trainer-container">
@@ -75,14 +66,13 @@ export function StressTrainer({ onExit, exitRef }) {
       />
       {pageNav}
 
-
       <main className="trainer-words">
         {words.slice(start, end).map((word, relIndex) => {
           const absIndex = start + relIndex;
           return (
             <WordDisplay
               key={absIndex}
-              word={word.question} // ← строка из объекта
+              word={word.question}
               result={wordResults[absIndex]}
               onVowelClick={charIndex => handleVowelClick(absIndex, charIndex)}
             />
@@ -90,9 +80,7 @@ export function StressTrainer({ onExit, exitRef }) {
         })}
       </main>
 
-
       {pageNav}
-
 
       {showPageMistakes && (
         <MistakesPopup
@@ -118,21 +106,17 @@ export function StressTrainer({ onExit, exitRef }) {
           title="Все ошибки"
           mistakes={collectAllMistakes()}
           renderMistake={renderMistake}
-          stats={stats}
-          statsLabel="слов"
+          stats={stats} statsLabel="слов"
           isExit={isExiting}
           onClose={() => {
             setShowExitMistakes(false);
-            if (isExiting) {
-              setIsExiting(false);
-              onExit?.();
-            }
+            if (isExiting) { setIsExiting(false); onExit?.(); }
           }}
         />
       )}
       {showConfirmReset && (
         <ConfirmPopup
-          message="Начать весь тренажёр сначала?"
+          message="Начать задание сначала?"
           onConfirm={() => { setShowConfirmReset(false); reset(); }}
           onCancel={() => setShowConfirmReset(false)}
         />
@@ -140,7 +124,6 @@ export function StressTrainer({ onExit, exitRef }) {
     </div>
   );
 }
-
 
 function WordDisplay({ word, result, onVowelClick }) {
   const chars = [...word];

@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './trainers.css';
-import { spellingWords } from './data/spellingWords.js';
 import { useWordTrainer } from './hooks/useWordTrainer.js';
 import { TrainerControls, PageNav, MistakesPopup, ConfirmPopup } from './TrainerShared.jsx';
-
-const STORAGE_KEY = 'spelling_trainer_state_v3';
 
 function parseParts(str) {
   const parts = [];
@@ -23,7 +20,7 @@ function resolveWord(str, correct) {
   return parseParts(str).map(p => p.value).join(correct === 'separate' ? ' ' : '');
 }
 
-export function SpellingTrainer({ onExit, exitRef }) {
+export function SpellingTrainer({ onExit, exitRef, rawData, storageKey }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeRef = useRef(null);
 
@@ -39,8 +36,8 @@ export function SpellingTrainer({ onExit, exitRef }) {
     triggerExit,
     currentPage, setCurrentPage, totalPages, start, end,
   } = useWordTrainer({
-    storageKey: STORAGE_KEY,
-    rawData: spellingWords,
+    storageKey,
+    rawData,
     createEmptyResult: () => ({ result: 'none', chosen: null }),
     onExit,
   });
@@ -108,10 +105,16 @@ export function SpellingTrainer({ onExit, exitRef }) {
       {pageNav}
 
       <div className="spelling-keyboard">
-        <button className={`spelling-key${isCurrentDone ? ' spelling-key--disabled' : ''}`}
-          disabled={isCurrentDone} onClick={() => handleChoose('solid')}>Слитно</button>
-        <button className={`spelling-key${isCurrentDone ? ' spelling-key--disabled' : ''}`}
-          disabled={isCurrentDone} onClick={() => handleChoose('separate')}>Раздельно</button>
+        <button
+          className={`spelling-key${isCurrentDone ? ' spelling-key--disabled' : ''}`}
+          disabled={isCurrentDone}
+          onClick={() => handleChoose('solid')}
+        >Слитно</button>
+        <button
+          className={`spelling-key${isCurrentDone ? ' spelling-key--disabled' : ''}`}
+          disabled={isCurrentDone}
+          onClick={() => handleChoose('separate')}
+        >Раздельно</button>
       </div>
 
       {showPageMistakes && (
@@ -131,22 +134,17 @@ export function SpellingTrainer({ onExit, exitRef }) {
       {showExitMistakes && (
         <MistakesPopup
           title="Все ошибки"
-          mistakes={collectAllMistakes()}
-          renderMistake={renderMistake}
-          stats={stats}
-          statsLabel="слов"
+          mistakes={collectAllMistakes()} renderMistake={renderMistake}
+          stats={stats} statsLabel="слов"
           isExit={isExiting}
           onClose={() => {
             setShowExitMistakes(false);
-            if (isExiting) {
-              setIsExiting(false);
-              onExit?.();
-            }
+            if (isExiting) { setIsExiting(false); onExit?.(); }
           }}
         />
       )}
       {showConfirmReset && (
-        <ConfirmPopup message="Начать весь тренажёр сначала?"
+        <ConfirmPopup message="Начать задание сначала?"
           onConfirm={() => { setShowConfirmReset(false); reset(); }}
           onCancel={() => setShowConfirmReset(false)}
         />
@@ -158,7 +156,7 @@ export function SpellingTrainer({ onExit, exitRef }) {
 const SpellingItem = React.forwardRef(function SpellingItem({ entry, result, isActive, onClick }, ref) {
   const { word, correct } = entry;
   const parts = parseParts(word);
-  const done = result?.result !== 'none';
+  const done  = result?.result !== 'none';
   let cls = 'spelling-item';
   if (isActive && !done) cls += ' spelling-item--active';
   if (done) cls += result.result === 'correct' ? ' spelling-item--correct' : ' spelling-item--wrong';
