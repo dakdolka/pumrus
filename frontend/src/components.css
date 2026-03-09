@@ -638,6 +638,23 @@ body.theme--light .theory__example--legend--rule {
     font-variant: small-caps;
 }
 
+/* --- Примечание --- */
+.theory__example--fieldset--note {
+    border-left: 3px solid rgba(120, 160, 220, 0.85);
+    border-color: color-mix(in srgb, rgba(120, 160, 220, 0.85) 40%, transparent);
+    background-color: color-mix(in srgb, rgba(120, 160, 220, 0.85) 7%, var(--block-color));
+}
+
+.theory__example--fieldset--note:hover {
+    box-shadow: 0 3px 12px color-mix(in srgb, rgba(120, 160, 220, 0.85) 28%, transparent);
+}
+
+.theory__example--legend--note {
+    color: rgba(120, 160, 220, 0.95);
+    font-style: italic;
+}
+
+
 
 
 /* ============================================================
@@ -917,6 +934,16 @@ body.theme--light .theory__example--fieldset {
 
 body.theme--light .theory__example--fieldset:hover {
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.10);
+}
+
+body.theme--light .theory__example--fieldset--note {
+    border-left: 3px solid rgba(80, 130, 210, 0.8);
+    border-color: color-mix(in srgb, rgba(80, 130, 210, 0.8) 35%, transparent);
+    background-color: color-mix(in srgb, rgba(80, 130, 210, 0.8) 6%, #ffffff);
+}
+
+body.theme--light .theory__example--legend--note {
+    color: rgba(60, 110, 200, 0.9);
 }
 
 

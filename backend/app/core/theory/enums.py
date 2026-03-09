@@ -11,11 +11,10 @@ class BlockType(str, Enum):
     svg = "svg"
     group = "group"
     link = "link"
+    note = "note"
 
 class TheoryType(str, Enum):
     speechpart = "Части речи"
     text = "Текст"
     wordparts = "Морфемы"
     punctuation = "Пунктуация"
-    database = "База данных"
-    encoding = "Кодировка"

@@ -195,7 +195,17 @@ function TheoryElem({ item, groupPath = '' }) {
                     </fieldset>
                 </div>
             );
-
+        case "note":
+            return (
+                <div className="example__block">
+                    <fieldset className="theory__example--fieldset theory__example--fieldset--note">
+                        <legend className="theory__example--legend theory__example--legend--note">
+                            Примечание
+                        </legend>
+                        <div className="theory--visual">{Content}</div>
+                    </fieldset>
+                </div>
+            );
         default:
             return null;
     }
