@@ -39,10 +39,10 @@ class UserRepositoryImpl(IUserRepository):
                      avatar_url: Optional[str]) -> User:
         result = await session.execute(select(UserBD).where(UserBD.id == user_id))
         m = result.scalars().one()
-        if name is not None:         m.name = name
-        if second_name is not None:  m.second_name = second_name
-        if username is not None:     m.username = username
-        if avatar_url is not None:   m.avatar_url = avatar_url
+        if name is not None:        m.name = name
+        if second_name is not None: m.second_name = second_name
+        if username is not None:    m.username = username
+        if avatar_url is not None:  m.avatar_url = avatar_url
         await session.flush()
         await session.refresh(m)
         return mappers.map_user(m)
@@ -62,4 +62,4 @@ class UserRepositoryImpl(IUserRepository):
         m = result.scalars().one()
         m.last_active_at = dt
         await session.flush()
-        await session.refresh(m)
+        # refresh не нужен — ничего не возвращаем

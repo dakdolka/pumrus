@@ -10,7 +10,8 @@ from . import mappers
 
 class TaskSessionRepositoryImpl(ITaskSessionRepository):
 
-    async def get_by_id(self, session: AsyncSession, session_id: int) -> Optional[TaskSession]:
+    async def get_by_id(self, session: AsyncSession,
+                        session_id: int) -> Optional[TaskSession]:
         result = await session.execute(
             select(TaskSessionBD).where(TaskSessionBD.id == session_id)
         )
@@ -21,13 +22,15 @@ class TaskSessionRepositoryImpl(ITaskSessionRepository):
                                    user_id: int, task_id: int) -> Optional[TaskSession]:
         result = await session.execute(
             select(TaskSessionBD)
-            .where(TaskSessionBD.user_id == user_id, TaskSessionBD.task_id == task_id)
+            .where(TaskSessionBD.user_id == user_id,
+                   TaskSessionBD.task_id == task_id)
             .order_by(TaskSessionBD.created_at.desc())
         )
         m = result.scalars().first()
         return mappers.map_task_session(m) if m else None
 
-    async def get_all_by_user(self, session: AsyncSession, user_id: int) -> List[TaskSession]:
+    async def get_all_by_user(self, session: AsyncSession,
+                               user_id: int) -> List[TaskSession]:
         result = await session.execute(
             select(TaskSessionBD)
             .where(TaskSessionBD.user_id == user_id)
@@ -55,4 +58,6 @@ class TaskSessionRepositoryImpl(ITaskSessionRepository):
         return mappers.map_task_session(m)
 
     async def delete(self, session: AsyncSession, session_id: int) -> None:
-        await session.execute(delete(TaskSessionBD).where(TaskSessionBD.id == session_id))
+        await session.execute(
+            delete(TaskSessionBD).where(TaskSessionBD.id == session_id)
+        )

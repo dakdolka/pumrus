@@ -1,15 +1,13 @@
 from typing import List, Optional
-
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
 from app.core.tasks.general.entities import Task, TaskItem, Option, OptionSet, TaskGroup
 from app.core.tasks.general.repository import (
     ITaskRepository, ITaskItemRepository,
     IOptionSetRepository, IOptionRepository, ITaskGroupRepository,
 )
-from .models import (
+from app.infra.tasks.general.models import (
     TaskBD, TaskItemBD, OptionBD, OptionSetBD, TaskGroupBD,
 )
 from . import mappers
@@ -76,10 +74,8 @@ class OptionRepositoryImpl(IOptionRepository):
             select(OptionBD).where(OptionBD.id == option_id)
         )
         m = result.scalars().one()
-        if content is not None:
-            m.content = content
-        if extras is not None:
-            m.extras = extras
+        if content is not None: m.content = content
+        if extras is not None:  m.extras = extras
         await session.flush()
         await session.refresh(m)
         return mappers.map_option(m)
@@ -90,15 +86,17 @@ class OptionRepositoryImpl(IOptionRepository):
 
 class OptionSetRepositoryImpl(IOptionSetRepository):
 
-    _load = selectinload(OptionSetBD.options)
+    @staticmethod
+    def _stmt():
+        return select(OptionSetBD).options(selectinload(OptionSetBD.options))
 
     async def get_all(self, session: AsyncSession) -> List[OptionSet]:
-        result = await session.execute(select(OptionSetBD).options(self._load))
+        result = await session.execute(self._stmt())
         return [mappers.map_option_set(s) for s in result.scalars().all()]
 
     async def get_by_id(self, session: AsyncSession, set_id: int) -> Optional[OptionSet]:
         result = await session.execute(
-            select(OptionSetBD).where(OptionSetBD.id == set_id).options(self._load)
+            self._stmt().where(OptionSetBD.id == set_id)
         )
         m = result.scalars().one_or_none()
         return mappers.map_option_set(m) if m else None
@@ -111,14 +109,14 @@ class OptionSetRepositoryImpl(IOptionSetRepository):
         m = OptionSetBD(name=name, options=list(options))
         session.add(m)
         await session.flush()
-        await session.refresh(m, ["options"])
-        return mappers.map_option_set(m)
+        await session.refresh(m)
+        # refresh не загружает relationships — нужен повторный select
+        result = await session.execute(self._stmt().where(OptionSetBD.id == m.id))
+        return mappers.map_option_set(result.scalars().one())
 
     async def update(self, session: AsyncSession, set_id: int,
                      name: Optional[str], option_ids: Optional[List[int]]) -> OptionSet:
-        result = await session.execute(
-            select(OptionSetBD).where(OptionSetBD.id == set_id).options(self._load)
-        )
+        result = await session.execute(self._stmt().where(OptionSetBD.id == set_id))
         m = result.scalars().one()
         if name is not None:
             m.name = name
@@ -129,7 +127,8 @@ class OptionSetRepositoryImpl(IOptionSetRepository):
             m.options = list(options)
         await session.flush()
         await session.refresh(m)
-        return mappers.map_option_set(m)
+        result = await session.execute(self._stmt().where(OptionSetBD.id == set_id))
+        return mappers.map_option_set(result.scalars().one())
 
     async def delete(self, session: AsyncSession, set_id: int) -> None:
         await session.execute(delete(OptionSetBD).where(OptionSetBD.id == set_id))
@@ -172,6 +171,7 @@ class TaskRepositoryImpl(ITaskRepository):
                    default_option_set_fk=default_option_set_id)
         session.add(m)
         await session.flush()
+        # повторный select с relationships — refresh не нужен
         result = await session.execute(self._stmt().where(TaskBD.id == m.id))
         return mappers.map_task(result.scalars().one())
 
@@ -180,12 +180,9 @@ class TaskRepositoryImpl(ITaskRepository):
                      default_option_set_id: Optional[int]) -> Task:
         result = await session.execute(self._stmt().where(TaskBD.id == task_id))
         m = result.scalars().one()
-        if name is not None:
-            m.name = name
-        if group_id is not None:
-            m.task_group_fk = group_id
-        if default_option_set_id is not None:
-            m.default_option_set_fk = default_option_set_id
+        if name is not None:                 m.name = name
+        if group_id is not None:             m.task_group_fk = group_id
+        if default_option_set_id is not None: m.default_option_set_fk = default_option_set_id
         await session.flush()
         result = await session.execute(self._stmt().where(TaskBD.id == task_id))
         return mappers.map_task(result.scalars().one())
@@ -202,7 +199,8 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
             select(TaskItemBD)
             .options(
                 selectinload(TaskItemBD.correct_option),
-                selectinload(TaskItemBD.option_set_override).selectinload(OptionSetBD.options),
+                selectinload(TaskItemBD.option_set_override)
+                    .selectinload(OptionSetBD.options),
             )
         )
 
@@ -213,8 +211,10 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
 
     async def create(self, session: AsyncSession, task_id: int, content_raw: str,
                      content_visible: str, content_correct: str,
-                     correct_option_id: Optional[int], option_set_override_id: Optional[int],
-                     notice_wrong: Optional[str], notice_right: Optional[str]) -> TaskItem:
+                     correct_option_id: Optional[int],
+                     option_set_override_id: Optional[int],
+                     notice_wrong: Optional[str],
+                     notice_right: Optional[str]) -> TaskItem:
         m = TaskItemBD(
             task_id=task_id,
             content_raw=content_raw,
@@ -227,6 +227,7 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
         )
         session.add(m)
         await session.flush()
+        # повторный select с relationships — refresh не нужен
         result = await session.execute(self._stmt().where(TaskItemBD.id == m.id))
         return mappers.map_task_item(result.scalars().one())
 
@@ -237,13 +238,13 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
                      notice_wrong: Optional[str], notice_right: Optional[str]) -> TaskItem:
         result = await session.execute(self._stmt().where(TaskItemBD.id == item_id))
         m = result.scalars().one()
-        if content_raw is not None:        m.content_raw = content_raw
-        if content_visible is not None:    m.content_visible = content_visible
-        if content_correct is not None:    m.content_correct = content_correct
-        if correct_option_id is not None:  m.correct_option_fk = correct_option_id
+        if content_raw is not None:            m.content_raw = content_raw
+        if content_visible is not None:        m.content_visible = content_visible
+        if content_correct is not None:        m.content_correct = content_correct
+        if correct_option_id is not None:      m.correct_option_fk = correct_option_id
         if option_set_override_id is not None: m.option_set_override_fk = option_set_override_id
-        if notice_wrong is not None:       m.notice_wrong = notice_wrong
-        if notice_right is not None:       m.notice_right = notice_right
+        if notice_wrong is not None:           m.notice_wrong = notice_wrong
+        if notice_right is not None:           m.notice_right = notice_right
         await session.flush()
         result = await session.execute(self._stmt().where(TaskItemBD.id == item_id))
         return mappers.map_task_item(result.scalars().one())

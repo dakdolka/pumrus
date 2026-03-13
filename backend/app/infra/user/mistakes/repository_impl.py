@@ -31,7 +31,8 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
     async def get_all_by_user(self, session: AsyncSession,
                                user_id: int) -> List[UserMistake]:
         result = await session.execute(
-            self._stmt().where(UserMistakesBD.user_fk == user_id)
+            self._stmt()
+            .where(UserMistakesBD.user_fk == user_id)
             .order_by(UserMistakesBD.created_at.desc())
         )
         return [mappers.map_user_mistake(m) for m in result.scalars().all()]
@@ -40,7 +41,8 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
                                      user_id: int) -> List[UserMistake]:
         result = await session.execute(
             self._stmt()
-            .where(UserMistakesBD.user_fk == user_id, UserMistakesBD.is_resolved == False)
+            .where(UserMistakesBD.user_fk == user_id,
+                   UserMistakesBD.is_resolved == False)
             .order_by(UserMistakesBD.created_at.desc())
         )
         return [mappers.map_user_mistake(m) for m in result.scalars().all()]
@@ -76,4 +78,6 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         return mappers.map_user_mistake(m)
 
     async def delete(self, session: AsyncSession, mistake_id: int) -> None:
-        await session.execute(delete(UserMistakesBD).where(UserMistakesBD.id == mistake_id))
+        await session.execute(
+            delete(UserMistakesBD).where(UserMistakesBD.id == mistake_id)
+        )
