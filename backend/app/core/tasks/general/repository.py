@@ -57,7 +57,7 @@ class ITaskRepository(ABC):
     @abstractmethod
     async def get_by_id(self, session: AsyncSession, task_id: int) -> Optional[Task]: ...
     @abstractmethod
-    async def create(self, session: AsyncSession, name: str, group_id: int,
+    async def create(self, session: AsyncSession, name: str, group_id: Optional[int],
                      default_option_set_id: Optional[int]) -> Task: ...
     @abstractmethod
     async def update(self, session: AsyncSession, task_id: int, name: Optional[str],

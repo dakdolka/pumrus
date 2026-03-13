@@ -58,10 +58,10 @@ class OptionSetUpdateIn(BaseModel):
 class TaskItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    task_id: int
     content_raw: str
     content_visible: str
     content_correct: str
+    task_id: Optional[int] = None
     correct_option_id: Optional[int] = None
     option_set_override_id: Optional[int] = None
     notice_wrong: Optional[str] = None
@@ -114,7 +114,7 @@ class TaskOut(BaseModel):
 
 class TaskCreateIn(BaseModel):
     name: str
-    task_group_id: int
+    task_group_id: Optional[int] = None
     default_option_set_id: Optional[int] = None
 
 

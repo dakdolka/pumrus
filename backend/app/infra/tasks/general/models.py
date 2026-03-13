@@ -35,18 +35,22 @@ class TaskBD(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str_256]
-    
-    task_group_fk: Mapped[int] = mapped_column(ForeignKey("task_group.id"))
-    task_group: Mapped["TaskGroupBD"] = relationship()
-    
-    default_option_set_fk: Mapped[Optional[int]] = mapped_column(ForeignKey("option_set.id"), nullable=True)
-    default_option_set: Mapped["OptionSetBD"] = relationship()
-    
+
+    task_group_fk: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("task_group.id"), nullable=True
+    )
+    task_group: Mapped[Optional["TaskGroupBD"]] = relationship()
+
+    default_option_set_fk: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("option_set.id"), nullable=True
+    )
+    default_option_set: Mapped[Optional["OptionSetBD"]] = relationship()
+
     items: Mapped[List["TaskItemBD"]] = relationship(
         back_populates="task",
         cascade="all, delete-orphan",
     )
-    
+
     @property
     def is_active(self) -> bool:
         return bool(self.items)

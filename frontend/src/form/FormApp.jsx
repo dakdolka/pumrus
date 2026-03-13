@@ -6,7 +6,7 @@ import { BlocksTree }        from "./components/BlocksTree";
 import { BlockEditor }       from "./components/BlockEditor";
 import { TheoryTypeSelect }  from "./components/TheoryTypeSelect";
 import { TasksTheoryEditor } from "./components/TasksTheoryEditor";
-import { TasksAdmin }        from "./components/TasksAdmin";  // ← новый
+import { TasksAdmin }        from "./components/tasks/TasksAdmin";  // ← новый
 
 function FormApp() {
   const [theoryTypes, setTheoryTypes] = useState([]);

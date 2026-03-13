@@ -33,6 +33,7 @@ class TaskItem:
     option_set_override: Optional[OptionSet] = None
     notice_wrong: Optional[str] = None
     notice_right: Optional[str] = None
+    task_id: Optional[int] = None 
 
     def resolve_option_set(self, default: Optional[OptionSet]) -> OptionSet:
         if self.option_set_override:
@@ -54,7 +55,7 @@ class TaskItem:
 class Task:
     id: int
     name: str
-    group: TaskGroup
+    group: Optional[TaskGroup] = None
     default_option_set: Optional[OptionSet] = None
     items: List[TaskItem] = field(default_factory=list)
 

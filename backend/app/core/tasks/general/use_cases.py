@@ -213,7 +213,7 @@ class CreateTaskUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
         self.repo = repo; self.session = session
 
-    async def execute(self, name: str, group_id: int,
+    async def execute(self, name: str, group_id: Optional[int],
                       default_option_set_id: Optional[int]) -> Task:
         async with self.session.begin():
             return await self.repo.create(
