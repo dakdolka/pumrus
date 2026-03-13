@@ -1,6 +1,6 @@
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from .entities import Task, TaskItem, OptionSet, Option, TaskGroup
+from .entities import Task, TaskItem, Option, OptionSet, TaskGroup
 from .repository import (
     ITaskRepository, ITaskItemRepository,
     IOptionSetRepository, IOptionRepository, ITaskGroupRepository,
@@ -15,8 +15,7 @@ from .exceptions import (
 
 class ListTaskGroupsUseCase:
     def __init__(self, repo: ITaskGroupRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self) -> List[TaskGroup]:
         return await self.repo.get_all(self.session)
@@ -24,8 +23,7 @@ class ListTaskGroupsUseCase:
 
 class GetTaskGroupByIdUseCase:
     def __init__(self, repo: ITaskGroupRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, group_id: int) -> TaskGroup:
         group = await self.repo.get_by_id(self.session, group_id)
@@ -36,8 +34,7 @@ class GetTaskGroupByIdUseCase:
 
 class CreateTaskGroupUseCase:
     def __init__(self, repo: ITaskGroupRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, name: str) -> TaskGroup:
         async with self.session.begin():
@@ -46,8 +43,7 @@ class CreateTaskGroupUseCase:
 
 class UpdateTaskGroupUseCase:
     def __init__(self, repo: ITaskGroupRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, group_id: int, name: str) -> TaskGroup:
         async with self.session.begin():
@@ -58,8 +54,7 @@ class UpdateTaskGroupUseCase:
 
 class DeleteTaskGroupUseCase:
     def __init__(self, repo: ITaskGroupRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, group_id: int) -> None:
         async with self.session.begin():
@@ -72,17 +67,37 @@ class DeleteTaskGroupUseCase:
 
 class ListOptionsUseCase:
     def __init__(self, repo: IOptionRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self) -> List[Option]:
         return await self.repo.get_all(self.session)
 
 
+class GetOptionByContentUseCase:
+    def __init__(self, repo: IOptionRepository, session: AsyncSession):
+        self.repo = repo; self.session = session
+
+    async def execute(self, content: str) -> Optional[Option]:
+        return await self.repo.get_by_content(self.session, content)
+
+
+class GetOrCreateOptionUseCase:
+    def __init__(self, repo: IOptionRepository, session: AsyncSession):
+        self.repo = repo; self.session = session
+
+    async def execute(self, content: str,
+                      extras: Optional[str]) -> tuple[Option, bool]:
+        async with self.session.begin():
+            existing = await self.repo.get_by_content(self.session, content)
+            if existing:
+                return existing, False
+            option = await self.repo.create(self.session, content, extras)
+            return option, True
+
+
 class CreateOptionUseCase:
     def __init__(self, repo: IOptionRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, content: str, extras: Optional[str]) -> Option:
         async with self.session.begin():
@@ -91,8 +106,7 @@ class CreateOptionUseCase:
 
 class UpdateOptionUseCase:
     def __init__(self, repo: IOptionRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, option_id: int, content: Optional[str],
                       extras: Optional[str]) -> Option:
@@ -104,8 +118,7 @@ class UpdateOptionUseCase:
 
 class DeleteOptionUseCase:
     def __init__(self, repo: IOptionRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, option_id: int) -> None:
         async with self.session.begin():
@@ -118,8 +131,7 @@ class DeleteOptionUseCase:
 
 class ListOptionSetsUseCase:
     def __init__(self, repo: IOptionSetRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self) -> List[OptionSet]:
         return await self.repo.get_all(self.session)
@@ -127,8 +139,7 @@ class ListOptionSetsUseCase:
 
 class GetOptionSetByIdUseCase:
     def __init__(self, repo: IOptionSetRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, set_id: int) -> OptionSet:
         result = await self.repo.get_by_id(self.session, set_id)
@@ -139,8 +150,7 @@ class GetOptionSetByIdUseCase:
 
 class CreateOptionSetUseCase:
     def __init__(self, repo: IOptionSetRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, name: str, option_ids: List[int]) -> OptionSet:
         async with self.session.begin():
@@ -149,8 +159,7 @@ class CreateOptionSetUseCase:
 
 class UpdateOptionSetUseCase:
     def __init__(self, repo: IOptionSetRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, set_id: int, name: Optional[str],
                       option_ids: Optional[List[int]]) -> OptionSet:
@@ -162,8 +171,7 @@ class UpdateOptionSetUseCase:
 
 class DeleteOptionSetUseCase:
     def __init__(self, repo: IOptionSetRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, set_id: int) -> None:
         async with self.session.begin():
@@ -176,8 +184,7 @@ class DeleteOptionSetUseCase:
 
 class ListTasksUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self) -> List[Task]:
         return await self.repo.get_all(self.session)
@@ -185,8 +192,7 @@ class ListTasksUseCase:
 
 class ListTasksByGroupUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, group_id: int) -> List[Task]:
         return await self.repo.get_all_by_group(self.session, group_id)
@@ -194,8 +200,7 @@ class ListTasksByGroupUseCase:
 
 class GetTaskByIdUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, task_id: int) -> Task:
         task = await self.repo.get_by_id(self.session, task_id)
@@ -206,8 +211,7 @@ class GetTaskByIdUseCase:
 
 class CreateTaskUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, name: str, group_id: int,
                       default_option_set_id: Optional[int]) -> Task:
@@ -219,8 +223,7 @@ class CreateTaskUseCase:
 
 class UpdateTaskUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, task_id: int, name: Optional[str],
                       group_id: Optional[int],
@@ -235,8 +238,7 @@ class UpdateTaskUseCase:
 
 class DeleteTaskUseCase:
     def __init__(self, repo: ITaskRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, task_id: int) -> None:
         async with self.session.begin():
@@ -250,9 +252,7 @@ class DeleteTaskUseCase:
 class CreateTaskItemUseCase:
     def __init__(self, task_repo: ITaskRepository,
                  item_repo: ITaskItemRepository, session: AsyncSession):
-        self.task_repo = task_repo
-        self.item_repo = item_repo
-        self.session = session
+        self.task_repo = task_repo; self.item_repo = item_repo; self.session = session
 
     async def execute(self, task_id: int, content_raw: str, content_visible: str,
                       content_correct: str, correct_option_id: Optional[int],
@@ -268,10 +268,29 @@ class CreateTaskItemUseCase:
             )
 
 
+class CreateTaskItemsBulkUseCase:
+    def __init__(self, task_repo: ITaskRepository,
+                 item_repo: ITaskItemRepository, session: AsyncSession):
+        self.task_repo = task_repo; self.item_repo = item_repo; self.session = session
+
+    async def execute(self, task_id: int, items: list) -> List[TaskItem]:
+        async with self.session.begin():
+            if not await self.task_repo.get_by_id(self.session, task_id):
+                raise TaskNotFoundError(f"Task {task_id} не найден")
+            result = []
+            for item in items:
+                result.append(await self.item_repo.create(
+                    self.session, task_id,
+                    item.content_raw, item.content_visible, item.content_correct,
+                    item.correct_option_id, item.option_set_override_id,
+                    item.notice_wrong, item.notice_right,
+                ))
+            return result
+
+
 class UpdateTaskItemUseCase:
     def __init__(self, repo: ITaskItemRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, item_id: int, content_raw: Optional[str],
                       content_visible: Optional[str], content_correct: Optional[str],
@@ -288,10 +307,28 @@ class UpdateTaskItemUseCase:
             )
 
 
+class UpdateTaskItemsBulkUseCase:
+    def __init__(self, repo: ITaskItemRepository, session: AsyncSession):
+        self.repo = repo; self.session = session
+
+    async def execute(self, items: list) -> List[TaskItem]:
+        async with self.session.begin():
+            result = []
+            for item in items:
+                if not await self.repo.get_by_id(self.session, item.id):
+                    raise TaskItemNotFoundError(f"TaskItem {item.id} не найден")
+                result.append(await self.repo.update(
+                    self.session, item.id,
+                    item.content_raw, item.content_visible, item.content_correct,
+                    item.correct_option_id, item.option_set_override_id,
+                    item.notice_wrong, item.notice_right,
+                ))
+            return result
+
+
 class DeleteTaskItemUseCase:
     def __init__(self, repo: ITaskItemRepository, session: AsyncSession):
-        self.repo = repo
-        self.session = session
+        self.repo = repo; self.session = session
 
     async def execute(self, item_id: int) -> None:
         async with self.session.begin():

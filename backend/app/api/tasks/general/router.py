@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 from app.core.db import get_db
 from app.core.tasks.general.exceptions import (
     TaskNotFoundError, TaskItemNotFoundError,
@@ -9,23 +9,27 @@ from app.core.tasks.general.exceptions import (
 from app.core.tasks.general.use_cases import (
     ListTaskGroupsUseCase, GetTaskGroupByIdUseCase,
     CreateTaskGroupUseCase, UpdateTaskGroupUseCase, DeleteTaskGroupUseCase,
-    ListOptionsUseCase, CreateOptionUseCase, UpdateOptionUseCase, DeleteOptionUseCase,
+    ListOptionsUseCase, GetOptionByContentUseCase, GetOrCreateOptionUseCase,
+    CreateOptionUseCase, UpdateOptionUseCase, DeleteOptionUseCase,
     ListOptionSetsUseCase, GetOptionSetByIdUseCase,
     CreateOptionSetUseCase, UpdateOptionSetUseCase, DeleteOptionSetUseCase,
     ListTasksUseCase, ListTasksByGroupUseCase, GetTaskByIdUseCase,
     CreateTaskUseCase, UpdateTaskUseCase, DeleteTaskUseCase,
-    CreateTaskItemUseCase, UpdateTaskItemUseCase, DeleteTaskItemUseCase,
+    CreateTaskItemUseCase, CreateTaskItemsBulkUseCase,
+    UpdateTaskItemUseCase, UpdateTaskItemsBulkUseCase, DeleteTaskItemUseCase,
 )
+from app.core.tasks.parsers.parse_use_case import ParseRawUseCase
 from app.infra.tasks.general.repository_impl import (
     TaskRepositoryImpl, TaskItemRepositoryImpl,
     OptionRepositoryImpl, OptionSetRepositoryImpl, TaskGroupRepositoryImpl,
 )
 from .schemas import (
     TaskGroupOut, TaskGroupCreateIn, TaskGroupUpdateIn,
-    OptionOut, OptionCreateIn, OptionUpdateIn,
+    OptionOut, OptionCreateIn, OptionUpdateIn, OptionGetOrCreateOut,
     OptionSetOut, OptionSetCreateIn, OptionSetUpdateIn,
     TaskOut, TaskCreateIn, TaskUpdateIn,
     TaskItemOut, TaskItemCreateIn, TaskItemUpdateIn,
+    TaskItemBulkUpdateIn, ParseRawIn, ParsedItemOut,
 )
 
 router = APIRouter(prefix="/tasks/general", tags=["tasks-general"])
@@ -66,8 +70,21 @@ async def delete_task_group(group_id: int, db: AsyncSession = Depends(get_db)):
 # ── Option ────────────────────────────────────────────────────────────────────
 
 @router.get("/options", response_model=List[OptionOut])
-async def list_options(db: AsyncSession = Depends(get_db)):
+async def list_options(content: Optional[str] = None,
+                       db: AsyncSession = Depends(get_db)):
+    if content:
+        result = await GetOptionByContentUseCase(OptionRepositoryImpl(), db).execute(content)
+        return [result] if result else []
     return await ListOptionsUseCase(OptionRepositoryImpl(), db).execute()
+
+
+@router.post("/options/get-or-create", response_model=OptionGetOrCreateOut)
+async def get_or_create_option(body: OptionCreateIn,
+                               db: AsyncSession = Depends(get_db)):
+    option, created = await GetOrCreateOptionUseCase(
+        OptionRepositoryImpl(), db
+    ).execute(body.content, body.extras)
+    return OptionGetOrCreateOut(option=option, created=created)
 
 
 @router.post("/options", response_model=OptionOut, status_code=201)
@@ -201,6 +218,26 @@ async def create_task_item(task_id: int, body: TaskItemCreateIn,
         raise HTTPException(404, detail=str(e))
 
 
+@router.post("/{task_id}/items/bulk", response_model=List[TaskItemOut], status_code=201)
+async def create_task_items_bulk(task_id: int, body: List[TaskItemCreateIn],
+                                 db: AsyncSession = Depends(get_db)):
+    try:
+        return await CreateTaskItemsBulkUseCase(
+            TaskRepositoryImpl(), TaskItemRepositoryImpl(), db
+        ).execute(task_id, body)
+    except TaskNotFoundError as e:
+        raise HTTPException(404, detail=str(e))
+
+
+@router.put("/items/bulk", response_model=List[TaskItemOut])
+async def update_task_items_bulk(body: List[TaskItemBulkUpdateIn],
+                                 db: AsyncSession = Depends(get_db)):
+    try:
+        return await UpdateTaskItemsBulkUseCase(TaskItemRepositoryImpl(), db).execute(body)
+    except TaskItemNotFoundError as e:
+        raise HTTPException(404, detail=str(e))
+
+
 @router.put("/items/{item_id}", response_model=TaskItemOut)
 async def update_task_item(item_id: int, body: TaskItemUpdateIn,
                            db: AsyncSession = Depends(get_db)):
@@ -220,3 +257,16 @@ async def delete_task_item(item_id: int, db: AsyncSession = Depends(get_db)):
         await DeleteTaskItemUseCase(TaskItemRepositoryImpl(), db).execute(item_id)
     except TaskItemNotFoundError as e:
         raise HTTPException(404, detail=str(e))
+
+
+# ── Parse ─────────────────────────────────────────────────────────────────────
+
+@router.post("/parse-raw", response_model=List[ParsedItemOut])
+async def parse_raw(body: ParseRawIn, db: AsyncSession = Depends(get_db)):
+    """Парсит raw-массив. Ничего не сохраняет. Нотисы добавляются вручную на фронте."""
+    try:
+        return await ParseRawUseCase(db).execute(
+            body.parser_type, body.raw_items, body.option_set_id
+        )
+    except ValueError as e:
+        raise HTTPException(422, detail=str(e))

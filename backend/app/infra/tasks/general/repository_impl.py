@@ -100,6 +100,14 @@ class OptionSetRepositoryImpl(IOptionSetRepository):
         )
         m = result.scalars().one_or_none()
         return mappers.map_option_set(m) if m else None
+    
+    async def get_by_content(self, session: AsyncSession,
+                              content: str) -> Optional[Option]:
+        result = await session.execute(
+            select(OptionBD).where(OptionBD.content == content)
+        )
+        m = result.scalars().one_or_none()
+        return mappers.map_option(m) if m else None
 
     async def create(self, session: AsyncSession, name: str,
                      option_ids: List[int]) -> OptionSet:
@@ -251,3 +259,4 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
 
     async def delete(self, session: AsyncSession, item_id: int) -> None:
         await session.execute(delete(TaskItemBD).where(TaskItemBD.id == item_id))
+
