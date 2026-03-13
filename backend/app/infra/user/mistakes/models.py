@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey
+from sqlalchemy import Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base, TimestampMixin
 from app.infra.user.general import UserBD
@@ -21,3 +21,5 @@ class UserMistakesBD(TimestampMixin, Base):
     
     task_session_fk: Mapped[int] = mapped_column(ForeignKey("task_session.id"))
     task_session: Mapped["TaskSessionBD"] = relationship()
+    
+    is_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
