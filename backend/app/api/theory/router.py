@@ -1,15 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.db import async_session_factory
-from app.infra.theory.repository_impl import TheoryRepositoryImpl
+from fastapi import APIRouter, HTTPException
 from app.core.theory.use_cases import CreateTaskTheoryUseCase, CreateTaskTheoryGroupUseCase, CreateTheoryBaseUseCase, CreateTheoryBlockUseCase, DeleteTaskTheoryGroupUseCase, DeleteTaskTheoryUseCase, DeleteTheoryBlockUseCase, GetAllTaskTheoryGroupsUseCase, GetAllTheoryTypes, GetTheoryByIdUseCase, GetAllTheoriesUseCase, UpdateTaskTheoryGroupUseCase, UpdateTaskTheoryLinksUseCase, UpdateTaskTheoryUseCase, UpdateTheoryBaseUseCase, UpdateTheoryBlockUseCase
+from app.infra.theory.repository_impl import TheoryRepositoryImpl
 from .schemas import TaskTheoryCreateRequest, TaskTheoryGroupCreateRequest, TaskTheoryGroupUpdateRequest, TaskTheoryLinksUpdateRequest, TaskTheoryUpdateRequest, TheoryBlockCreateRequest, TheoryBlockUpdateRequest, TheoryCreateRequest, TheoryResponse, AllTheoryResponse, TaskGroupsResponse, TheoryTypesResponse, TheoryUpdateRequest
 
 router = APIRouter(prefix="/theory", tags=["Theory"])
+repo = TheoryRepositoryImpl()
 
 @router.get("/all_theory", response_model=list[AllTheoryResponse])
 async def get_all_theories():
-    repo = TheoryRepositoryImpl()
     usecase = GetAllTheoriesUseCase(repo)
     theories = await usecase.execute()
     return theories
@@ -17,7 +15,6 @@ async def get_all_theories():
 
 @router.get("/all_theory_types", response_model=list[TheoryTypesResponse])
 async def get_all_theory_dop_info():
-    repo = TheoryRepositoryImpl()
     usecase = GetAllTheoryTypes(repo)
     theories = await usecase.execute()
     return theories
@@ -26,7 +23,6 @@ async def get_all_theory_dop_info():
 #TODO добавить входную модель, тк иначе пути по-тупому перекрываются
 @router.get("/get_theory/{theory_id}", response_model=TheoryResponse)
 async def get_theory(theory_id: int):
-    repo = TheoryRepositoryImpl()
     usecase = GetTheoryByIdUseCase(repo)
     theory = await usecase.execute(theory_id)
     if not theory:
@@ -36,7 +32,6 @@ async def get_theory(theory_id: int):
     
 @router.get("/get_tasks_theory", response_model=list[TaskGroupsResponse])
 async def get_tasks_theory():
-    repo = TheoryRepositoryImpl()
     usecase = GetAllTaskTheoryGroupsUseCase(repo)
     theories = await usecase.execute()
     return theories
@@ -45,7 +40,6 @@ async def get_tasks_theory():
 
 @router.post("/", response_model=TheoryResponse)
 async def create_theory(body: TheoryCreateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = CreateTheoryBaseUseCase(repo)
     theory = await usecase.execute(body.name, body.type_ids)
     return TheoryResponse(id=theory.id, name=theory.name, blocks=[])
@@ -53,7 +47,6 @@ async def create_theory(body: TheoryCreateRequest):
 
 @router.put("/{theory_id}", response_model=TheoryResponse)
 async def update_theory(theory_id: int, body: TheoryUpdateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = UpdateTheoryBaseUseCase(repo)
     await usecase.execute(theory_id, body.name, body.type_ids)
     get_usecase = GetTheoryByIdUseCase(repo)
@@ -65,7 +58,6 @@ async def update_theory(theory_id: int, body: TheoryUpdateRequest):
 
 @router.post("/{theory_id}/blocks")
 async def create_block(theory_id: int, body: TheoryBlockCreateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = CreateTheoryBlockUseCase(repo)
     block = await usecase.execute(theory_id, body.type, body.content, body.parent_id, body.order)
     return {"id": block.id}
@@ -73,7 +65,6 @@ async def create_block(theory_id: int, body: TheoryBlockCreateRequest):
 
 @router.put("/blocks/{block_id}")
 async def update_block(block_id: int, body: TheoryBlockUpdateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = UpdateTheoryBlockUseCase(repo)
     block = await usecase.execute(block_id, body.type, body.content, body.parent_id, body.order)
     return {"id": block.id}
@@ -81,14 +72,12 @@ async def update_block(block_id: int, body: TheoryBlockUpdateRequest):
 
 @router.delete("/blocks/{block_id}")
 async def delete_block(block_id: int):
-    repo = TheoryRepositoryImpl()
     usecase = DeleteTheoryBlockUseCase(repo)
     await usecase.execute(block_id)
     return {"success": True}
 
 @router.post("/task-groups", response_model=dict)
 async def create_task_group(body: TaskTheoryGroupCreateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = CreateTaskTheoryGroupUseCase(repo)
     # здесь ты внутри usecase собираешь TaskTheoryGroup из body
     group_id = await usecase.execute(task_theory_group=body)  # адаптируй под свои entities
@@ -97,7 +86,6 @@ async def create_task_group(body: TaskTheoryGroupCreateRequest):
 
 @router.put("/task-groups/{group_id}", response_model=dict)
 async def update_task_group(group_id: int, body: TaskTheoryGroupUpdateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = UpdateTaskTheoryGroupUseCase(repo)
     group = await usecase.execute(group_id, body.name, body.is_single)
     return {"id": group.id}
@@ -105,14 +93,12 @@ async def update_task_group(group_id: int, body: TaskTheoryGroupUpdateRequest):
 
 @router.delete("/task-groups/{group_id}", response_model=dict)
 async def delete_task_group(group_id: int):
-    repo = TheoryRepositoryImpl()
     usecase = DeleteTaskTheoryGroupUseCase(repo)
     await usecase.execute(group_id)
     return {"success": True}
 
 @router.post("/task-groups/{group_id}/tasks", response_model=dict)
 async def create_task(group_id: int, body: TaskTheoryCreateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = CreateTaskTheoryUseCase(repo)
     task = await usecase.execute(group_id, body.name)
     return {"id": task.id}
@@ -120,7 +106,6 @@ async def create_task(group_id: int, body: TaskTheoryCreateRequest):
 
 @router.put("/tasks/{task_id}", response_model=dict)
 async def update_task(task_id: int, body: TaskTheoryUpdateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = UpdateTaskTheoryUseCase(repo)
     task = await usecase.execute(task_id, body.name, body.group_id)
     return {"id": task.id}
@@ -128,14 +113,12 @@ async def update_task(task_id: int, body: TaskTheoryUpdateRequest):
 
 @router.delete("/tasks/{task_id}", response_model=dict)
 async def delete_task(task_id: int):
-    repo = TheoryRepositoryImpl()
     usecase = DeleteTaskTheoryUseCase(repo)
     await usecase.execute(task_id)
     return {"success": True}
 
 @router.put("/tasks/{task_id}/theories", response_model=dict)
 async def update_task_theories(task_id: int, body: TaskTheoryLinksUpdateRequest):
-    repo = TheoryRepositoryImpl()
     usecase = UpdateTaskTheoryLinksUseCase(repo)
     await usecase.execute(task_id, body.theory_ids)
     return {"success": True}
