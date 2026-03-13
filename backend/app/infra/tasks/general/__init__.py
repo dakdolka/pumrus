@@ -1,4 +1,4 @@
-from .models import TaskBD, TaskItemBD, OptionBD, OptionSetBD, TrainerTypeBD
+from .models import TaskBD, TaskItemBD, OptionBD, OptionSetBD, TaskGroupBD
 from .repository_impl import TaskRepositoryImpl
 
 __all__ = [
@@ -6,6 +6,6 @@ __all__ = [
     "TaskItemBD",
     "OptionBD",
     "OptionSetBD",
-    "TrainerTypeBD",
+    "TaskGroupBD",
     "TaskRepositoryImpl"
 ]

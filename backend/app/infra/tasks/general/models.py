@@ -25,10 +25,10 @@ class OptionBD(TimestampMixin, Base):
     extras: Mapped[Optional[str_256]]
 
 
-class TrainerTypeBD(TimestampMixin, Base):
-    __tablename__ = "trainer_type"
+class TaskGroupBD(TimestampMixin, Base):
+    __tablename__ = "task_group"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    content: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(64))
 
 class TaskBD(TimestampMixin, Base):
     __tablename__ = "task"
@@ -36,8 +36,8 @@ class TaskBD(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str_256]
     
-    trainer_type_fk: Mapped[int] = mapped_column(ForeignKey("trainer_type.id"))
-    trainer_type: Mapped["TrainerTypeBD"] = relationship()
+    task_group_fk: Mapped[int] = mapped_column(ForeignKey("task_group.id"))
+    task_group: Mapped["TaskGroupBD"] = relationship()
     
     default_option_set_fk: Mapped[Optional[int]] = mapped_column(ForeignKey("option_set.id"), nullable=True)
     default_option_set: Mapped["OptionSetBD"] = relationship()
