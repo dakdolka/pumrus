@@ -7,7 +7,10 @@ from app.scripts.create import create_all
 from app.core.config import settings
 from app.api.theory.router import router as th_rt
 from app.api.tasks.general.router import router as task_rt
-from app.api.tasks.sessions.router import router as sessions_rt
+from app.api.tasks.sessions.router import router as task_session_router
+from app.api.user.mistakes.router import router as user_mistakes_router
+from app.api.user.general.router import router as users_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,7 +38,9 @@ app = FastAPI(lifespan=lifespan, root_path='/api')
 
 app.include_router(th_rt)
 app.include_router(task_rt)
-app.include_router(sessions_rt)
+app.include_router(task_session_router, prefix="/api")
+app.include_router(user_mistakes_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,

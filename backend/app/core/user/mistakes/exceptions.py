@@ -1,0 +1,2 @@
+class UserMistakeNotFoundError(Exception):
+    pass
