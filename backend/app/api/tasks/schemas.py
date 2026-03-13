@@ -1,44 +1,44 @@
-from typing import Any, List, Optional
+# from typing import Any, List, Optional
 
-from pydantic import BaseModel
+# from pydantic import BaseModel
 
-from app.core.tasks.enums import TrainerType, InputMode
-
-
-class TaskItemDTO(BaseModel):
-    id: Optional[int] = None
-    order: int
-    trainer_type: TrainerType
-    raw: str
-    visible: str
-    correct_option: str
-    correct_visible: str
-    extra: dict[str, Any] = {}
+# from app.core.tasks.enums import TrainerType, InputMode
 
 
-class TaskBase(BaseModel):
-    name: str
-    trainer_type: TrainerType
-    input_mode: InputMode
-    is_active: bool = True
+# class TaskItemDTO(BaseModel):
+#     id: Optional[int] = None
+#     order: int
+#     trainer_type: TrainerType
+#     raw: str
+#     visible: str
+#     correct_option: str
+#     correct_visible: str
+#     extra: dict[str, Any] = {}
 
 
-class TaskCreateRequest(TaskBase):
-    pass
+# class TaskBase(BaseModel):
+#     name: str
+#     trainer_type: TrainerType
+#     input_mode: InputMode
+#     is_active: bool = True
 
 
-class TaskResponse(TaskBase):
-    id: int
+# class TaskCreateRequest(TaskBase):
+#     pass
 
 
-class TaskDetailResponse(TaskResponse):
-    items: List[TaskItemDTO]
+# class TaskResponse(TaskBase):
+#     id: int
 
 
-class ParseRawRequest(BaseModel):
-    trainer_type: TrainerType
-    raw_content: Any  # для STRESS/PREFIX/DICTIONARY: список строк; для SPELLING: список объектов
+# class TaskDetailResponse(TaskResponse):
+#     items: List[TaskItemDTO]
 
 
-class ParseRawResponse(BaseModel):
-    items: List[TaskItemDTO]
+# class ParseRawRequest(BaseModel):
+#     trainer_type: TrainerType
+#     raw_content: Any  # для STRESS/PREFIX/DICTIONARY: список строк; для SPELLING: список объектов
+
+
+# class ParseRawResponse(BaseModel):
+#     items: List[TaskItemDTO]

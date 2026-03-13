@@ -18,6 +18,6 @@ class Settings(BaseSettings):
         return f"mysql+asyncmy://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
     
     class Config:
-        env_file = f'{os.path.join(BASE_DIR, ".env")}'
+        env_file = f'{os.path.join(BASE_DIR.parent, ".env")}'
 
 settings = Settings()

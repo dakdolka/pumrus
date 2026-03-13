@@ -1,8 +1,11 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy import String
 from app.core.config import settings
 from typing import Annotated
+from sqlalchemy.orm import declared_attr, DeclarativeBase
+from sqlalchemy import DateTime, func
+from datetime import datetime
 
 # асинхронный движоек
 async_engine = create_async_engine(
@@ -38,3 +41,17 @@ class Base(DeclarativeBase):
             if col in self.repr_cols or idx < self.repr_columns_num:
                 cols.append(f"{col}={getattr(self, col)}")
         return f"==== {self.__class__.__name__} {', '.join(cols)} ===="
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False
+    )
+

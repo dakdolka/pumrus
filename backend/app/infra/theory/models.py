@@ -3,7 +3,7 @@ from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional, List
 from sqlalchemy import Text, Enum
-from app.core.db import Base, str_256
+from app.core.db import Base, str_256, TimestampMixin
 from app.core.theory.enums import TheoryType, BlockType
 
 theory2theory_type = Table(
@@ -13,7 +13,7 @@ theory2theory_type = Table(
     Column("type_id", Integer, ForeignKey("theory_type.id"), primary_key=True),
 )
 
-class TaskTheoryAssociation(Base):
+class TaskTheoryAssociation(TimestampMixin, Base):
     __tablename__ = "task_theory2theory"
     
     theory_id: Mapped[int] = mapped_column(ForeignKey("theory.id"), primary_key=True)
@@ -32,7 +32,7 @@ class TheoryTypeBD(Base):
         back_populates="types"
     )
 
-class TheoryBD(Base):
+class TheoryBD(TimestampMixin, Base):
     __tablename__ = "theory"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str_256]
@@ -50,7 +50,7 @@ class TheoryBD(Base):
     )
 
 
-class TheoryBlockBD(Base):
+class TheoryBlockBD(TimestampMixin, Base):
     __tablename__ = "theory_block"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -71,7 +71,7 @@ class TheoryBlockBD(Base):
     parent: Mapped[Optional["TheoryBlockBD"]] = relationship(back_populates="children", remote_side=[id])
     
 
-class TaskTheoryGroupBD(Base):
+class TaskTheoryGroupBD(TimestampMixin, Base):
     __tablename__ = "task_theory_group"
     
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)
@@ -80,7 +80,7 @@ class TaskTheoryGroupBD(Base):
     tasks_theories: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
 
 
-class TaskTheoryBD(Base):
+class TaskTheoryBD(TimestampMixin, Base):
     __tablename__ = "task_theory"
 
     id: Mapped[Optional[int]] = mapped_column(primary_key=True)

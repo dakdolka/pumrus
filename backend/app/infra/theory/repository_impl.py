@@ -1,6 +1,3 @@
-from ast import List
-from pprint import pprint
-
 import sqlalchemy
 from app.core.db import async_session_factory
 from app.core.theory.entities import TaskTheory, TaskTheoryGroup, Theory, TheoryBlock, TheoryType
