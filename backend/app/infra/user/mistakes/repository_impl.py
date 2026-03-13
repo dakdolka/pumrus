@@ -72,6 +72,7 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         m = result.scalars().one()
         m.is_resolved = True
         await session.flush()
+        await session.refresh(m)
         return mappers.map_user_mistake(m)
 
     async def delete(self, session: AsyncSession, mistake_id: int) -> None:

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
-
+from app.core.db import get_db
 from app.core.tasks.general.exceptions import (
     TaskNotFoundError, TaskItemNotFoundError,
     OptionSetNotFoundError, OptionNotFoundError, TaskGroupNotFoundError,
@@ -33,27 +34,31 @@ router = APIRouter(prefix="/tasks/general", tags=["tasks-general"])
 # ── TaskGroup ─────────────────────────────────────────────────────────────────
 
 @router.get("/groups", response_model=List[TaskGroupOut])
-async def list_task_groups():
-    return await ListTaskGroupsUseCase(TaskGroupRepositoryImpl()).execute()
+async def list_task_groups(db: AsyncSession = Depends(get_db)):
+    return await ListTaskGroupsUseCase(TaskGroupRepositoryImpl(), db).execute()
 
 
 @router.post("/groups", response_model=TaskGroupOut, status_code=201)
-async def create_task_group(body: TaskGroupCreateIn):
-    return await CreateTaskGroupUseCase(TaskGroupRepositoryImpl()).execute(body.name)
+async def create_task_group(body: TaskGroupCreateIn,
+                            db: AsyncSession = Depends(get_db)):
+    return await CreateTaskGroupUseCase(TaskGroupRepositoryImpl(), db).execute(body.name)
 
 
 @router.put("/groups/{group_id}", response_model=TaskGroupOut)
-async def update_task_group(group_id: int, body: TaskGroupUpdateIn):
+async def update_task_group(group_id: int, body: TaskGroupUpdateIn,
+                            db: AsyncSession = Depends(get_db)):
     try:
-        return await UpdateTaskGroupUseCase(TaskGroupRepositoryImpl()).execute(group_id, body.name)
+        return await UpdateTaskGroupUseCase(TaskGroupRepositoryImpl(), db).execute(
+            group_id, body.name
+        )
     except TaskGroupNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
 
 @router.delete("/groups/{group_id}", status_code=204)
-async def delete_task_group(group_id: int):
+async def delete_task_group(group_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteTaskGroupUseCase(TaskGroupRepositoryImpl()).execute(group_id)
+        await DeleteTaskGroupUseCase(TaskGroupRepositoryImpl(), db).execute(group_id)
     except TaskGroupNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
@@ -61,19 +66,22 @@ async def delete_task_group(group_id: int):
 # ── Option ────────────────────────────────────────────────────────────────────
 
 @router.get("/options", response_model=List[OptionOut])
-async def list_options():
-    return await ListOptionsUseCase(OptionRepositoryImpl()).execute()
+async def list_options(db: AsyncSession = Depends(get_db)):
+    return await ListOptionsUseCase(OptionRepositoryImpl(), db).execute()
 
 
 @router.post("/options", response_model=OptionOut, status_code=201)
-async def create_option(body: OptionCreateIn):
-    return await CreateOptionUseCase(OptionRepositoryImpl()).execute(body.content, body.extras)
+async def create_option(body: OptionCreateIn, db: AsyncSession = Depends(get_db)):
+    return await CreateOptionUseCase(OptionRepositoryImpl(), db).execute(
+        body.content, body.extras
+    )
 
 
 @router.put("/options/{option_id}", response_model=OptionOut)
-async def update_option(option_id: int, body: OptionUpdateIn):
+async def update_option(option_id: int, body: OptionUpdateIn,
+                        db: AsyncSession = Depends(get_db)):
     try:
-        return await UpdateOptionUseCase(OptionRepositoryImpl()).execute(
+        return await UpdateOptionUseCase(OptionRepositoryImpl(), db).execute(
             option_id, body.content, body.extras
         )
     except OptionNotFoundError as e:
@@ -81,9 +89,9 @@ async def update_option(option_id: int, body: OptionUpdateIn):
 
 
 @router.delete("/options/{option_id}", status_code=204)
-async def delete_option(option_id: int):
+async def delete_option(option_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteOptionUseCase(OptionRepositoryImpl()).execute(option_id)
+        await DeleteOptionUseCase(OptionRepositoryImpl(), db).execute(option_id)
     except OptionNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
@@ -91,29 +99,31 @@ async def delete_option(option_id: int):
 # ── OptionSet ─────────────────────────────────────────────────────────────────
 
 @router.get("/option-sets", response_model=List[OptionSetOut])
-async def list_option_sets():
-    return await ListOptionSetsUseCase(OptionSetRepositoryImpl()).execute()
+async def list_option_sets(db: AsyncSession = Depends(get_db)):
+    return await ListOptionSetsUseCase(OptionSetRepositoryImpl(), db).execute()
 
 
 @router.get("/option-sets/{set_id}", response_model=OptionSetOut)
-async def get_option_set(set_id: int):
+async def get_option_set(set_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        return await GetOptionSetByIdUseCase(OptionSetRepositoryImpl()).execute(set_id)
+        return await GetOptionSetByIdUseCase(OptionSetRepositoryImpl(), db).execute(set_id)
     except OptionSetNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
 
 @router.post("/option-sets", response_model=OptionSetOut, status_code=201)
-async def create_option_set(body: OptionSetCreateIn):
-    return await CreateOptionSetUseCase(OptionSetRepositoryImpl()).execute(
+async def create_option_set(body: OptionSetCreateIn,
+                            db: AsyncSession = Depends(get_db)):
+    return await CreateOptionSetUseCase(OptionSetRepositoryImpl(), db).execute(
         body.name, body.option_ids
     )
 
 
 @router.put("/option-sets/{set_id}", response_model=OptionSetOut)
-async def update_option_set(set_id: int, body: OptionSetUpdateIn):
+async def update_option_set(set_id: int, body: OptionSetUpdateIn,
+                            db: AsyncSession = Depends(get_db)):
     try:
-        return await UpdateOptionSetUseCase(OptionSetRepositoryImpl()).execute(
+        return await UpdateOptionSetUseCase(OptionSetRepositoryImpl(), db).execute(
             set_id, body.name, body.option_ids
         )
     except OptionSetNotFoundError as e:
@@ -121,9 +131,9 @@ async def update_option_set(set_id: int, body: OptionSetUpdateIn):
 
 
 @router.delete("/option-sets/{set_id}", status_code=204)
-async def delete_option_set(set_id: int):
+async def delete_option_set(set_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteOptionSetUseCase(OptionSetRepositoryImpl()).execute(set_id)
+        await DeleteOptionSetUseCase(OptionSetRepositoryImpl(), db).execute(set_id)
     except OptionSetNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
@@ -131,34 +141,35 @@ async def delete_option_set(set_id: int):
 # ── Task ──────────────────────────────────────────────────────────────────────
 
 @router.get("/", response_model=List[TaskOut])
-async def list_tasks():
-    return await ListTasksUseCase(TaskRepositoryImpl()).execute()
+async def list_tasks(db: AsyncSession = Depends(get_db)):
+    return await ListTasksUseCase(TaskRepositoryImpl(), db).execute()
 
 
 @router.get("/by-group/{group_id}", response_model=List[TaskOut])
-async def list_tasks_by_group(group_id: int):
-    return await ListTasksByGroupUseCase(TaskRepositoryImpl()).execute(group_id)
+async def list_tasks_by_group(group_id: int, db: AsyncSession = Depends(get_db)):
+    return await ListTasksByGroupUseCase(TaskRepositoryImpl(), db).execute(group_id)
 
 
 @router.get("/{task_id}", response_model=TaskOut)
-async def get_task(task_id: int):
+async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        return await GetTaskByIdUseCase(TaskRepositoryImpl()).execute(task_id)
+        return await GetTaskByIdUseCase(TaskRepositoryImpl(), db).execute(task_id)
     except TaskNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
 
 @router.post("/", response_model=TaskOut, status_code=201)
-async def create_task(body: TaskCreateIn):
-    return await CreateTaskUseCase(TaskRepositoryImpl()).execute(
+async def create_task(body: TaskCreateIn, db: AsyncSession = Depends(get_db)):
+    return await CreateTaskUseCase(TaskRepositoryImpl(), db).execute(
         body.name, body.task_group_id, body.default_option_set_id
     )
 
 
 @router.put("/{task_id}", response_model=TaskOut)
-async def update_task(task_id: int, body: TaskUpdateIn):
+async def update_task(task_id: int, body: TaskUpdateIn,
+                      db: AsyncSession = Depends(get_db)):
     try:
-        return await UpdateTaskUseCase(TaskRepositoryImpl()).execute(
+        return await UpdateTaskUseCase(TaskRepositoryImpl(), db).execute(
             task_id, body.name, body.task_group_id, body.default_option_set_id
         )
     except TaskNotFoundError as e:
@@ -166,9 +177,9 @@ async def update_task(task_id: int, body: TaskUpdateIn):
 
 
 @router.delete("/{task_id}", status_code=204)
-async def delete_task(task_id: int):
+async def delete_task(task_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteTaskUseCase(TaskRepositoryImpl()).execute(task_id)
+        await DeleteTaskUseCase(TaskRepositoryImpl(), db).execute(task_id)
     except TaskNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
@@ -176,13 +187,13 @@ async def delete_task(task_id: int):
 # ── TaskItem ──────────────────────────────────────────────────────────────────
 
 @router.post("/{task_id}/items", response_model=TaskItemOut, status_code=201)
-async def create_task_item(task_id: int, body: TaskItemCreateIn):
+async def create_task_item(task_id: int, body: TaskItemCreateIn,
+                           db: AsyncSession = Depends(get_db)):
     try:
         return await CreateTaskItemUseCase(
-            TaskRepositoryImpl(), TaskItemRepositoryImpl()
+            TaskRepositoryImpl(), TaskItemRepositoryImpl(), db
         ).execute(
-            task_id,
-            body.content_raw, body.content_visible, body.content_correct,
+            task_id, body.content_raw, body.content_visible, body.content_correct,
             body.correct_option_id, body.option_set_override_id,
             body.notice_wrong, body.notice_right,
         )
@@ -191,11 +202,11 @@ async def create_task_item(task_id: int, body: TaskItemCreateIn):
 
 
 @router.put("/items/{item_id}", response_model=TaskItemOut)
-async def update_task_item(item_id: int, body: TaskItemUpdateIn):
+async def update_task_item(item_id: int, body: TaskItemUpdateIn,
+                           db: AsyncSession = Depends(get_db)):
     try:
-        return await UpdateTaskItemUseCase(TaskItemRepositoryImpl()).execute(
-            item_id,
-            body.content_raw, body.content_visible, body.content_correct,
+        return await UpdateTaskItemUseCase(TaskItemRepositoryImpl(), db).execute(
+            item_id, body.content_raw, body.content_visible, body.content_correct,
             body.correct_option_id, body.option_set_override_id,
             body.notice_wrong, body.notice_right,
         )
@@ -204,8 +215,8 @@ async def update_task_item(item_id: int, body: TaskItemUpdateIn):
 
 
 @router.delete("/items/{item_id}", status_code=204)
-async def delete_task_item(item_id: int):
+async def delete_task_item(item_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteTaskItemUseCase(TaskItemRepositoryImpl()).execute(item_id)
+        await DeleteTaskItemUseCase(TaskItemRepositoryImpl(), db).execute(item_id)
     except TaskItemNotFoundError as e:
         raise HTTPException(404, detail=str(e))

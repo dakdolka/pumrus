@@ -32,6 +32,7 @@ class TaskGroupRepositoryImpl(ITaskGroupRepository):
         m = TaskGroupBD(name=name)
         session.add(m)
         await session.flush()
+        await session.refresh(m)
         return mappers.map_task_group(m)
 
     async def update(self, session: AsyncSession, group_id: int, name: str) -> TaskGroup:
@@ -41,6 +42,7 @@ class TaskGroupRepositoryImpl(ITaskGroupRepository):
         m = result.scalars().one()
         m.name = name
         await session.flush()
+        await session.refresh(m)
         return mappers.map_task_group(m)
 
     async def delete(self, session: AsyncSession, group_id: int) -> None:
@@ -65,6 +67,7 @@ class OptionRepositoryImpl(IOptionRepository):
         m = OptionBD(content=content, extras=extras)
         session.add(m)
         await session.flush()
+        await session.refresh(m)
         return mappers.map_option(m)
 
     async def update(self, session: AsyncSession, option_id: int,
@@ -78,6 +81,7 @@ class OptionRepositoryImpl(IOptionRepository):
         if extras is not None:
             m.extras = extras
         await session.flush()
+        await session.refresh(m)
         return mappers.map_option(m)
 
     async def delete(self, session: AsyncSession, option_id: int) -> None:
@@ -124,6 +128,7 @@ class OptionSetRepositoryImpl(IOptionSetRepository):
             ).scalars().all()
             m.options = list(options)
         await session.flush()
+        await session.refresh(m)
         return mappers.map_option_set(m)
 
     async def delete(self, session: AsyncSession, set_id: int) -> None:

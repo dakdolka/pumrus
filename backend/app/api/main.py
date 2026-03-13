@@ -38,9 +38,9 @@ app = FastAPI(lifespan=lifespan, root_path='/api')
 
 app.include_router(th_rt)
 app.include_router(task_rt)
-app.include_router(task_session_router, prefix="/api")
-app.include_router(user_mistakes_router, prefix="/api")
-app.include_router(users_router, prefix="/api")
+app.include_router(task_session_router)
+app.include_router(user_mistakes_router)
+app.include_router(users_router)
 
 app.add_middleware(
     CORSMiddleware,

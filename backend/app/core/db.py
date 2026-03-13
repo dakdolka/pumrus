@@ -6,7 +6,7 @@ from typing import Annotated
 from sqlalchemy.orm import declared_attr, DeclarativeBase
 from sqlalchemy import DateTime, func
 from datetime import datetime
-
+from sqlalchemy.ext.asyncio import AsyncSession
 # асинхронный движоек
 async_engine = create_async_engine(
     url=settings.db_url,
@@ -55,3 +55,7 @@ class TimestampMixin:
         nullable=False
     )
 
+
+async def get_db():
+    async with async_session_factory() as session:
+        yield session

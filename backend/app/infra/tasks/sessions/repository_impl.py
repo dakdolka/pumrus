@@ -40,6 +40,7 @@ class TaskSessionRepositoryImpl(ITaskSessionRepository):
         m = TaskSessionBD(user_id=user_id, task_id=task_id)
         session.add(m)
         await session.flush()
+        await session.refresh(m)
         return mappers.map_task_session(m)
 
     async def close(self, session: AsyncSession,
@@ -50,6 +51,7 @@ class TaskSessionRepositoryImpl(ITaskSessionRepository):
         m = result.scalars().one()
         m.closed_at = closed_at
         await session.flush()
+        await session.refresh(m)
         return mappers.map_task_session(m)
 
     async def delete(self, session: AsyncSession, session_id: int) -> None:

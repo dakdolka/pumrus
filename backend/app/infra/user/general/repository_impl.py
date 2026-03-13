@@ -31,6 +31,7 @@ class UserRepositoryImpl(IUserRepository):
                    username=username, avatar_url=avatar_url)
         session.add(m)
         await session.flush()
+        await session.refresh(m)
         return mappers.map_user(m)
 
     async def update(self, session: AsyncSession, user_id: int, name: Optional[str],
@@ -43,6 +44,7 @@ class UserRepositoryImpl(IUserRepository):
         if username is not None:     m.username = username
         if avatar_url is not None:   m.avatar_url = avatar_url
         await session.flush()
+        await session.refresh(m)
         return mappers.map_user(m)
 
     async def set_active(self, session: AsyncSession,
@@ -51,6 +53,7 @@ class UserRepositoryImpl(IUserRepository):
         m = result.scalars().one()
         m.is_active = is_active
         await session.flush()
+        await session.refresh(m)
         return mappers.map_user(m)
 
     async def touch_last_active(self, session: AsyncSession,
@@ -59,3 +62,4 @@ class UserRepositoryImpl(IUserRepository):
         m = result.scalars().one()
         m.last_active_at = dt
         await session.flush()
+        await session.refresh(m)

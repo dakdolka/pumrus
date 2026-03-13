@@ -1,26 +1,23 @@
-from aiogram import Bot, Dispatcher, Router     
+import asyncio
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from config import settings
-import asyncio
-from aiogram.types import Message
-from aiogram.filters.command import Command
-import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from handlers import all_rts
 
-bot = Bot(settings.TOKEN)
+bot = Bot(
+    token=settings.TOKEN,
+    default=DefaultBotProperties(parse_mode="HTML"),
+)
 dp = Dispatcher()
 
-for elem in all_rts:
-    dp.include_router(elem)
-    
-
+for router in all_rts:
+    dp.include_router(router)
 
 
 async def main():
     await dp.start_polling(bot)
-    
-if __name__ == "__main__":
-    print('start')
-    asyncio.run(main())
 
+
+if __name__ == "__main__":
+    print("Bot started")
+    asyncio.run(main())

@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from app.core.db import get_db
 from app.core.user.mistakes.use_cases import (
     CreateUserMistakeUseCase, GetUserMistakesUseCase,
     GetUnresolvedMistakesUseCase, GetMistakesBySessionUseCase,
@@ -13,39 +15,43 @@ router = APIRouter(prefix="/users/mistakes", tags=["user-mistakes"])
 
 
 @router.post("/", response_model=UserMistakeOut, status_code=201)
-async def create_mistake(body: UserMistakeCreateIn):
-    return await CreateUserMistakeUseCase(UserMistakesRepositoryImpl()).execute(
+async def create_mistake(body: UserMistakeCreateIn,
+                         db: AsyncSession = Depends(get_db)):
+    return await CreateUserMistakeUseCase(UserMistakesRepositoryImpl(), db).execute(
         body.user_id, body.task_session_id, body.mistake_item_id, body.chosen_option_id
     )
 
 
 @router.get("/by-user/{user_id}", response_model=List[UserMistakeOut])
-async def get_user_mistakes(user_id: int):
-    return await GetUserMistakesUseCase(UserMistakesRepositoryImpl()).execute(user_id)
+async def get_user_mistakes(user_id: int, db: AsyncSession = Depends(get_db)):
+    return await GetUserMistakesUseCase(UserMistakesRepositoryImpl(), db).execute(user_id)
 
 
 @router.get("/by-user/{user_id}/unresolved", response_model=List[UserMistakeOut])
-async def get_unresolved_mistakes(user_id: int):
-    """Для режима 'повтори ошибки'."""
-    return await GetUnresolvedMistakesUseCase(UserMistakesRepositoryImpl()).execute(user_id)
+async def get_unresolved(user_id: int, db: AsyncSession = Depends(get_db)):
+    return await GetUnresolvedMistakesUseCase(
+        UserMistakesRepositoryImpl(), db
+    ).execute(user_id)
 
 
 @router.get("/by-session/{session_id}", response_model=List[UserMistakeOut])
-async def get_mistakes_by_session(session_id: int):
-    return await GetMistakesBySessionUseCase(UserMistakesRepositoryImpl()).execute(session_id)
+async def get_by_session(session_id: int, db: AsyncSession = Depends(get_db)):
+    return await GetMistakesBySessionUseCase(
+        UserMistakesRepositoryImpl(), db
+    ).execute(session_id)
 
 
 @router.post("/{mistake_id}/resolve", response_model=UserMistakeOut)
-async def resolve_mistake(mistake_id: int):
+async def resolve_mistake(mistake_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        return await ResolveMistakeUseCase(UserMistakesRepositoryImpl()).execute(mistake_id)
+        return await ResolveMistakeUseCase(UserMistakesRepositoryImpl(), db).execute(mistake_id)
     except UserMistakeNotFoundError as e:
         raise HTTPException(404, detail=str(e))
 
 
 @router.delete("/{mistake_id}", status_code=204)
-async def delete_mistake(mistake_id: int):
+async def delete_mistake(mistake_id: int, db: AsyncSession = Depends(get_db)):
     try:
-        await DeleteUserMistakeUseCase(UserMistakesRepositoryImpl()).execute(mistake_id)
+        await DeleteUserMistakeUseCase(UserMistakesRepositoryImpl(), db).execute(mistake_id)
     except UserMistakeNotFoundError as e:
         raise HTTPException(404, detail=str(e))
