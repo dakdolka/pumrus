@@ -2,21 +2,10 @@ import { useRef, useState, useEffect } from "react";
 import "./General.css";
 import Chapter from "./components/Chapter/chapter.jsx";
 import { Element, TaskElement, Popup } from "./components.jsx";
-import { StressTrainer }     from "./components/trainers/StressTrainer.jsx";
-import { PrefixTrainer }     from "./components/trainers/PrefixTrainer.jsx";
-import { DictionaryTrainer } from "./components/trainers/DictionaryTrainer.jsx";
-import { SpellingTrainer }   from "./components/trainers/SpellingTrainer.jsx";
-import { TaskSelect }        from "./components/trainers/TaskSelect.jsx";
-import { adaptItems, getStorageKey } from "./components/trainers/trainerUtils.js";
+import { TaskSelect }       from "./components/trainers/TaskSelect.jsx";
+import { UniversalTrainer } from "./components/trainers/UniversalTrainer.jsx";
+import { getStorageKey }    from "./components/trainers/trainerUtils.js";
 
-const TRAINER_META = {
-  stress:     { label: "Орфоэпия",           Component: StressTrainer },
-  prefix:     { label: "ПРЕ/ПРИ",            Component: PrefixTrainer },
-  dictionary: { label: "Словарные слова",    Component: DictionaryTrainer },
-  spelling:   { label: "Слитно / Раздельно", Component: SpellingTrainer },
-};
-
-const TRAINER_ORDER = ["stress", "prefix", "dictionary", "spelling"];
 
 function saveInfo(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
@@ -25,6 +14,9 @@ function saveInfo(key, value) {
 function getInfo(key) {
   return JSON.parse(localStorage.getItem(key));
 }
+
+
+// ─── Option (для TheoryChoose) ────────────────────────────────────────────────
 
 function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
@@ -47,7 +39,13 @@ function Option({ children, onSelect, theme_id }) {
   );
 }
 
-function TheoryChoose({ preloadedRules, preloadedTasks, availableTypes, isPopup, setPopup, content, setContent }) {
+
+// ─── TheoryChoose ─────────────────────────────────────────────────────────────
+
+function TheoryChoose({
+  preloadedRules, preloadedTasks, availableTypes,
+  isPopup, setPopup, content, setContent,
+}) {
   const task  = useRef();
   const theme = useRef();
 
@@ -171,19 +169,22 @@ function TheoryChoose({ preloadedRules, preloadedTasks, availableTypes, isPopup,
   );
 }
 
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
 function App() {
-  const day_task  = useRef();
-  const task      = useRef();
-  const theory    = useRef();
-  const analysis  = useRef();
-  const title     = useRef();
+  const day_task       = useRef();
+  const task           = useRef();
+  const theory         = useRef();
+  const analysis       = useRef();
+  const title          = useRef();
   const trainerExitRef = useRef(null);
 
-  const [selectedTrainerType, setSelectedTrainerType] = useState(null);
-  const [selectedTask,        setSelectedTask]        = useState(null);
-  const [availableTrainers,   setAvailableTrainers]   = useState([]);
-  const [trainersLoading,     setTrainersLoading]     = useState(false);
-  const [trainersError,       setTrainersError]       = useState('');
+  const [userId,       setUserId]       = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [allTasks,     setAllTasks]     = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError,   setTasksError]   = useState('');
 
   const [isFadingOut,          setIsFadingOut]          = useState(false);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
@@ -194,42 +195,32 @@ function App() {
   const [isTheoryPopupOpen,  setIsTheoryPopupOpen]  = useState(false);
   const [theoryPopupContent, setTheoryPopupContent] = useState({ title: "Отсутствует", blocks: [] });
 
-  function clearTrainer() {
-    setSelectedTrainerType(null);
-    setSelectedTask(null);
-  }
 
-  async function loadTrainers() {
-    setTrainersLoading(true);
-    setTrainersError('');
+  // ── Загрузка заданий ──────────────────────────────────
+  async function loadTasks() {
+    setTasksLoading(true);
+    setTasksError('');
     try {
-      const all = await fetch('/api/tasks/').then(r => r.json());
-      const grouped = {};
-      all
-        .filter(t => t.is_active)
-        .forEach(t => {
-          if (!grouped[t.trainer_type]) grouped[t.trainer_type] = [];
-          grouped[t.trainer_type].push(t);
-        });
-      const result = TRAINER_ORDER
-        .filter(type => grouped[type]?.length > 0 && TRAINER_META[type])
-        .map(type => ({
-          type,
-          label: TRAINER_META[type].label,
-          tasks: grouped[type],
-        }));
-      setAvailableTrainers(result);
-    } catch {
-      setTrainersError('Не удалось загрузить задания');
+      const all = await fetch('/api/tasks/general/').then(r => r.json());
+      const active = all.filter(t => t.items?.length > 0);
+      setAllTasks(active);
+    } catch (e) {
+      console.error('loadTasks error:', e);
+      setTasksError('Не удалось загрузить задания');
     } finally {
-      setTrainersLoading(false);
+      setTasksLoading(false);
     }
   }
 
+
+  // ── Telegram WebApp init ───────────────────────────────
   useEffect(() => {
     const tg = window.Telegram?.WebApp || {};
     tg.ready?.();
     tg.expand?.();
+
+    const tgUser = tg.initDataUnsafe?.user;
+    if (tgUser?.id) setUserId(String(tgUser.id));
 
     const params = tg.themeParams || {};
     const isDark = tg.colorScheme === "dark";
@@ -249,6 +240,8 @@ function App() {
     root.style.setProperty("--rule-color", `color-mix(in srgb, ${accent} ${mix}, transparent)`);
   }, []);
 
+
+  // ── Touch-эффекты ─────────────────────────────────────
   useEffect(() => {
     const onStart = (e) => {
       const btn = e.target.closest("button");
@@ -266,10 +259,11 @@ function App() {
     };
   }, []);
 
+
+  // ── Переход с анимацией ────────────────────────────────
   async function performTransition(action, { withLoadingSpinner = true } = {}) {
     setIsFadingOut(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
+    await new Promise(r => setTimeout(r, 300));
     setIsContentReady(false);
 
     let loadingTimer;
@@ -278,67 +272,66 @@ function App() {
     }
 
     await action?.();
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise(r => setTimeout(r, 50));
 
     setIsContentReady(true);
-    await new Promise((resolve) => {
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => setTimeout(resolve, 50))
-      );
-    });
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
 
     clearTimeout(loadingTimer);
     setShowLoadingIndicator(false);
     setIsFadingOut(false);
   }
 
+
+  // ── Telegram BackButton ────────────────────────────────
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg) return;
-
-    const backButton = tg.BackButton;
 
     const handleBack = async () => {
       setShowLoadingIndicator(false);
 
       if (isTheoryPopupOpen) { setIsTheoryPopupOpen(false); return; }
 
-      if (page === "trainers" && selectedTrainerType && selectedTask) return;
-
-      if (page === "trainers" && selectedTrainerType && !selectedTask) {
-        await performTransition(() => setSelectedTrainerType(null), { withLoadingSpinner: false });
-        return;
-      }
+      // Внутри тренажёра — выход обрабатывает UniversalTrainer
+      if (page === "trainers" && selectedTask) return;
 
       const backMap = {
-        theory:    "subject",
-        trainers:  "subject",
-        analysis:  "subject",
+        theory:     "subject",
+        trainers:   "subject",
+        analysis:   "subject",
         "day-task": "subject",
       };
 
       const targetPage = backMap[page];
       if (!targetPage) { tg.close?.(); return; }
 
-      await performTransition(() => setPage(targetPage), { withLoadingSpinner: false });
+      await performTransition(() => {
+        setPage(targetPage);
+        if (targetPage === "subject") setSelectedTask(null);
+      }, { withLoadingSpinner: false });
     };
 
     if (["subject", "theory", "trainers", "analysis", "day-task"].includes(page)) {
-      backButton.show();
+      tg.BackButton.show();
       tg.onEvent("backButtonClicked", handleBack);
     } else {
-      backButton.hide();
+      tg.BackButton.hide();
     }
 
     return () => tg.offEvent?.("backButtonClicked", handleBack);
-  }, [page, isTheoryPopupOpen, selectedTrainerType, selectedTask]);
+  }, [page, isTheoryPopupOpen, selectedTask]);
 
+
+  // ── Первый рендер ─────────────────────────────────────
   useEffect(() => {
     requestAnimationFrame(() =>
       requestAnimationFrame(() => setIsContentReady(true))
     );
   }, []);
 
+
+  // ── Preload теории ─────────────────────────────────────
   async function preloadTheoryData() {
     const cacheKey = "global";
     if (theoryCache[cacheKey]) return theoryCache[cacheKey];
@@ -348,26 +341,27 @@ function App() {
       fetch(`/api/theory/get_tasks_theory`),
       fetch(`/api/theory/all_theory_types`),
     ]);
-    const rules = await rulesRes.json();
-    const tasks = await tasksRes.json();
-    const types = await typesRes.json();
-    const data  = { rules, tasks, types };
-
-    setTheoryCache((prev) => ({ ...prev, [cacheKey]: data }));
+    const data = {
+      rules: await rulesRes.json(),
+      tasks: await tasksRes.json(),
+      types: await typesRes.json(),
+    };
+    setTheoryCache(prev => ({ ...prev, [cacheKey]: data }));
     return data;
   }
 
-  async function navigateToPage(targetPage, { resetTrainer = false } = {}) {
+
+  async function navigateToPage(targetPage, { resetTask = false } = {}) {
     await performTransition(async () => {
-      const t0 = performance.now();
       if (targetPage === "theory")   await preloadTheoryData();
-      if (targetPage === "trainers") await loadTrainers();
+      if (targetPage === "trainers") await loadTasks();
       setPage(targetPage);
-      if (resetTrainer) clearTrainer();
-      console.log(`⏱️ Время подготовки: ${(performance.now() - t0).toFixed(2)}ms`);
+      if (resetTask) setSelectedTask(null);
     });
   }
 
+
+  // ── Header ────────────────────────────────────────────
   const header = (
     <div ref={title} className="mainTitle">
       <div className="mainTitle__picture" />
@@ -382,8 +376,14 @@ function App() {
     </div>
   );
 
+
+  // ─────────────────────────────────────────────────────
+  // СТРАНИЦЫ
+  // ─────────────────────────────────────────────────────
+
   let content;
 
+  // ── subject ───────────────────────────────────────────
   if (page === "subject") {
     content = (
       <>
@@ -391,7 +391,7 @@ function App() {
         <Chapter ref={day_task} func={() => navigateToPage("day-task")}>
           Ежедневное задание
         </Chapter>
-        <Chapter ref={task} func={() => navigateToPage("trainers", { resetTrainer: true })}>
+        <Chapter ref={task} func={() => navigateToPage("trainers", { resetTask: true })}>
           Практика
         </Chapter>
         <Chapter ref={theory} func={() => navigateToPage("theory")}>
@@ -404,6 +404,7 @@ function App() {
     );
   }
 
+  // ── day-task ──────────────────────────────────────────
   if (page === "day-task") {
     content = (
       <Chapter isValue="true" func={() => navigateToPage("subject")}>
@@ -412,17 +413,20 @@ function App() {
     );
   }
 
+  // ── trainers ──────────────────────────────────────────
   if (page === "trainers") {
-    if (!selectedTrainerType) {
+
+    // Экран 1 — список заданий с группировкой
+    if (!selectedTask) {
       content = (
         <>
           <div className="mainTitle">
             <div className="mainTitle__picture" />
             <div className="mainTitle__title">PumRus</div>
-            <div className="mainTitle__text">Выберите тренажёр для практики</div>
+            <div className="mainTitle__text">Выберите задание для практики</div>
           </div>
 
-          {trainersLoading && (
+          {tasksLoading && (
             <div className="task-select">
               <div className="task-select__spinner-wrap">
                 <span className="task-select__spinner-inline" />
@@ -431,51 +435,37 @@ function App() {
             </div>
           )}
 
-          {trainersError && (
+          {tasksError && (
             <div className="task-select">
-              <div className="task-select__empty">{trainersError}</div>
+              <div className="task-select__empty">{tasksError}</div>
             </div>
           )}
 
-          {!trainersLoading && !trainersError && (
-            <div className="subject__block">
-              {availableTrainers.map(({ type, label }) => (
-                <Chapter
-                  key={type}
-                  subject={false}
-                  func={() => performTransition(() => setSelectedTrainerType(type))}
-                >
-                  {label}
-                </Chapter>
-              ))}
+          {!tasksLoading && !tasksError && allTasks.length === 0 && (
+            <div className="task-select">
+              <div className="task-select__empty">Нет доступных заданий</div>
             </div>
+          )}
+
+          {!tasksLoading && !tasksError && allTasks.length > 0 && (
+            <TaskSelect
+              tasks={allTasks}
+              onSelect={t => performTransition(() => setSelectedTask(t))}
+            />
           )}
         </>
       );
 
-    } else if (!selectedTask) {
-      const current = availableTrainers.find(t => t.type === selectedTrainerType);
-      content = (
-        <>
-          <Chapter
-            isValue="true"
-            func={() => performTransition(() => setSelectedTrainerType(null), { withLoadingSpinner: false })}
-          >
-            {current?.label}
-          </Chapter>
-          <TaskSelect
-            tasks={current?.tasks || []}
-            trainerLabel={current?.label}
-            onSelect={fullTask => performTransition(() => setSelectedTask(fullTask))}
-          />
-        </>
-      );
-
+    // Экран 2 — тренажёр
     } else {
-      const meta       = TRAINER_META[selectedTrainerType];
-      const rawData    = adaptItems(selectedTrainerType, selectedTask.items || []);
-      const storageKey = getStorageKey(selectedTrainerType, selectedTask.id);
-      const onExit     = () => performTransition(() => setSelectedTask(null), { withLoadingSpinner: false });
+      const storageKey = getStorageKey(
+        selectedTask.task_group?.name ?? 'general',
+        selectedTask.id
+      );
+      const onExit = () => performTransition(
+        () => setSelectedTask(null),
+        { withLoadingSpinner: false }
+      );
 
       content = (
         <>
@@ -483,22 +473,24 @@ function App() {
             isValue="true"
             func={() => {
               if (trainerExitRef.current) trainerExitRef.current();
-              else performTransition(() => setSelectedTask(null));
+              else onExit();
             }}
           >
             {selectedTask.name}
           </Chapter>
-          <meta.Component
+          <UniversalTrainer
+            task={selectedTask}
+            userId={userId}
+            storageKey={storageKey}
             onExit={onExit}
             exitRef={trainerExitRef}
-            rawData={rawData}
-            storageKey={storageKey}
           />
         </>
       );
     }
   }
 
+  // ── theory ────────────────────────────────────────────
   if (page === "theory") {
     const cachedData = theoryCache["global"] || null;
     content = (
@@ -524,6 +516,7 @@ function App() {
     );
   }
 
+  // ── analysis ──────────────────────────────────────────
   if (page === "analysis") {
     content = (
       <Chapter isValue="true" func={() => navigateToPage("subject")}>
@@ -531,6 +524,7 @@ function App() {
       </Chapter>
     );
   }
+
 
   return (
     <>
