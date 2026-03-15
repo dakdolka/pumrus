@@ -1,6 +1,8 @@
-import { useRef } from 'react';
-import { resolveOptionSet, useUniversalTrainer, PAGE_SIZE } from './useUniversalTrainer.js';
+import { useRef, useEffect } from 'react';
+import { resolveOptionSet, useUniversalTrainer } from './useUniversalTrainer.js';
 import './trainer.css';
+
+const EMPTY_RESULT = { status: 'none', notice: null, displayContent: null };
 
 // ─── Попап ────────────────────────────────────────────────────────────────────
 
@@ -20,7 +22,7 @@ function MistakesPopup({ title, mistakes, stats, onClose, onReset, showReset = f
           <div className="trainer-no-mistakes">Ошибок нет 🎉</div>
         ) : (
           <div className="trainer-mistakes-list">
-            {mistakes.map(({ item, result }, i) => (
+            {mistakes.map(({ item, result }) => (
               <div key={item.id} className="trainer-mistake-word">
                 <div className="trainer-mistake-visible"
                      dangerouslySetInnerHTML={{ __html: item.content_visible }} />
@@ -128,11 +130,12 @@ function TextKeyboard({ value, onChange, onSubmit, loading, answered }) {
   );
 }
 
-// ─── Один элемент задания ────────────────────────────────────────────────────
+// ─── Один элемент задания ─────────────────────────────────────────────────────
 
-function TaskItem({ item, task, result, isActive, index, onActivate }) {
-  const answered = result?.status !== 'none';
-  const ref = useRef(null);
+function TaskItem({ item, result, isActive, index, onActivate }) {
+  const safeResult = result ?? EMPTY_RESULT;
+  const answered   = safeResult.status !== 'none';
+  const ref        = useRef(null);
 
   useEffect(() => {
     if (isActive && ref.current) {
@@ -141,20 +144,16 @@ function TaskItem({ item, task, result, isActive, index, onActivate }) {
   }, [isActive]);
 
   let cls = 'trainer-word-input';
-  if (isActive)                     cls += ' trainer-word-input--active';
-  if (result?.status === 'correct') cls += ' trainer-item--correct';
-  if (result?.status === 'wrong')   cls += ' trainer-item--wrong';
+  if (isActive)                        cls += ' trainer-word-input--active';
+  if (safeResult.status === 'correct') cls += ' trainer-item--correct';
+  if (safeResult.status === 'wrong')   cls += ' trainer-item--wrong';
 
   return (
     <div ref={ref} className={cls} onClick={() => !answered && onActivate(index)}>
-
-      {/* Контент — меняется после ответа */}
       <span className="trainer-item-content">
-        {result?.status === 'correct' ? (
-          // Правильно — показываем content_correct
-          <span dangerouslySetInnerHTML={{ __html: result.displayContent ?? item.content_correct }} />
-        ) : result?.status === 'wrong' ? (
-          // Неправильно — зачёркнутое visible + правильный ответ
+        {safeResult.status === 'correct' ? (
+          <span dangerouslySetInnerHTML={{ __html: safeResult.displayContent ?? item.content_correct }} />
+        ) : safeResult.status === 'wrong' ? (
           <>
             <span
               className="trainer-item-strikethrough"
@@ -163,21 +162,18 @@ function TaskItem({ item, task, result, isActive, index, onActivate }) {
             <span className="trainer-item-correct-answer"> → {item.content_correct}</span>
           </>
         ) : (
-          // Не отвечено — показываем content_visible
           <span dangerouslySetInnerHTML={{ __html: item.content_visible }} />
         )}
       </span>
 
-      {/* Бейдж */}
       {answered && (
-        <span className={`trainer-item-badge trainer-item-badge--${result.status}`}>
-          {result.status === 'correct' ? '✓' : '✗'}
+        <span className={`trainer-item-badge trainer-item-badge--${safeResult.status}`}>
+          {safeResult.status === 'correct' ? '✓' : '✗'}
         </span>
       )}
     </div>
   );
 }
-
 
 // ─── Пагинация ────────────────────────────────────────────────────────────────
 
@@ -208,11 +204,12 @@ function Pagination({ currentPage, totalPages, onPrev, onNext }) {
 
 // ─── Главный компонент ────────────────────────────────────────────────────────
 
-export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) {
-  const trainer = useUniversalTrainer({ task, userId, storageKey, onExit, exitRef });
+export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef, onFinish}) {
+  const trainer = useUniversalTrainer({ task, userId, storageKey, onExit, exitRef, onFinish });
 
   const {
-    items, results, activeIndex, setActiveIndex,
+    items, results, setResults,
+    activeIndex, setActiveIndex,
     currentPage, setCurrentPage,
     totalPages, start, end,
     inputValue, setInputValue, inputLoading,
@@ -223,33 +220,40 @@ export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) 
     showConfirmReset, setShowConfirmReset,
     stats,
     answerWithOption, answerWithText,
-    reset, triggerExit,
+    reset,
     collectMistakes,
     onExit: exit,
   } = trainer;
 
   const activeItem     = items[activeIndex] ?? null;
-  const activeResult   = results[activeIndex] ?? { status: 'none', notice: null };
+  const activeResult   = results[activeIndex] ?? EMPTY_RESULT;
   const activeAnswered = activeResult.status !== 'none';
   const optionSet      = activeItem ? resolveOptionSet(activeItem, task) : null;
   const hasOptions     = !!optionSet?.options?.length;
 
   const pageItems = items.slice(start, end);
 
-  // ── Выбор опции ──────────────────────────────────────────
   function handleOptionSelect(opt) {
     if (activeAnswered || activeIndex < start || activeIndex >= end) return;
     answerWithOption(activeIndex, opt);
   }
 
-  // ── Текстовый ввод ───────────────────────────────────────
   function handleTextSubmit() {
     if (!inputValue.trim() || activeAnswered) return;
     answerWithText(activeIndex, inputValue);
   }
 
+  // ── Сброс страницы (из попапа завершения страницы) ────
+  function handlePageReset() {
+    setShowPageMistakes(false);
+    const next = [...results];
+    for (let i = start; i < end; i++) next[i] = { ...EMPTY_RESULT };
+    setResults(next);
+    // Убираем страницу из shownPages — внутри хука через setResults сработает детект
+  }
+
   return (
-    <div className={`trainer-container spelling-trainer-container`}>
+    <div className="trainer-container spelling-trainer-container">
 
       {/* ── Статистика ─────────────────────────────────── */}
       <div className="trainer-stats">
@@ -258,12 +262,16 @@ export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) 
 
       {/* ── Кнопки управления ──────────────────────────── */}
       <div className="trainer-controls trainer-controls--compact">
-        <button className="trainer-button trainer-button--small"
-                onClick={() => setShowAllMistakes(true)}>
+        <button
+          className="trainer-button trainer-button--small"
+          onClick={() => setShowAllMistakes(true)}
+        >
           Ошибки ({stats.wrong})
         </button>
-        <button className="trainer-button trainer-button--small trainer-button--danger"
-                onClick={() => setShowConfirmReset(true)}>
+        <button
+          className="trainer-button trainer-button--small trainer-button--danger"
+          onClick={() => setShowConfirmReset(true)}
+        >
           Сбросить
         </button>
       </div>
@@ -288,7 +296,7 @@ export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) 
               key={item.id}
               item={item}
               task={task}
-              result={results[absIdx]}
+              result={results[absIdx] ?? EMPTY_RESULT}
               isActive={absIdx === activeIndex}
               index={absIdx}
               onActivate={idx => {
@@ -320,7 +328,10 @@ export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) 
       {/* ── Попапы ─────────────────────────────────────── */}
 
       {showConfirmReset && (
-        <ConfirmResetPopup onConfirm={reset} onCancel={() => setShowConfirmReset(false)} />
+        <ConfirmResetPopup
+          onConfirm={reset}
+          onCancel={() => setShowConfirmReset(false)}
+        />
       )}
 
       {showPageMistakes && (
@@ -332,13 +343,7 @@ export function UniversalTrainer({ task, userId, storageKey, onExit, exitRef }) 
             setShowPageMistakes(false);
             if (currentPage < totalPages - 1) setCurrentPage(p => p + 1);
           }}
-          onReset={() => {
-            setShowPageMistakes(false);
-            // сброс только страницы — статусы сбрасываем локально
-            const next = [...results];
-            for (let i = start; i < end; i++) next[i] = { status: 'none', notice: null };
-            trainer.setResults?.(next); // прокидываем если нужно
-          }}
+          onReset={handlePageReset}
           showReset
         />
       )}

@@ -21,6 +21,7 @@ def map_task_group(m: TaskGroupBD) -> TaskGroup:
 def map_task_item(m: TaskItemBD) -> TaskItem:
     return TaskItem(
         id=m.id,
+        task_id=m.task_id,
         content_raw=m.content_raw,
         content_visible=m.content_visible,
         content_correct=m.content_correct,

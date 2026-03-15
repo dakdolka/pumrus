@@ -58,6 +58,7 @@ class OptionSetUpdateIn(BaseModel):
 class TaskItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    task_id: int
     content_raw: str
     content_visible: str
     content_correct: str

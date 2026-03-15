@@ -52,7 +52,7 @@ async function apiGetOrCreateOption(content) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef }) {
+export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef, onFinish }) {
   const originalItems = task.items ?? [];
 
   const [shuffledItems, setShuffledItems] = useState([]);
@@ -72,6 +72,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef 
 
   const shownPagesRef = useRef(new Set());
   const sessionIdRef  = useRef(null);
+  const resultsRef    = useRef([]);
 
   const items      = shuffledItems.length ? shuffledItems : originalItems;
   const totalPages = Math.ceil(items.length / PAGE_SIZE) || 1;
@@ -79,6 +80,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef 
   const end        = Math.min(start + PAGE_SIZE, items.length);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  useEffect(() => { resultsRef.current   = results;   }, [results]);
 
   // ── Mount ─────────────────────────────────────────────
   useEffect(() => {
@@ -170,7 +172,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef 
   }
 
   async function _startNewSession() {
-    const shuffled = shuffleArray([...originalItems]);
+    const shuffled     = shuffleArray([...originalItems]);
     const emptyResults = shuffled.map(() => ({ status: 'none', notice: null, displayContent: null }));
     setShuffledItems(shuffled);
     setResults(emptyResults);
@@ -186,31 +188,33 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef 
     }
   }
 
-  // Завершение — сессию НЕ закрываем
+  // Завершение — если передан onFinish (режим отработки), зовём его с результатами
+  // иначе показываем встроенный попап
   function _handleFinish() {
     localStorage.removeItem(storageKey);
-    setShowFinish(true);
+    if (onFinish) {
+      onFinish(resultsRef.current, shuffledItems);
+    } else {
+      setShowFinish(true);
+    }
   }
 
   // Выход — сессию НЕ закрываем
   function _triggerExit() {
-    const hasMistakes = results.some(r => r?.status === 'wrong');
+    const hasMistakes = resultsRef.current.some(r => r?.status === 'wrong');
     if (hasMistakes) { setIsExiting(true); setShowExitMistakes(true); }
     else onExit?.();
   }
 
   // ── Ответ через опцию ─────────────────────────────────
   async function answerWithOption(itemIndex, chosenOption) {
-    const item   = items[itemIndex];
+    const item = items[itemIndex];
     if (!item) return;
     const ok     = isCorrect(chosenOption, item);
     const notice = ok ? (item.notice_right ?? null) : (item.notice_wrong ?? null);
-
-    // displayContent — что показать в строке после ответа:
-    // если правильно → content_correct, если неправильно → оставляем content_visible
     const displayContent = ok ? item.content_correct : null;
 
-    const next = [...results];
+    const next = [...resultsRef.current];
     next[itemIndex] = { status: ok ? 'correct' : 'wrong', notice, displayContent };
     setResults(next);
     setInputValue('');
@@ -249,23 +253,27 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef 
   // ── Сбор ошибок ───────────────────────────────────────
   function collectMistakes(from = 0, to = items.length) {
     return items.slice(from, to)
-      .map((item, i) => ({ item, result: results[from + i] ?? { status: 'none', notice: null } }))
+      .map((item, i) => ({
+        item,
+        result: results[from + i] ?? { status: 'none', notice: null, displayContent: null },
+      }))
       .filter(({ result }) => result.status === 'wrong');
   }
 
   const stats = results.reduce(
     (acc, r) => {
       if (!r) return acc;
-      if      (r.status === 'correct')  acc.correct++;
-      else if (r.status === 'wrong')    acc.wrong++;
-      else                              acc.remaining++;
+      if      (r.status === 'correct') acc.correct++;
+      else if (r.status === 'wrong')   acc.wrong++;
+      else                             acc.remaining++;
       return acc;
     },
     { correct: 0, wrong: 0, remaining: 0 }
   );
 
   return {
-    items, results, setResults, activeIndex, setActiveIndex,
+    items, results, setResults,
+    activeIndex, setActiveIndex,
     currentPage, setCurrentPage,
     totalPages, start, end,
     sessionId,

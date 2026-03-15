@@ -2,21 +2,12 @@ import { useRef, useState, useEffect } from "react";
 import "./General.css";
 import Chapter from "./components/Chapter/chapter.jsx";
 import { Element, TaskElement, Popup } from "./components.jsx";
-import { TaskSelect }       from "./components/trainers/TaskSelect.jsx";
-import { UniversalTrainer } from "./components/trainers/UniversalTrainer.jsx";
-import { getStorageKey }    from "./components/trainers/trainerUtils.js";
+import { TaskSelect }        from "./components/trainers/TaskSelect.jsx";
+import { UniversalTrainer }  from "./components/trainers/UniversalTrainer.jsx";
+import { MistakesPage }      from "./components/mistakes/MistakesPage.jsx";
+import { PracticeTrainer }   from "./components/mistakes/PracticeTrainer.jsx";
+import { getStorageKey }     from "./components/trainers/trainerUtils.js";
 
-
-function saveInfo(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function getInfo(key) {
-  return JSON.parse(localStorage.getItem(key));
-}
-
-
-// ─── Option (для TheoryChoose) ────────────────────────────────────────────────
 
 function Option({ children, onSelect, theme_id }) {
   const [isChosen, setMood] = useState(false);
@@ -40,8 +31,6 @@ function Option({ children, onSelect, theme_id }) {
 }
 
 
-// ─── TheoryChoose ─────────────────────────────────────────────────────────────
-
 function TheoryChoose({
   preloadedRules, preloadedTasks, availableTypes,
   isPopup, setPopup, content, setContent,
@@ -58,27 +47,19 @@ function TheoryChoose({
 
   useEffect(() => {
     if (!preloadedRules) {
-      fetch(`/api/theory/all_theory`)
-        .then((r) => r.json())
-        .then(setRules)
-        .catch(console.error);
+      fetch(`/api/theory/all_theory`).then(r => r.json()).then(setRules).catch(console.error);
     }
   }, [preloadedRules]);
 
   useEffect(() => {
     if (!preloadedTasks) {
-      fetch(`/api/theory/get_tasks_theory`)
-        .then((r) => r.json())
-        .then(setTasks)
-        .catch(console.error);
+      fetch(`/api/theory/get_tasks_theory`).then(r => r.json()).then(setTasks).catch(console.error);
     }
   }, [preloadedTasks]);
 
   function handleSelect(id, isChoose) {
-    setChosenBlock((prev) =>
-      isChoose
-        ? prev.includes(id) ? prev : [...prev, id]
-        : prev.filter((item) => item !== id)
+    setChosenBlock(prev =>
+      isChoose ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter(i => i !== id)
     );
   }
 
@@ -87,8 +68,8 @@ function TheoryChoose({
       setViewRules(rules);
     } else {
       const filtered = [];
-      rules.forEach((item) => {
-        (item.types || []).forEach((type) => {
+      rules.forEach(item => {
+        (item.types || []).forEach(type => {
           if (chosenBlock.includes(type.id)) filtered.push(item);
         });
       });
@@ -98,10 +79,10 @@ function TheoryChoose({
 
   function showContent(parent) {
     if (parent === "task") {
-      setTaskMood((prev) => !prev);
+      setTaskMood(prev => !prev);
       if (isThemeActive) setThemeMood(false);
     } else {
-      setThemeMood((prev) => !prev);
+      setThemeMood(prev => !prev);
       if (isTaskActive) setTaskMood(false);
     }
   }
@@ -115,25 +96,21 @@ function TheoryChoose({
             ? "theoryChoose__elem theoryChoose__task--active"
             : "theoryChoose__elem theoryChoose__task--hidden"}
           onClick={() => showContent("task")}
-        >
-          Задания
-        </div>
+        >Задания</div>
         <div
           ref={theme}
           className={isThemeActive
             ? "theoryChoose__elem theoryChoose__theme--active"
             : "theoryChoose__elem theoryChoose__theme--hidden"}
           onClick={() => showContent("theme")}
-        >
-          Темы
-        </div>
+        >Темы</div>
       </div>
 
       <div className={isThemeActive
         ? "theoryChoose__block theoryChoose__block--active"
         : "theoryChoose__block--hidden"}
       >
-        {(availableTypes || []).map((type) => (
+        {(availableTypes || []).map(type => (
           <Option key={type.id} theme_id={type.id} onSelect={handleSelect}>
             {type.name}
           </Option>
@@ -143,12 +120,7 @@ function TheoryChoose({
       <div className={isThemeActive ? "elementBlock elementBlock--small" : "elementBlock elementBlock--big"}>
         {isTaskActive === false
           ? viewRules.map((item, index) => (
-              <Element
-                key={index}
-                theory_id={item.id}
-                setPopup={setPopup}
-                setContent={setContent}
-              >
+              <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>
                 {item.name}
               </Element>
             ))
@@ -173,18 +145,22 @@ function TheoryChoose({
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 function App() {
-  const day_task       = useRef();
   const task           = useRef();
   const theory         = useRef();
-  const analysis       = useRef();
+  const mistakes       = useRef();
   const title          = useRef();
   const trainerExitRef = useRef(null);
 
-  const [userId,       setUserId]       = useState(null);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [allTasks,     setAllTasks]     = useState([]);
-  const [tasksLoading, setTasksLoading] = useState(false);
-  const [tasksError,   setTasksError]   = useState('');
+  const [userId,          setUserId]          = useState(null);
+  const [selectedTask,    setSelectedTask]    = useState(null);
+  const [allTasks,        setAllTasks]        = useState([]);
+  const [tasksLoading,    setTasksLoading]    = useState(false);
+  const [tasksError,      setTasksError]      = useState('');
+
+  // Отработка ошибок
+  const [practiceTask,     setPracticeTask]     = useState(null);
+  const [practiceMistakes, setPracticeMistakes] = useState([]);
+  const [mistakesRefresh,  setMistakesRefresh]  = useState(0);
 
   const [isFadingOut,          setIsFadingOut]          = useState(false);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
@@ -201,7 +177,7 @@ function App() {
     setTasksLoading(true);
     setTasksError('');
     try {
-      const all = await fetch('/api/tasks/general/').then(r => r.json());
+      const all    = await fetch('/api/tasks/general/').then(r => r.json());
       const active = all.filter(t => t.items?.length > 0);
       setAllTasks(active);
     } catch (e) {
@@ -219,9 +195,6 @@ function App() {
     tg.ready?.();
     tg.expand?.();
 
-    const tgUser = tg.initDataUnsafe?.user;
-    if (tgUser?.id) setUserId(String(tgUser.id));
-
     const params = tg.themeParams || {};
     const isDark = tg.colorScheme === "dark";
     const root   = document.documentElement;
@@ -238,19 +211,31 @@ function App() {
     const mix    = isDark ? "10%" : "7%";
     setVar("active-color", accent);
     root.style.setProperty("--rule-color", `color-mix(in srgb, ${accent} ${mix}, transparent)`);
+
+    const tgUser = tg.initDataUnsafe?.user;
+    if (tgUser?.id) {
+      fetch('/api/users/get-or-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tg_id:       String(tgUser.id),
+          name:        tgUser.first_name ?? 'User',
+          second_name: tgUser.last_name  ?? '',
+          username:    tgUser.username   ?? null,
+          avatar_url:  null,
+        }),
+      })
+        .then(r => r.json())
+        .then(data => setUserId(data.user.id))
+        .catch(console.error);
+    }
   }, []);
 
 
   // ── Touch-эффекты ─────────────────────────────────────
   useEffect(() => {
-    const onStart = (e) => {
-      const btn = e.target.closest("button");
-      if (btn) btn.classList.add("is-pressed");
-    };
-    const onEnd = (e) => {
-      const btn = e.target.closest("button");
-      if (btn) setTimeout(() => btn.classList.remove("is-pressed"), 270);
-    };
+    const onStart = e => { const b = e.target.closest("button"); if (b) b.classList.add("is-pressed"); };
+    const onEnd   = e => { const b = e.target.closest("button"); if (b) setTimeout(() => b.classList.remove("is-pressed"), 270); };
     document.addEventListener("touchstart", onStart, { passive: true });
     document.addEventListener("touchend",   onEnd,   { passive: true });
     return () => {
@@ -267,9 +252,7 @@ function App() {
     setIsContentReady(false);
 
     let loadingTimer;
-    if (withLoadingSpinner) {
-      loadingTimer = setTimeout(() => setShowLoadingIndicator(true), 300);
-    }
+    if (withLoadingSpinner) loadingTimer = setTimeout(() => setShowLoadingIndicator(true), 300);
 
     await action?.();
     await new Promise(r => setTimeout(r, 50));
@@ -293,14 +276,22 @@ function App() {
 
       if (isTheoryPopupOpen) { setIsTheoryPopupOpen(false); return; }
 
-      // Внутри тренажёра — выход обрабатывает UniversalTrainer
+      // Внутри тренажёра — обрабатывает UniversalTrainer
       if (page === "trainers" && selectedTask) return;
 
+      // Внутри отработки ошибок
+      if (page === "mistakes" && practiceTask) {
+        await performTransition(() => {
+          setPracticeTask(null);
+          setPracticeMistakes([]);
+        }, { withLoadingSpinner: false });
+        return;
+      }
+
       const backMap = {
-        theory:     "subject",
-        trainers:   "subject",
-        analysis:   "subject",
-        "day-task": "subject",
+        theory:   "subject",
+        trainers: "subject",
+        mistakes: "subject",
       };
 
       const targetPage = backMap[page];
@@ -308,11 +299,15 @@ function App() {
 
       await performTransition(() => {
         setPage(targetPage);
-        if (targetPage === "subject") setSelectedTask(null);
+        if (targetPage === "subject") {
+          setSelectedTask(null);
+          setPracticeTask(null);
+          setPracticeMistakes([]);
+        }
       }, { withLoadingSpinner: false });
     };
 
-    if (["subject", "theory", "trainers", "analysis", "day-task"].includes(page)) {
+    if (["subject", "theory", "trainers", "mistakes"].includes(page)) {
       tg.BackButton.show();
       tg.onEvent("backButtonClicked", handleBack);
     } else {
@@ -320,14 +315,12 @@ function App() {
     }
 
     return () => tg.offEvent?.("backButtonClicked", handleBack);
-  }, [page, isTheoryPopupOpen, selectedTask]);
+  }, [page, isTheoryPopupOpen, selectedTask, practiceTask]);
 
 
   // ── Первый рендер ─────────────────────────────────────
   useEffect(() => {
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => setIsContentReady(true))
-    );
+    requestAnimationFrame(() => requestAnimationFrame(() => setIsContentReady(true)));
   }, []);
 
 
@@ -335,7 +328,6 @@ function App() {
   async function preloadTheoryData() {
     const cacheKey = "global";
     if (theoryCache[cacheKey]) return theoryCache[cacheKey];
-
     const [rulesRes, tasksRes, typesRes] = await Promise.all([
       fetch(`/api/theory/all_theory`),
       fetch(`/api/theory/get_tasks_theory`),
@@ -350,13 +342,12 @@ function App() {
     return data;
   }
 
-
-  async function navigateToPage(targetPage, { resetTask = false } = {}) {
+  async function navigateToPage(targetPage, opts = {}) {
     await performTransition(async () => {
       if (targetPage === "theory")   await preloadTheoryData();
       if (targetPage === "trainers") await loadTasks();
       setPage(targetPage);
-      if (resetTask) setSelectedTask(null);
+      if (opts.resetTask) setSelectedTask(null);
     });
   }
 
@@ -369,9 +360,7 @@ function App() {
       <div className="mainTitle__text">
         Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
         <br />
-        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">
-          Узнать больше
-        </a>
+        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
       </div>
     </div>
   );
@@ -388,8 +377,8 @@ function App() {
     content = (
       <>
         {header}
-        <Chapter ref={day_task} func={() => navigateToPage("day-task")}>
-          Ежедневное задание
+        <Chapter ref={mistakes} func={() => navigateToPage("mistakes")}>
+          Ошибки
         </Chapter>
         <Chapter ref={task} func={() => navigateToPage("trainers", { resetTask: true })}>
           Практика
@@ -397,26 +386,65 @@ function App() {
         <Chapter ref={theory} func={() => navigateToPage("theory")}>
           Теория
         </Chapter>
-        <Chapter ref={analysis} func={() => navigateToPage("analysis")}>
-          Аналитика
-        </Chapter>
       </>
     );
   }
 
-  // ── day-task ──────────────────────────────────────────
-  if (page === "day-task") {
-    content = (
-      <Chapter isValue="true" func={() => navigateToPage("subject")}>
-        Ежедневное задание
-      </Chapter>
-    );
+  // ── mistakes ──────────────────────────────────────────
+  if (page === "mistakes") {
+
+    // Режим отработки — внутри страницы ошибок
+    if (practiceTask) {
+      content = (
+        <>
+          <Chapter
+            isValue="true"
+            func={() => performTransition(() => {
+              setPracticeTask(null);
+              setPracticeMistakes([]);
+            }, { withLoadingSpinner: false })}
+          >
+            {practiceTask.name}
+          </Chapter>
+          <PracticeTrainer
+            task={practiceTask}
+            mistakes={practiceMistakes}
+            userId={userId}
+            onExit={() => performTransition(() => {
+              setPracticeTask(null);
+              setPracticeMistakes([]);
+            }, { withLoadingSpinner: false })}
+            onResolved={() => setMistakesRefresh(r => r + 1)}
+          />
+        </>
+      );
+
+    // Обычный режим — список ошибок
+    } else {
+      content = (
+        <>
+          <Chapter
+            isValue="true"
+            func={() => navigateToPage("subject")}
+          >
+            Ошибки
+          </Chapter>
+          <MistakesPage
+            userId={userId}
+            refreshKey={mistakesRefresh}
+            onStartPractice={(t, ms) => performTransition(() => {
+              setPracticeTask(t);
+              setPracticeMistakes(ms);
+            }, { withLoadingSpinner: false })}
+          />
+        </>
+      );
+    }
   }
 
   // ── trainers ──────────────────────────────────────────
   if (page === "trainers") {
 
-    // Экран 1 — список заданий с группировкой
     if (!selectedTask) {
       content = (
         <>
@@ -456,16 +484,9 @@ function App() {
         </>
       );
 
-    // Экран 2 — тренажёр
     } else {
-      const storageKey = getStorageKey(
-        selectedTask.task_group?.name ?? 'general',
-        selectedTask.id
-      );
-      const onExit = () => performTransition(
-        () => setSelectedTask(null),
-        { withLoadingSpinner: false }
-      );
+      const storageKey = getStorageKey(selectedTask.task_group?.name ?? 'general', selectedTask.id);
+      const onExit     = () => performTransition(() => setSelectedTask(null), { withLoadingSpinner: false });
 
       content = (
         <>
@@ -513,15 +534,6 @@ function App() {
           content={theoryPopupContent}
         />
       </>
-    );
-  }
-
-  // ── analysis ──────────────────────────────────────────
-  if (page === "analysis") {
-    content = (
-      <Chapter isValue="true" func={() => navigateToPage("subject")}>
-        Аналитика
-      </Chapter>
     );
   }
 

@@ -6,6 +6,9 @@ from app.core.user.mistakes.entities import UserMistake
 from app.core.user.mistakes.repository import IUserMistakesRepository
 from app.infra.user.mistakes import UserMistakesBD
 from . import mappers
+from app.infra.tasks.general import TaskItemBD
+from app.infra.tasks.general import OptionSetBD
+
 
 
 class UserMistakesRepositoryImpl(IUserMistakesRepository):
@@ -15,8 +18,11 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         return (
             select(UserMistakesBD)
             .options(
-                selectinload(UserMistakesBD.mistake_item),
                 selectinload(UserMistakesBD.chosen_option),
+                selectinload(UserMistakesBD.mistake_item).options(
+                    selectinload(TaskItemBD.correct_option),
+                    selectinload(TaskItemBD.option_set_override).selectinload(OptionSetBD.options),
+                ),
             )
         )
 
@@ -55,7 +61,20 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         return [mappers.map_user_mistake(m) for m in result.scalars().all()]
 
     async def create(self, session: AsyncSession, user_id: int, task_session_id: int,
-                     mistake_item_id: int, chosen_option_id: int) -> UserMistake:
+                    mistake_item_id: int, chosen_option_id: int) -> UserMistake:
+        # Проверка на нерезолвнутый дубль
+        existing = await session.execute(
+            self._stmt().where(
+                UserMistakesBD.user_fk         == user_id,
+                UserMistakesBD.mistake_item_fk == mistake_item_id,
+                UserMistakesBD.is_resolved     == False,
+            )
+        )
+        found = existing.scalars().first()
+        if found:
+            return mappers.map_user_mistake(found)
+
+        # Создаём новую
         m = UserMistakesBD(
             user_fk=user_id,
             task_session_fk=task_session_id,
@@ -66,6 +85,7 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         await session.flush()
         result = await session.execute(self._stmt().where(UserMistakesBD.id == m.id))
         return mappers.map_user_mistake(result.scalars().one())
+
 
     async def resolve(self, session: AsyncSession, mistake_id: int) -> UserMistake:
         result = await session.execute(
