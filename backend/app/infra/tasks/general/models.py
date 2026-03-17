@@ -1,8 +1,16 @@
 
 from typing import List, Optional
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base, str_256, TimestampMixin
+import enum
+
+class TrainerType(str, enum.Enum):
+    stress     = "stress"
+    dictionary = "dictionary"
+    options    = "options"
+    input      = "input"
+
 
 option_set2option = Table(
     "option_set2option",
@@ -29,6 +37,8 @@ class TaskGroupBD(TimestampMixin, Base):
     __tablename__ = "task_group"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(64))
+    tasks: Mapped["TaskBD"] = relationship(back_populates="task_group", passive_deletes=True)
+    
 
 class TaskBD(TimestampMixin, Base):
     __tablename__ = "task"
@@ -37,9 +47,9 @@ class TaskBD(TimestampMixin, Base):
     name: Mapped[str_256]
 
     task_group_fk: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("task_group.id"), nullable=True
+        ForeignKey("task_group.id", ondelete="SET NULL"), nullable=True
     )
-    task_group: Mapped[Optional["TaskGroupBD"]] = relationship()
+    task_group: Mapped[Optional["TaskGroupBD"]] = relationship(back_populates="tasks")
 
     default_option_set_fk: Mapped[Optional[int]] = mapped_column(
         ForeignKey("option_set.id"), nullable=True
@@ -50,6 +60,13 @@ class TaskBD(TimestampMixin, Base):
         back_populates="task",
         cascade="all, delete-orphan",
     )
+    trainer_type: Mapped[TrainerType] = mapped_column(
+        SQLEnum(TrainerType, name="trainertype"),
+        nullable=False,
+        default=TrainerType.options,
+        server_default=TrainerType.options.value,
+    )
+
 
     @property
     def is_active(self) -> bool:
@@ -58,7 +75,6 @@ class TaskBD(TimestampMixin, Base):
 
 class TaskItemBD(TimestampMixin, Base):
     __tablename__ = "task_item"
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     
     content_raw: Mapped[str] = mapped_column(Text, nullable=False)
@@ -73,7 +89,7 @@ class TaskItemBD(TimestampMixin, Base):
     
     notice_wrong: Mapped[Optional[str]] = mapped_column(Text)
     notice_right: Mapped[Optional[str]] = mapped_column(Text)
-        
+    
     task_id: Mapped[int] = mapped_column(ForeignKey("task.id",), nullable=False)
     task: Mapped["TaskBD"] = relationship(back_populates="items")
     

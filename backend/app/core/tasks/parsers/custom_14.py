@@ -1,7 +1,7 @@
 from .base import BaseParser, ParsedItem
 import json
 
-CORRECT_VALUES = {"separate", "solid", "hyphen"}
+CORRECT_VALUES = {"Раздельно", "Слитно", "Дефис"}
 
 
 class SpellingParser(BaseParser):
@@ -26,7 +26,7 @@ class SpellingParser(BaseParser):
             raise ValueError(f"Элемент должен быть dict, получено: {type(raw)}")
 
         word = raw.get("word", "").strip()
-        correct = raw.get("correct", "").strip().lower()
+        correct = raw.get("correct", "").strip()
 
         if not word:
             raise ValueError("Поле 'word' обязательно")
@@ -36,9 +36,9 @@ class SpellingParser(BaseParser):
                 f"Поле 'correct' должно быть одним из {CORRECT_VALUES}, получено: '{correct}'"
             )
 
-        if correct == "separate":
+        if correct == "Раздельно":
             content_correct = word.replace("(", "").replace(")", " ").strip()
-        elif correct == "solid":
+        elif correct == "Слитно":
             content_correct = word.replace("(", "").replace(")", "")
         else:  # hyphen
             content_correct = word.replace("(", "").replace(")", "-")

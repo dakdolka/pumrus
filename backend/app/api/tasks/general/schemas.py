@@ -1,6 +1,13 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Any
 
+from enum import Enum
+
+class TrainerType(str, Enum):
+    stress     = "stress"
+    dictionary = "dictionary"
+    options    = "options"
+    input      = "input"
 
 class TaskGroupOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -59,7 +66,7 @@ class TaskItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     task_id: int
-    content_raw: str
+    content_raw: str | dict
     content_visible: str
     content_correct: str
     task_id: Optional[int] = None
@@ -102,10 +109,12 @@ class TaskItemBulkUpdateIn(BaseModel):
     notice_right: Optional[str] = None
 
 
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     name: str
+    trainer_type: TrainerType
     task_group_id: Optional[int] = None
     default_option_set_id: Optional[int] = None
     task_group: Optional[TaskGroupOut] = None
@@ -132,7 +141,7 @@ class ParseRawIn(BaseModel):
 
 
 class ParsedItemOut(BaseModel):
-    content_raw: str
+    content_raw: str | dict
     content_visible: str
     content_correct: str
     correct_options: List[str]

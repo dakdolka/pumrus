@@ -36,6 +36,7 @@ def map_task(m: TaskBD) -> Task:
     return Task(
         id=m.id,
         name=m.name,
+        trainer_type=m.trainer_type,
         group=map_task_group(m.task_group) if m.task_group else None,
         default_option_set=map_option_set(m.default_option_set) if m.default_option_set else None,
         items=[map_task_item(i) for i in m.items],

@@ -2,11 +2,13 @@ from .caps import CapsParser
 from .custom_4 import Custom4Parser
 from .custom_14 import SpellingParser
 from .base import BaseParser
+from .words import WordsParser
 
 PARSERS: dict[str, BaseParser] = {
     "caps":     CapsParser(),    # заглавная → пропуск (ударения, орфография)
     "custom_4": Custom4Parser(), # заглавная → строчная (ПРЕ/ПРИ)
     "custom_14": SpellingParser(), # слитно/раздельно/дефис
+    "words": WordsParser()
 }
 
 
