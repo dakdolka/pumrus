@@ -125,12 +125,14 @@ class TaskOut(BaseModel):
 class TaskCreateIn(BaseModel):
     name: str
     task_group_id: Optional[int] = None
+    trainer_type: TrainerType
     default_option_set_id: Optional[int] = None
 
 
 class TaskUpdateIn(BaseModel):
     name: Optional[str] = None
     task_group_id: Optional[int] = None
+    trainer_type: TrainerType
     default_option_set_id: Optional[int] = None
 
 

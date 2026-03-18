@@ -214,10 +214,11 @@ class CreateTaskUseCase:
         self.repo = repo; self.session = session
 
     async def execute(self, name: str, group_id: Optional[int],
-                      default_option_set_id: Optional[int]) -> Task:
+                      default_option_set_id: Optional[int],
+                       trainer_type: str = "options") -> Task:
         async with self.session.begin():
             return await self.repo.create(
-                self.session, name, group_id, default_option_set_id
+                self.session, name, group_id, default_option_set_id, trainer_type
             )
 
 
@@ -227,12 +228,13 @@ class UpdateTaskUseCase:
 
     async def execute(self, task_id: int, name: Optional[str],
                       group_id: Optional[int],
-                      default_option_set_id: Optional[int]) -> Task:
+                      default_option_set_id: Optional[int],
+                       trainer_type: str = "options") -> Task:
         async with self.session.begin():
             if not await self.repo.get_by_id(self.session, task_id):
                 raise TaskNotFoundError(f"Task {task_id} не найден")
             return await self.repo.update(
-                self.session, task_id, name, group_id, default_option_set_id
+                self.session, task_id, name, group_id, default_option_set_id, trainer_type
             )
 
 

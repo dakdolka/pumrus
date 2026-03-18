@@ -1,3 +1,10 @@
+export const TRAINER_TYPE_LABELS = {
+  options:    'Опции',
+  stress:     'Ударения',
+  dictionary: 'Словарные',
+  input:      'Ввод',
+};
+
 export const PAGE_SIZE = 50;
 
 // ── Ключ для localStorage ─────────────────────────────────
@@ -35,8 +42,7 @@ export function loadState(key) {
   }
 }
 
-// ── adaptItems — больше не используется в UniversalTrainer,
-//    оставлен для обратной совместимости если где-то ещё есть ссылки
+// ── Для обратной совместимости ────────────────────────────
 export function adaptItems(trainerType, items) {
   return items;
 }

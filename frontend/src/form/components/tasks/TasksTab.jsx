@@ -1,41 +1,53 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import TaskItemsTab from "./TaskItemsTab";
 
-export default function TasksTab({ groups, options, optionSets, registerAutoSave }) {
-  const [tasks,           setTasks]           = useState([]);
+export const TRAINER_TYPES = [
+  { value: "options",    label: "Опции (выбор варианта)" },
+  { value: "stress",     label: "Ударения (клик по гласной)" },
+  { value: "dictionary", label: "Словарные слова (пропуски)" },
+  { value: "input",      label: "Свободный ввод текста" },
+];
+
+export default function TasksTab({
+  groups, options, optionSets,
+  tasks, onTasksReload,          // ← из TasksAdmin
+  registerAutoSave,
+}) {
   const [selectedTaskId,  setSelectedTaskId]  = useState(null);
   const [innerTab,        setInnerTab]        = useState("meta");
   const [expandedGroups,  setExpandedGroups]  = useState([]);
   const [isCreating,      setIsCreating]      = useState(false);
 
   // meta draft
-  const [nameDraft,        setNameDraft]        = useState("");
-  const [groupIdDraft,     setGroupIdDraft]     = useState("");
-  const [optionSetIdDraft, setOptionSetIdDraft] = useState("");
+  const [nameDraft,         setNameDraft]         = useState("");
+  const [groupIdDraft,      setGroupIdDraft]       = useState("");
+  const [optionSetIdDraft,  setOptionSetIdDraft]   = useState("");
+  const [trainerTypeDraft,  setTrainerTypeDraft]   = useState("options"); // ← новое
 
-  const dirtyRef    = useRef(false);
-  const snapRef     = useRef({});
-  const innerSaveRef = useRef(null); // TaskItemsTab's autoSave
+  const dirtyRef     = useRef(false);
+  const snapRef      = useRef({});
+  const innerSaveRef = useRef(null);
 
   useEffect(() => {
-    snapRef.current = { selectedTaskId, nameDraft, groupIdDraft, optionSetIdDraft, isCreating };
+    snapRef.current = {
+      selectedTaskId, nameDraft, groupIdDraft,
+      optionSetIdDraft, trainerTypeDraft, isCreating,
+    };
   });
 
-  const loadTasks = useCallback(() =>
-    fetch("/api/tasks/general/")
-      .then(r => r.json()).then(setTasks).catch(console.error), []);
-
-  useEffect(() => { loadTasks(); }, []);
-
-  // ── save meta ──────────────────────────────────────────────────────────────
+  // ── save meta ──────────────────────────────────────────
   const doSave = useCallback(async (snap) => {
-    const { selectedTaskId, nameDraft, groupIdDraft, optionSetIdDraft, isCreating } = snap;
+    const {
+      selectedTaskId, nameDraft, groupIdDraft,
+      optionSetIdDraft, trainerTypeDraft, isCreating,
+    } = snap;
     if (!nameDraft.trim()) return null;
 
     const body = {
       name:                  nameDraft.trim(),
-      task_group_id:         groupIdDraft        ? Number(groupIdDraft)     : null,
-      default_option_set_id: optionSetIdDraft    ? Number(optionSetIdDraft) : null,
+      task_group_id:         groupIdDraft       ? Number(groupIdDraft)       : null,
+      default_option_set_id: optionSetIdDraft   ? Number(optionSetIdDraft)   : null,
+      trainer_type:          trainerTypeDraft   || "options",
     };
 
     if (isCreating) {
@@ -46,7 +58,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
       }).then(r => r.json());
       setIsCreating(false);
       setSelectedTaskId(created.id);
-      await loadTasks();
+      await onTasksReload();
       return created.id;
     } else if (selectedTaskId) {
       await fetch(`/api/tasks/general/${selectedTaskId}`, {
@@ -54,11 +66,11 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      await loadTasks();
+      await onTasksReload();
       return selectedTaskId;
     }
     return null;
-  }, [loadTasks]);
+  }, [onTasksReload]);
 
   const autoSave = useCallback(async () => {
     if (!dirtyRef.current) return;
@@ -68,23 +80,33 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
 
   useEffect(() => { registerAutoSave(autoSave); });
 
-  // ── inner tab switch ───────────────────────────────────────────────────────
+  // ── inner tab switch ───────────────────────────────────
   const handleInnerTabSwitch = async (tab) => {
     if (tab === innerTab) return;
-    await autoSave(); // сохраняем мету
+    await autoSave();
     if (innerSaveRef.current) await innerSaveRef.current();
     setInnerTab(tab);
   };
 
-  // ── select task ────────────────────────────────────────────────────────────
+  // ── apply task ─────────────────────────────────────────
   const applyTask = (task) => {
     setSelectedTaskId(task.id);
     setIsCreating(false);
     setNameDraft(task.name ?? "");
-    setGroupIdDraft(task.task_group_id ? String(task.task_group_id) : "");
-    setOptionSetIdDraft(task.default_option_set_id ? String(task.default_option_set_id) : "");
+    setGroupIdDraft(
+      task.task_group_id    ? String(task.task_group_id)
+      : task.task_group?.id ? String(task.task_group.id)
+      : ""
+    );
+    setOptionSetIdDraft(
+      task.default_option_set_id    ? String(task.default_option_set_id)
+      : task.default_option_set?.id ? String(task.default_option_set.id)
+      : ""
+    );
+    setTrainerTypeDraft(task.trainer_type ?? "options");
     dirtyRef.current = false;
   };
+
 
   const handleSelectTask = async (id) => {
     await autoSave();
@@ -102,6 +124,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
     setNameDraft("");
     setGroupIdDraft(groups[0] ? String(groups[0].id) : "");
     setOptionSetIdDraft("");
+    setTrainerTypeDraft("options");
     setInnerTab("meta");
     dirtyRef.current = false;
   };
@@ -111,9 +134,10 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
     await fetch(`/api/tasks/general/${selectedTaskId}`, { method: "DELETE" });
     setSelectedTaskId(null);
     setNameDraft("");
+    setTrainerTypeDraft("options");
     setIsCreating(false);
     dirtyRef.current = false;
-    await loadTasks();
+    await onTasksReload();
   };
 
   const toggleGroup = (id) =>
@@ -121,7 +145,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
 
-  // группируем задания
+  // ── группировка ────────────────────────────────────────
   const tasksByGroup = groups.map(g => ({
     ...g,
     tasks: tasks.filter(t => t.task_group_id === g.id),
@@ -129,12 +153,20 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
   const ungrouped = tasks.filter(t => !t.task_group_id);
   const isEditing  = !!selectedTaskId || isCreating;
 
+  // Метка типа тренажёра для дерева
+  const typeLabel = (t) => {
+    const found = TRAINER_TYPES.find(x => x.value === t.trainer_type);
+    return found ? found.label.split(" ")[0] : "—";
+  };
+
   return (
     <div className="form-main">
-      {/* LEFT: список заданий */}
+
+      {/* ── LEFT ── */}
       <div className="form-tree">
         <div className="form-tree__header">Задания</div>
         <div className="form-tree__scroll">
+
           {tasksByGroup.map(g => {
             const expanded = expandedGroups.includes(g.id);
             return (
@@ -160,8 +192,8 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
                     onClick={() => handleSelectTask(t.id)}
                   >
                     <span className="form-tree__content">{t.name}</span>
-                    <span style={{ opacity: 0.4, fontSize: "0.78em", marginLeft: 6 }}>
-                      ({(t.items ?? []).length})
+                    <span style={{ opacity: 0.35, fontSize: "0.75em", marginLeft: 6 }}>
+                      {typeLabel(t)}
                     </span>
                   </div>
                 ))}
@@ -183,7 +215,10 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
                   style={{ paddingLeft: 16 }}
                   onClick={() => handleSelectTask(t.id)}
                 >
-                  {t.name}
+                  <span className="form-tree__content">{t.name}</span>
+                  <span style={{ opacity: 0.35, fontSize: "0.75em", marginLeft: 6 }}>
+                    {typeLabel(t)}
+                  </span>
                 </div>
               ))}
             </div>
@@ -200,7 +235,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
         </button>
       </div>
 
-      {/* RIGHT: редактор */}
+      {/* ── RIGHT ── */}
       <div className="form-editor" style={{ display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div className="form-editor__header">
           {isCreating ? "Новое задание" : selectedTaskId ? "Редактор задания" : "Выберите задание"}
@@ -212,7 +247,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
             <div className="form-tabs" style={{ marginBottom: 10 }}>
               {[
                 { key: "meta",  label: "Мета" },
-                { key: "items", label: `Элементы` },
+                { key: "items", label: "Элементы" },
               ].map(t => (
                 <button
                   key={t.key}
@@ -239,6 +274,18 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
                 </div>
 
                 <div className="form-editor__field">
+                  <label>Тип тренажёра</label>
+                  <select
+                    value={trainerTypeDraft}
+                    onChange={e => { setTrainerTypeDraft(e.target.value); dirtyRef.current = true; }}
+                  >
+                    {TRAINER_TYPES.map(tt => (
+                      <option key={tt.value} value={tt.value}>{tt.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-editor__field">
                   <label>Группа</label>
                   <select
                     value={groupIdDraft}
@@ -251,17 +298,34 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
                   </select>
                 </div>
 
-                <div className="form-editor__field">
-                  <label>Набор опций</label>
-                  <select
-                    value={optionSetIdDraft}
-                    onChange={e => { setOptionSetIdDraft(e.target.value); dirtyRef.current = true; }}
-                  >
-                    <option value="">Не задан</option>
-                    {optionSets.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
+                {/* Набор опций только для опционных тренажёров */}
+                {(trainerTypeDraft === "options" || trainerTypeDraft === "dictionary") && (
+                  <div className="form-editor__field">
+                    <label>Набор опций</label>
+                    <select
+                      value={optionSetIdDraft}
+                      onChange={e => { setOptionSetIdDraft(e.target.value); dirtyRef.current = true; }}
+                    >
+                      <option value="">Не задан</option>
+                      {optionSets.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Подсказка под полем */}
+                <div style={{
+                  fontSize: "0.78rem", opacity: 0.45,
+                  marginBottom: 12, marginTop: -4,
+                }}>
+                  {trainerTypeDraft === "stress"
+                    ? "Ударения: content_visible = слово строчными, content_correct = слово с заглавной ударной буквой"
+                    : trainerTypeDraft === "dictionary"
+                    ? "Словарные: content_visible = слово с _ на месте пропусков, content_correct = полное слово"
+                    : trainerTypeDraft === "input"
+                    ? "Свободный ввод: ответ сравнивается с content_correct без учёта регистра"
+                    : "Опции: правильный ответ задаётся через correct_option или набор опций"}
                 </div>
 
                 <div className="form-editor__actions">
@@ -279,6 +343,7 @@ export default function TasksTab({ groups, options, optionSets, registerAutoSave
             {innerTab === "items" && selectedTaskId && (
               <TaskItemsTab
                 taskId={selectedTaskId}
+                trainerType={trainerTypeDraft}             // ← передаём тип
                 options={options}
                 optionSets={optionSets}
                 defaultOptionSetId={optionSetIdDraft ? Number(optionSetIdDraft) : null}

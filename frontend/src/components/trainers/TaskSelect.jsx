@@ -1,8 +1,9 @@
 import './trainer.css';
+import { TRAINER_TYPE_LABELS } from './trainerUtils.js';
 
 function groupTasks(tasks) {
-  const groups   = {};
-  const noGroup  = [];
+  const groups  = {};
+  const noGroup = [];
 
   tasks.forEach(task => {
     if (task.task_group) {
@@ -14,7 +15,6 @@ function groupTasks(tasks) {
     }
   });
 
-  // Группы с одним таском — разворачиваем в noGroup
   const result = [];
 
   Object.values(groups).forEach(({ group, tasks: gt }) => {
@@ -25,10 +25,18 @@ function groupTasks(tasks) {
     }
   });
 
-  // noGroup — каждый таск как отдельный элемент
   noGroup.forEach(task => result.push({ type: 'single', task }));
 
   return result;
+}
+
+function TrainerTypeBadge({ trainerType }) {
+  if (!trainerType) return null;
+  return (
+    <span className="task-select__type-badge">
+      {TRAINER_TYPE_LABELS[trainerType] ?? trainerType}
+    </span>
+  );
 }
 
 export function TaskSelect({ tasks, trainerLabel, onSelect }) {
@@ -53,11 +61,11 @@ export function TaskSelect({ tasks, trainerLabel, onSelect }) {
               onClick={() => onSelect(entry.task)}
             >
               <span className="task-select__item-name">{entry.task.name}</span>
+              <TrainerTypeBadge trainerType={entry.task.trainer_type} />
             </button>
           );
         }
 
-        // group с несколькими тасками
         return (
           <div key={entry.group.id} className="task-select__group">
             <div className="task-select__header">{entry.group.name}</div>
@@ -68,6 +76,7 @@ export function TaskSelect({ tasks, trainerLabel, onSelect }) {
                 onClick={() => onSelect(task)}
               >
                 <span className="task-select__item-name">{task.name}</span>
+                <TrainerTypeBadge trainerType={task.trainer_type} />
               </button>
             ))}
           </div>

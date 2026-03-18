@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import GroupsTab    from "./GroupsTab";
-import OptionsTab   from "./OptionsTab";
+import GroupsTab     from "./GroupsTab";
+import OptionsTab    from "./OptionsTab";
 import OptionSetsTab from "./OptionSetsTab";
-import TasksTab     from "./TasksTab";
+import TasksTab      from "./TasksTab";
 
 const TABS = [
   { key: "groups",      label: "Группы" },
@@ -16,8 +16,8 @@ export function TasksAdmin() {
   const [groups,     setGroups]     = useState([]);
   const [options,    setOptions]    = useState([]);
   const [optionSets, setOptionSets] = useState([]);
+  const [tasks,      setTasks]      = useState([]);   // ← поднято сюда
 
-  // каждый дочерний таб регистрирует свою autoSave сюда
   const tabSaveRef = useRef(null);
 
   const loadGroups = useCallback(() =>
@@ -32,10 +32,15 @@ export function TasksAdmin() {
     fetch("/api/tasks/general/option-sets")
       .then(r => r.json()).then(setOptionSets).catch(console.error), []);
 
+  const loadTasks = useCallback(() =>
+    fetch("/api/tasks/general/")
+      .then(r => r.json()).then(setTasks).catch(console.error), []);
+
   useEffect(() => {
     loadGroups();
     loadOptions();
     loadOptionSets();
+    loadTasks();
   }, []);
 
   const handleTabSwitch = async (key) => {
@@ -65,6 +70,7 @@ export function TasksAdmin() {
       {activeTab === "groups" && (
         <GroupsTab
           groups={groups}
+          tasks={tasks}                   // ← новый проп
           onReload={loadGroups}
           registerAutoSave={registerAutoSave}
         />
@@ -89,6 +95,8 @@ export function TasksAdmin() {
           groups={groups}
           options={options}
           optionSets={optionSets}
+          tasks={tasks}                   // ← новый проп
+          onTasksReload={loadTasks}       // ← вместо внутреннего loadTasks
           registerAutoSave={registerAutoSave}
         />
       )}

@@ -1,8 +1,16 @@
 from dataclasses import dataclass, field
+import enum
 from typing import List, Optional
 from .exceptions import OptionSetMissingError
 
 
+class TrainerType(str, enum.Enum):
+    stress     = "stress"
+    dictionary = "dictionary"
+    options    = "options"
+    input      = "input"
+    
+    
 @dataclass
 class Option:
     id: int
@@ -55,6 +63,7 @@ class TaskItem:
 class Task:
     id: int
     name: str
+    trainer_type: TrainerType
     group: Optional[TaskGroup] = None
     default_option_set: Optional[OptionSet] = None
     items: List[TaskItem] = field(default_factory=list)

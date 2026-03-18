@@ -178,7 +178,7 @@ async def get_task(task_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/", response_model=TaskOut, status_code=201)
 async def create_task(body: TaskCreateIn, db: AsyncSession = Depends(get_db)):
     return await CreateTaskUseCase(TaskRepositoryImpl(), db).execute(
-        body.name, body.task_group_id, body.default_option_set_id
+        body.name, body.task_group_id, body.default_option_set_id, body.trainer_type  # ← добавить
     )
 
 
@@ -187,7 +187,7 @@ async def update_task(task_id: int, body: TaskUpdateIn,
                       db: AsyncSession = Depends(get_db)):
     try:
         return await UpdateTaskUseCase(TaskRepositoryImpl(), db).execute(
-            task_id, body.name, body.task_group_id, body.default_option_set_id
+            task_id, body.name, body.task_group_id, body.default_option_set_id, body.trainer_type  # ← добавить
         )
     except TaskNotFoundError as e:
         raise HTTPException(404, detail=str(e))

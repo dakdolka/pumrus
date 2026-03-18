@@ -14,6 +14,24 @@ function isCorrect(chosenOption, item) {
   return chosenOption.content.trim().toLowerCase() === item.content_correct.trim().toLowerCase();
 }
 
+// Проверка словарного слова — собираем введённые буквы и сравниваем с correct
+function isDictionaryCorrect(filledLetters, item) {
+  const gaps    = [...item.content_visible].filter(ch => ch === '_');
+  if (filledLetters.length !== gaps.length) return false;
+
+  let gapIdx = 0;
+  for (let i = 0; i < item.content_correct.length; i++) {
+    if ([...item.content_visible][i] === '_') {
+      if (
+        filledLetters[gapIdx]?.toLowerCase() !==
+        item.content_correct[i]?.toLowerCase()
+      ) return false;
+      gapIdx++;
+    }
+  }
+  return true;
+}
+
 async function apiInitSession(userId, taskId) {
   const r = await fetch('/api/tasks/sessions/initiate', {
     method: 'POST',
@@ -54,14 +72,17 @@ async function apiGetOrCreateOption(content) {
 
 export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef, onFinish }) {
   const originalItems = task.items ?? [];
+  const trainerType   = task.trainer_type ?? 'options';
 
-  const [shuffledItems, setShuffledItems] = useState([]);
-  const [results,       setResults]       = useState([]);
-  const [activeIndex,   setActiveIndex]   = useState(0);
-  const [currentPage,   setCurrentPage]   = useState(0);
-  const [sessionId,     setSessionId]     = useState(null);
-  const [inputValue,    setInputValue]    = useState('');
-  const [inputLoading,  setInputLoading]  = useState(false);
+  const [shuffledItems,     setShuffledItems]     = useState([]);
+  const [results,           setResults]           = useState([]);
+  const [activeIndex,       setActiveIndex]       = useState(0);
+  const [currentPage,       setCurrentPage]       = useState(0);
+  const [sessionId,         setSessionId]         = useState(null);
+  const [inputValue,        setInputValue]        = useState('');
+  const [inputLoading,      setInputLoading]      = useState(false);
+  // dictionaryInputs[itemIndex] = ['о', 'е', ...] — введённые буквы по каждому item
+  const [dictionaryInputs,  setDictionaryInputs]  = useState({});
 
   const [showPageMistakes, setShowPageMistakes] = useState(false);
   const [showAllMistakes,  setShowAllMistakes]  = useState(false);
@@ -94,6 +115,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
       setResults(saved.results);
       setCurrentPage(saved.currentPage ?? 0);
       setSessionId(saved.sessionId);
+      setDictionaryInputs(saved.dictionaryInputs ?? {});
       shownPagesRef.current = new Set(saved.shownPages ?? []);
       setActiveIndex(_findNextUnanswered(saved.results, (saved.currentPage ?? 0) * PAGE_SIZE));
     } else {
@@ -109,9 +131,10 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
       shuffledItems,
       results,
       currentPage,
+      dictionaryInputs,
       shownPages: [...shownPagesRef.current],
     });
-  }, [sessionId, shuffledItems, results, currentPage]);
+  }, [sessionId, shuffledItems, results, currentPage, dictionaryInputs]);
 
   // ── exitRef ───────────────────────────────────────────
   useEffect(() => {
@@ -179,6 +202,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     setCurrentPage(0);
     setActiveIndex(0);
     setInputValue('');
+    setDictionaryInputs({});
     shownPagesRef.current = new Set();
     try {
       const sess = await apiInitSession(userId, task.id);
@@ -188,8 +212,6 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     }
   }
 
-  // Завершение — если передан onFinish (режим отработки), зовём его с результатами
-  // иначе показываем встроенный попап
   function _handleFinish() {
     localStorage.removeItem(storageKey);
     if (onFinish) {
@@ -199,19 +221,15 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     }
   }
 
-  // Выход — сессию НЕ закрываем
   function _triggerExit() {
     const hasMistakes = resultsRef.current.some(r => r?.status === 'wrong');
     if (hasMistakes) { setIsExiting(true); setShowExitMistakes(true); }
     else onExit?.();
   }
 
-  // ── Ответ через опцию ─────────────────────────────────
-  async function answerWithOption(itemIndex, chosenOption) {
-    const item = items[itemIndex];
-    if (!item) return;
-    const ok     = isCorrect(chosenOption, item);
-    const notice = ok ? (item.notice_right ?? null) : (item.notice_wrong ?? null);
+  // ── Общий финализатор ответа ──────────────────────────
+  function _applyAnswer(itemIndex, ok, item, chosenOptionId = null) {
+    const notice       = ok ? (item.notice_right ?? null) : (item.notice_wrong ?? null);
     const displayContent = ok ? item.content_correct : null;
 
     const next = [...resultsRef.current];
@@ -219,11 +237,19 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     setResults(next);
     setInputValue('');
 
-    if (!ok && sessionIdRef.current) {
-      await apiCreateMistake(userId, sessionIdRef.current, item.id, chosenOption.id);
+    if (!ok && sessionIdRef.current && chosenOptionId) {
+      apiCreateMistake(userId, sessionIdRef.current, item.id, chosenOptionId);
     }
 
     setActiveIndex(_findNextUnanswered(next, itemIndex + 1 < end ? itemIndex + 1 : start));
+  }
+
+  // ── Ответ через опцию ─────────────────────────────────
+  async function answerWithOption(itemIndex, chosenOption) {
+    const item = items[itemIndex];
+    if (!item) return;
+    const ok = isCorrect(chosenOption, item);
+    _applyAnswer(itemIndex, ok, item, chosenOption.id);
   }
 
   // ── Ответ через текст ─────────────────────────────────
@@ -240,13 +266,72 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     }
   }
 
-  // ── Сброс — единственное место где закрываем сессию ──
+  // ── Ответ кликом по слогу (stress) ───────────────────
+  async function answerWithVowelClick(itemIndex, charPos, correctPos) {
+    const item = items[itemIndex];
+    if (!item || resultsRef.current[itemIndex]?.status !== 'none') return;
+
+    const ok = charPos === correctPos;
+
+    // Создаём/получаем опцию по кликнутой букве с позицией
+    let chosenOptionId = null;
+    try {
+      const ch     = [...item.content_visible.toLowerCase()][charPos];
+      const option = await apiGetOrCreateOption(`${ch}:${charPos}`);
+      chosenOptionId = option?.id ?? null;
+    } catch {}
+
+    _applyAnswer(itemIndex, ok, item, ok ? null : chosenOptionId);
+  }
+
+  // ── Словарный ввод ────────────────────────────────────
+  function addDictionaryLetter(itemIndex, letter) {
+    const item = items[itemIndex];
+    if (!item || resultsRef.current[itemIndex]?.status !== 'none') return;
+
+    const gapCount = [...item.content_visible].filter(ch => ch === '_').length;
+    const current  = dictionaryInputs[itemIndex] ?? [];
+
+    if (current.length >= gapCount) return; // все пропуски заполнены — не добавляем
+
+    const next = { ...dictionaryInputs, [itemIndex]: [...current, letter] };
+    setDictionaryInputs(next);
+
+    // Если заполнили все пропуски — проверяем
+    if (current.length + 1 === gapCount) {
+      const filled = [...current, letter];
+      const ok     = isDictionaryCorrect(filled, item);
+
+      // Для ошибки создаём опцию из введённого текста
+      if (!ok && sessionIdRef.current) {
+        apiGetOrCreateOption(filled.join('')).then(option => {
+          if (option?.id) {
+            apiCreateMistake(userId, sessionIdRef.current, item.id, option.id);
+          }
+        });
+      }
+
+      _applyAnswer(itemIndex, ok, item, null);
+    }
+  }
+
+  function removeDictionaryLetter(itemIndex) {
+    const current = dictionaryInputs[itemIndex] ?? [];
+    if (!current.length) return;
+    setDictionaryInputs(prev => ({
+      ...prev,
+      [itemIndex]: current.slice(0, -1),
+    }));
+  }
+
+  // ── Сброс ─────────────────────────────────────────────
   async function reset() {
     setShowConfirmReset(false);
     const sid = sessionIdRef.current;
     if (sid) { try { await apiCloseSession(sid); } catch {} }
     localStorage.removeItem(storageKey);
     setSessionId(null);
+    setDictionaryInputs({});
     await _startNewSession();
   }
 
@@ -278,6 +363,7 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     totalPages, start, end,
     sessionId,
     inputValue, setInputValue, inputLoading,
+    dictionaryInputs,
     showPageMistakes, setShowPageMistakes,
     showAllMistakes,  setShowAllMistakes,
     showExitMistakes, setShowExitMistakes,
@@ -287,6 +373,9 @@ export function useUniversalTrainer({ task, userId, storageKey, onExit, exitRef,
     stats,
     answerWithOption,
     answerWithText,
+    answerWithVowelClick,
+    addDictionaryLetter,
+    removeDictionaryLetter,
     reset,
     triggerExit: _triggerExit,
     collectMistakes,

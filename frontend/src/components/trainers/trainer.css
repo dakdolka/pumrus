@@ -653,3 +653,260 @@ body.theme--light .task-select__item:not(:disabled):hover {
   font-weight: 600;
   margin-left: 4px;
 }
+
+
+/* ── TaskSelect: бейдж типа тренажёра ───────────────────── */
+
+.task-select__type-badge {
+  font-size: 0.72rem;
+  font-family: var(--text-font);
+  opacity: 0.5;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.task-select__group {
+  margin-bottom: 4px;
+}
+
+.task-select__item--indented {
+  padding-left: 28px;
+}
+
+/* ── Тренажёр ударений ───────────────────────────────────── */
+
+.trainer-stress-word {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  letter-spacing: 0.01em;
+}
+
+.trainer-stress-vowel {
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.trainer-stress-vowel--clickable {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 4px;
+  margin: 0 1px;
+  border-radius: 5px;
+  border: 1.5px solid color-mix(in srgb, var(--active-color) 55%, transparent);
+  background: color-mix(in srgb, var(--active-color) 10%, var(--block-color));
+  color: var(--active-color);
+  font-weight: 700;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--active-color) 35%, transparent);
+  transition: background 0.15s ease, transform 0.1s ease,
+              box-shadow 0.1s ease, border-color 0.15s ease;
+}
+
+.trainer-stress-vowel--clickable:hover {
+  background: color-mix(in srgb, var(--active-color) 20%, var(--block-color));
+  border-color: var(--active-color);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+/* После клика — подчёркивание ударной позиции */
+.trainer-stress-mark {
+  position: relative;
+  font-weight: 700;
+}
+
+.trainer-stress-mark--correct {
+  color: rgba(90, 200, 140, 1);
+}
+
+.trainer-stress-mark--correct::after {
+  content: "́";  /* combining acute accent */
+}
+
+.trainer-stress-mark--wrong {
+  color: var(--exception-color);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+
+/* Активный элемент ударений — подсказка снизу */
+.trainer-stress-item.trainer-word-input--active::after {
+  content: "Нажмите на ударную гласную";
+  position: absolute;
+  bottom: -20px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  opacity: 0.4;
+  font-family: var(--text-font);
+  pointer-events: none;
+}
+
+.trainer-stress-vowel--clickable:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
+  transition: transform 0s, box-shadow 0s;
+}
+
+/* Светлая тема */
+body.theme--light .trainer-stress-vowel--clickable {
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--active-color) 50%, transparent),
+              0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ── Тренажёр словарных слов ─────────────────────────────── */
+
+.trainer-dict-word {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  letter-spacing: 0.01em;
+}
+
+/* Пропуск — подчёркнутое место */
+.trainer-dict-gap {
+  display: inline-block;
+  min-width: 0.7em;
+  text-align: center;
+  border-bottom: 2px solid;
+  line-height: 1.2;
+  font-weight: 600;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.trainer-dict-gap--empty {
+  border-color: color-mix(in srgb, var(--text-color) 30%, transparent);
+  color: transparent;
+}
+
+/* Текущий активный пропуск */
+.trainer-dict-gap--current {
+  border-color: var(--active-color);
+  color: transparent;
+  animation: blink-gap 1s ease infinite;
+}
+
+/* Заполненный пропуск */
+.trainer-dict-gap--filled {
+  border-color: color-mix(in srgb, var(--active-color) 60%, transparent);
+  color: var(--active-color);
+}
+
+/* Отвеченный пропуск */
+.trainer-dict-gap--answered {
+  border-color: transparent;
+  color: inherit;
+  font-weight: 700;
+}
+
+/* ── Клавиатура словарного тренажёра ─────────────────────── */
+
+.trainer-dict-keyboard {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px 28px;
+}
+
+.trainer-dict-key {
+  flex: 0 0 auto;
+  min-width: 44px;
+  width: 44px;
+  height: 48px;
+  padding: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 35%, transparent);
+  transition: background 0.15s ease, transform 0.1s ease,
+              box-shadow 0.1s ease, border-color 0.15s ease;
+}
+
+.trainer-dict-key:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: none;
+  transition: transform 0s, box-shadow 0s;
+}
+
+.trainer-dict-key--backspace {
+  flex: 0 0 auto;
+  min-width: 56px;
+  width: 56px;
+  height: 48px;
+  padding: 0;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--exception-color) 40%, transparent);
+  color: var(--exception-color);
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--exception-color) 30%, transparent);
+}
+
+.trainer-dict-key--backspace:active:not(:disabled) {
+  background: color-mix(in srgb, var(--exception-color) 15%, var(--block-color));
+  border-color: var(--exception-color);
+  transform: translateY(2px);
+  box-shadow: none;
+  transition: transform 0s, box-shadow 0s;
+}
+
+/* ── Адаптивность для новых типов ────────────────────────── */
+
+@media (max-width: 600px) {
+  .trainer-stress-item.trainer-word-input--active::after {
+    font-size: 0.65rem;
+    bottom: -18px;
+  }
+
+  .trainer-dict-key {
+    min-width: 38px;
+    width: 38px;
+    height: 44px;
+    font-size: 1rem;
+  }
+
+  .trainer-dict-key--backspace {
+    min-width: 48px;
+    width: 48px;
+    height: 44px;
+  }
+}
+
+/* ── Светлая тема для новых элементов ────────────────────── */
+
+body.theme--light .trainer-dict-gap--empty {
+  border-color: color-mix(in srgb, var(--text-color) 25%, transparent);
+}
+
+body.theme--light .task-select__type-badge {
+  background: color-mix(in srgb, var(--text-color) 4%, transparent);
+}
+
+body.theme--light .trainer-dict-key {
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 45%, transparent),
+              0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body.theme--light .trainer-dict-key--backspace {
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--exception-color) 40%, transparent),
+              0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Анимации ────────────────────────────────────────────── */
+
+@keyframes blink-gap {
+  0%, 100% { border-color: var(--active-color); }
+  50%       { border-color: color-mix(in srgb, var(--active-color) 25%, transparent); }
+}

@@ -3,14 +3,7 @@ from typing import List, Optional
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, Text, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base, str_256, TimestampMixin
-import enum
-
-class TrainerType(str, enum.Enum):
-    stress     = "stress"
-    dictionary = "dictionary"
-    options    = "options"
-    input      = "input"
-
+from app.core.tasks.general.entities import TrainerType
 
 option_set2option = Table(
     "option_set2option",

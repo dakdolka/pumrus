@@ -175,23 +175,33 @@ class TaskRepositoryImpl(ITaskRepository):
         return [mappers.map_task(m) for m in result.scalars().all()]
 
     async def create(self, session: AsyncSession, name: str, group_id: int,
-                     default_option_set_id: Optional[int]) -> Task:
-        m = TaskBD(name=name, task_group_fk=group_id,
-                   default_option_set_fk=default_option_set_id)
+                 default_option_set_id: Optional[int],
+                 trainer_type: str = "options") -> Task:   # ← добавить
+        m = TaskBD(
+            name=name,
+            task_group_fk=group_id or None,               # ← 0 → None
+            default_option_set_fk=default_option_set_id or None,  # ← 0 → None
+            trainer_type=trainer_type,                    # ← добавить
+        )
         session.add(m)
         await session.flush()
-        # повторный select с relationships — refresh не нужен
         result = await session.execute(self._stmt().where(TaskBD.id == m.id))
         return mappers.map_task(result.scalars().one())
 
     async def update(self, session: AsyncSession, task_id: int, name: Optional[str],
-                     group_id: Optional[int],
-                     default_option_set_id: Optional[int]) -> Task:
+                    group_id: Optional[int],
+                    default_option_set_id: Optional[int],
+                    trainer_type: Optional[str] = None) -> Task:   # ← добавить
         result = await session.execute(self._stmt().where(TaskBD.id == task_id))
         m = result.scalars().one()
-        if name is not None:                 m.name = name
-        if group_id is not None:             m.task_group_fk = group_id
-        if default_option_set_id is not None: m.default_option_set_fk = default_option_set_id
+        if name is not None:
+            m.name = name
+        if group_id is not None:
+            m.task_group_fk = group_id or None            # ← 0 → None
+        if default_option_set_id is not None:
+            m.default_option_set_fk = default_option_set_id or None  # ← 0 → None
+        if trainer_type is not None:
+            m.trainer_type = trainer_type                 # ← добавить
         await session.flush()
         result = await session.execute(self._stmt().where(TaskBD.id == task_id))
         return mappers.map_task(result.scalars().one())

@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 
-export default function GroupsTab({ groups, onReload, registerAutoSave }) {
+export default function GroupsTab({ groups, tasks, onReload, registerAutoSave }) {
   const [selectedId, setSelectedId] = useState(null);
   const [nameDraft,  setNameDraft]  = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const dirtyRef = useRef(false);
-  // всегда актуальный снимок стейта для autoSave
-  const snapRef = useRef({});
+  const snapRef  = useRef({});
   useEffect(() => {
     snapRef.current = { selectedId, nameDraft, isCreating };
   });
@@ -39,7 +38,6 @@ export default function GroupsTab({ groups, onReload, registerAutoSave }) {
     await doSave(snapRef.current);
   }, [doSave]);
 
-  // регистрируем при каждом рендере — ref в parent всегда свежий
   useEffect(() => { registerAutoSave(autoSave); });
 
   const handleSelect = async (id) => {
@@ -68,23 +66,34 @@ export default function GroupsTab({ groups, onReload, registerAutoSave }) {
     await onReload();
   };
 
+  // Задания текущей выбранной группы
+  const groupTasks = selectedId
+    ? (tasks ?? []).filter(t => t.task_group_id === selectedId)
+    : [];
+
   return (
     <div className="form-main">
       {/* LEFT */}
       <div className="form-tree">
         <div className="form-tree__header">Группы заданий</div>
         <div className="form-tree__scroll">
-          {groups.map(g => (
-            <div
-              key={g.id}
-              className={selectedId === g.id
-                ? "form-tree__item form-tree__item--active"
-                : "form-tree__item"}
-              onClick={() => handleSelect(g.id)}
-            >
-              {g.name}
-            </div>
-          ))}
+          {groups.map(g => {
+            const count = (tasks ?? []).filter(t => t.task_group_id === g.id).length;
+            return (
+              <div
+                key={g.id}
+                className={selectedId === g.id
+                  ? "form-tree__item form-tree__item--active"
+                  : "form-tree__item"}
+                onClick={() => handleSelect(g.id)}
+              >
+                <span className="form-tree__content">{g.name}</span>
+                <span style={{ opacity: 0.4, fontSize: "0.78em", marginLeft: 6 }}>
+                  ({count} зад.)
+                </span>
+              </div>
+            );
+          })}
           {isCreating && (
             <div className="form-tree__item form-tree__item--active">
               <em>Новая группа…</em>
@@ -101,6 +110,7 @@ export default function GroupsTab({ groups, onReload, registerAutoSave }) {
         <div className="form-editor__header">
           {isCreating ? "Новая группа" : selectedId ? "Редактор группы" : "Выберите группу"}
         </div>
+
         {(selectedId || isCreating) && (
           <>
             <div className="form-editor__field">
@@ -111,6 +121,7 @@ export default function GroupsTab({ groups, onReload, registerAutoSave }) {
                 onChange={e => { setNameDraft(e.target.value); dirtyRef.current = true; }}
               />
             </div>
+
             <div className="form-editor__actions">
               <button onClick={autoSave}>Сохранить</button>
               {selectedId && (
@@ -119,9 +130,62 @@ export default function GroupsTab({ groups, onReload, registerAutoSave }) {
                 </button>
               )}
             </div>
+
+            {/* ── Задания группы ── */}
+            {selectedId && (
+              <div style={{ marginTop: 18 }}>
+                <div style={{
+                  fontSize: "0.82rem", fontWeight: 600,
+                  opacity: 0.65, marginBottom: 8,
+                }}>
+                  Задания группы ({groupTasks.length})
+                </div>
+
+                {groupTasks.length === 0 ? (
+                  <div style={{ fontSize: "0.8rem", opacity: 0.4 }}>
+                    В этой группе нет заданий
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {groupTasks.map(t => (
+                      <div
+                        key={t.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          padding: "5px 10px",
+                          borderRadius: 6,
+                          background: "rgba(255,255,255,0.04)",
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          fontSize: "0.82rem",
+                        }}
+                      >
+                        <span>{t.name}</span>
+                        <span style={{
+                          display: "flex", gap: 8,
+                          opacity: 0.45, fontSize: "0.78em",
+                        }}>
+                          <span>{TRAINER_TYPE_LABELS[t.trainer_type] ?? t.trainer_type ?? "—"}</span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
     </div>
   );
 }
+
+// Лейблы типов тренажёра — дублируем константу локально,
+// чтобы GroupsTab не зависел от TasksTab
+const TRAINER_TYPE_LABELS = {
+  options:    "Опции",
+  stress:     "Ударения",
+  dictionary: "Словарные",
+  input:      "Свободный ввод",
+};
