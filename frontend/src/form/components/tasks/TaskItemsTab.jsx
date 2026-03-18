@@ -84,11 +84,33 @@ export default function TaskItemsTab({
   const handleParse = async () => {
     setParseError("");
     let rawContent;
-    try { rawContent = JSON.parse(rawText); }
-    catch { setParseError("Некорректный JSON"); return; }
+    try {
+      const fixed = rawText.replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
+      rawContent = JSON.parse(fixed);
+    } catch {
+      setParseError("Некорректный JSON");
+      return;
+    }
 
+    // Формат {word, correct} — обрабатываем на фронте, не идём на бэкенд
+    if (Array.isArray(rawContent) && rawContent[0]?.word !== undefined) {
+      setParsedItems(rawContent.map(it => ({
+        content_raw:       String(it.word),
+        content_visible:   String(it.word),
+        content_correct:   String(it.correct),
+        correct_option_id: options.find(
+          o => o.content.trim().toLowerCase() === String(it.correct).trim().toLowerCase()
+        )?.id ?? null,
+        notice_wrong: "",
+        notice_right: "",
+      })));
+      return;
+    }
+
+    // Стандартный путь через бэкенд
     const res = await fetch("/api/tasks/general/parse-raw", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         parser_type:   parserType,
         raw_items:     rawContent,
@@ -103,6 +125,7 @@ export default function TaskItemsTab({
     const data = await res.json();
     setParsedItems(data.map(it => ({ ...it, notice_wrong: "", notice_right: "" })));
   };
+
 
   const handleSaveBulk = async () => {
     if (!parsedItems.length) return;
