@@ -17,9 +17,11 @@ router = APIRouter(prefix="/users/mistakes", tags=["user-mistakes"])
 @router.post("/", response_model=UserMistakeOut, status_code=201)
 async def create_mistake(body: UserMistakeCreateIn,
                          db: AsyncSession = Depends(get_db)):
-    return await CreateUserMistakeUseCase(UserMistakesRepositoryImpl(), db).execute(
-        body.user_id, body.task_session_id, body.mistake_item_id, body.chosen_option_id
+    res = await CreateUserMistakeUseCase(UserMistakesRepositoryImpl(), db).execute(
+        body.user_id, body.task_session_id, body.mistake_item_id, body.chosen_option_id, body.chosen_option_override
     )
+    print(res)
+    return res
 
 
 @router.get("/by-user/{user_id}", response_model=List[UserMistakeOut])

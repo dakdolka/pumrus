@@ -4,7 +4,7 @@ import './trainer.css';
 
 const EMPTY_RESULT  = { status: 'none', notice: null, displayContent: null };
 const VOWELS_RU     = new Set(['а','е','ё','и','о','у','ы','э','ю','я']);
-const DEFAULT_VOWELS = ['а','е','ё','и','о','у','ы','э','ю','я'];
+const DEFAULT_VOWELS = ['а','е','и','о','ю','я'];
 
 // ─── Попап ────────────────────────────────────────────────────────────────────
 

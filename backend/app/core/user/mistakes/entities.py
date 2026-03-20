@@ -14,4 +14,5 @@ class UserMistake:
     is_resolved: bool = False
     mistake_item: Optional[TaskItem] = None
     chosen_option: Optional[Option] = None
+    chosen_option_override: Optional[str] = None
     created_at: Optional[datetime] = None

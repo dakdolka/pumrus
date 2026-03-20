@@ -4,7 +4,7 @@ import json
 CORRECT_VALUES = {"Раздельно", "Слитно", "Дефис"}
 
 
-class SpellingParser(BaseParser):
+class JsonParser(BaseParser):
     """
     Вход: {"word": "в(течение) дня", "correct": "separate"}
     visible: "в(течение) дня"
@@ -40,8 +40,10 @@ class SpellingParser(BaseParser):
             content_correct = word.replace("(", "").replace(")", " ").strip()
         elif correct == "Слитно":
             content_correct = word.replace("(", "").replace(")", "")
-        else:  # hyphen
+        elif correct == "Дефис":
             content_correct = word.replace("(", "").replace(")", "-")
+        else:
+            content_correct = word
 
         return ParsedItem(
             content_raw=str(raw),

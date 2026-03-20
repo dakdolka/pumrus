@@ -1,3 +1,4 @@
+from os import strerror
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from .entities import UserMistake
@@ -11,11 +12,11 @@ class CreateUserMistakeUseCase:
         self.session = session
 
     async def execute(self, user_id: int, task_session_id: int,
-                      mistake_item_id: int, chosen_option_id: int) -> UserMistake:
+                      mistake_item_id: int, chosen_option_id: int, chosen_option_override: str) -> UserMistake:
         async with self.session.begin():
             return await self.repo.create(
                 self.session, user_id, task_session_id,
-                mistake_item_id, chosen_option_id
+                mistake_item_id, chosen_option_id, chosen_option_override
             )
 
 

@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 const PARSERS = [
   { value: "caps",      label: "Caps — заглавная → пропуск" },
   { value: "custom_4",  label: "Custom4 — заглавная → строчная" },
-  { value: "custom_14", label: "Слитно / Раздельно / Дефис" },
+  { value: "custom_json", label: "Под json с опциями" },
 ];
 
 // Парсеры на фронте для stress и dictionary — не идут на бэкенд

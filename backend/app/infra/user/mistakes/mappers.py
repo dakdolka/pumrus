@@ -10,6 +10,7 @@ def map_user_mistake(m: UserMistakesBD) -> UserMistake:
         task_session_id=m.task_session_fk,
         mistake_item_id=m.mistake_item_fk,
         chosen_option_id=m.chosen_option_fk,
+        chosen_option_override=m.chosen_option_override,
         is_resolved=m.is_resolved,
         mistake_item=map_task_item(m.mistake_item) if m.mistake_item else None,
         chosen_option=map_option(m.chosen_option) if m.chosen_option else None,

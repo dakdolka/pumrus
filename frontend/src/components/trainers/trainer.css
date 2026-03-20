@@ -1,8 +1,10 @@
 @import url('/src/static.css');
 
+
 /* ============================================================
    ОБЩИЕ СТИЛИ ТРЕНАЖЁРОВ
    ============================================================ */
+
 
 .trainer-container {
   width: 90%;
@@ -14,11 +16,14 @@
   box-sizing: border-box;
 }
 
+
 .spelling-trainer-container {
   padding-bottom: 160px;
 }
 
+
 /* ── Кнопки управления ───────────────────────────────────── */
+
 
 .trainer-controls {
   display: flex;
@@ -28,10 +33,12 @@
   flex-wrap: wrap;
 }
 
+
 .trainer-controls--compact {
   gap: 6px;
   margin: 8px 0;
 }
+
 
 .trainer-button {
   padding: 10px 20px;
@@ -49,21 +56,25 @@
   flex-shrink: 0;
 }
 
+
 .trainer-button--small {
   padding: 8px 16px;
   font-size: 13px;
 }
+
 
 .trainer-button--danger {
   border-color: color-mix(in srgb, var(--exception-color) 55%, transparent);
   color: var(--exception-color);
 }
 
+
 .trainer-button--danger:active,
 .trainer-button--danger.is-pressed {
   background: color-mix(in srgb, var(--exception-color) 12%, var(--block-color));
   border-color: var(--exception-color);
 }
+
 
 .trainer-button:active,
 .trainer-button.is-pressed {
@@ -73,7 +84,11 @@
   transition: background 0s, border-color 0s, transform 0s;
 }
 
-.trainer-button:focus { outline: none; }
+
+.trainer-button:focus {
+  outline: none;
+}
+
 
 .trainer-button:disabled {
   opacity: 0.35;
@@ -81,7 +96,9 @@
   transform: none;
 }
 
+
 /* ── Пагинация ───────────────────────────────────────────── */
+
 
 .trainer-page-nav {
   display: flex;
@@ -90,6 +107,7 @@
   gap: 12px;
   margin: 8px 0;
 }
+
 
 .trainer-page-indicator {
   font-size: 14px;
@@ -100,13 +118,16 @@
   opacity: 0.7;
 }
 
+
 /* ── Статистика ──────────────────────────────────────────── */
+
 
 .trainer-stats {
   text-align: center;
   margin: 10px 0;
   font-size: 15px;
   font-family: var(--text-font);
+  color: var(--text-color);
   padding: 10px 14px;
   background: var(--block-color);
   border-radius: var(--border-size);
@@ -114,7 +135,9 @@
   box-sizing: border-box;
 }
 
+
 /* ── Список слов ─────────────────────────────────────────── */
+
 
 .trainer-words {
   margin: 16px 0;
@@ -123,7 +146,9 @@
   gap: 6px;
 }
 
+
 /* ── Элемент задания ─────────────────────────────────────── */
+
 
 .trainer-word-input {
   font-size: 1.1rem;
@@ -135,6 +160,7 @@
   border-radius: var(--border-size);
   border: 2px solid color-mix(in srgb, var(--text-color) 8%, transparent);
   background: var(--block-color);
+  color: var(--text-color);
   word-break: break-word;
   box-sizing: border-box;
   line-height: 1.5;
@@ -145,23 +171,31 @@
   overflow: hidden;
 }
 
+
 /* Акцентная полоска слева */
 .trainer-word-input::before {
   content: "";
   position: absolute;
-  left: 0; top: 0;
-  width: 4px; height: 100%;
+  left: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
   background: var(--active-color);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
+
 
 .trainer-word-input--active {
   background: var(--rule-color);
   border-color: var(--active-color);
 }
 
-.trainer-word-input--active::before { opacity: 1; }
+
+.trainer-word-input--active::before {
+  opacity: 1;
+}
+
 
 .trainer-item--correct {
   border-color: color-mix(in srgb, rgba(90, 200, 140, 0.9) 45%, transparent);
@@ -169,10 +203,12 @@
   cursor: default;
 }
 
+
 .trainer-item--correct::before {
   background: rgba(90, 200, 140, 0.9);
   opacity: 1;
 }
+
 
 .trainer-item--wrong {
   border-color: color-mix(in srgb, var(--exception-color) 45%, transparent);
@@ -180,15 +216,19 @@
   cursor: default;
 }
 
+
 .trainer-item--wrong::before {
   background: var(--exception-color);
   opacity: 1;
 }
 
+
 .trainer-item-content {
   flex: 1;
   min-width: 0;
+  color: var(--text-color);
 }
+
 
 .trainer-item-badge {
   font-size: 1rem;
@@ -196,17 +236,28 @@
   flex-shrink: 0;
 }
 
-.trainer-item-badge--correct { color: rgba(90, 200, 140, 1); }
-.trainer-item-badge--wrong   { color: var(--exception-color); }
+
+.trainer-item-badge--correct {
+  color: rgba(90, 200, 140, 1);
+}
+
+
+.trainer-item-badge--wrong {
+  color: var(--exception-color);
+}
+
 
 .trainer-item-answer {
   font-size: 0.85rem;
+  color: var(--text-color);
   opacity: 0.75;
   flex-shrink: 0;
   font-style: italic;
 }
 
+
 /* ── Нотис ───────────────────────────────────────────────── */
+
 
 .trainer-notice {
   margin: 6px 0 10px;
@@ -219,11 +270,13 @@
   border: 1.5px solid transparent;
 }
 
+
 .trainer-notice--correct {
   background: color-mix(in srgb, rgba(90, 200, 140, 0.9) 10%, var(--block-color));
   border-color: color-mix(in srgb, rgba(90, 200, 140, 0.9) 40%, transparent);
   color: rgba(90, 200, 140, 1);
 }
+
 
 .trainer-notice--wrong {
   background: color-mix(in srgb, var(--exception-color) 10%, var(--block-color));
@@ -231,11 +284,15 @@
   color: var(--exception-color);
 }
 
+
 /* ── Клавиатура с опциями ────────────────────────────────── */
+
 
 .spelling-keyboard {
   position: fixed;
-  bottom: 0; left: 0; right: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 12px;
   padding: 12px 16px 28px;
@@ -243,6 +300,7 @@
   border-top: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
   z-index: 100;
 }
+
 
 .spelling-key {
   flex: 1;
@@ -261,6 +319,7 @@
               transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+
 .spelling-key:active:not(:disabled),
 .spelling-key.is-pressed {
   background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
@@ -269,19 +328,26 @@
   transition: background 0s, border-color 0s, transform 0s;
 }
 
-.spelling-key:focus { outline: none; }
+
+.spelling-key:focus {
+  outline: none;
+}
+
 
 .spelling-key--disabled {
   opacity: 0.35;
   cursor: default;
 }
 
+
 /* ── Текстовый ввод (keyboard режим) ─────────────────────── */
+
 
 .trainer-text-keyboard {
   gap: 8px;
   padding: 10px 16px 28px;
 }
+
 
 .trainer-text-input {
   flex: 1;
@@ -297,14 +363,17 @@
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+
 .trainer-text-input:focus {
   border-color: var(--active-color);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--active-color) 22%, transparent);
 }
 
+
 .trainer-text-input:disabled {
   opacity: 0.4;
 }
+
 
 .trainer-text-submit {
   flex: 0 0 52px;
@@ -312,7 +381,9 @@
   padding: 12px;
 }
 
+
 /* ── Попап ───────────────────────────────────────────────── */
+
 
 .trainer-popup-overlay {
   position: fixed;
@@ -326,8 +397,10 @@
   animation: fadeIn 0.22s ease;
 }
 
+
 .trainer-popup {
   background: var(--block-color);
+  color: var(--text-color);
   padding: 28px 24px;
   width: min(92%, 480px);
   max-height: 82vh;
@@ -339,9 +412,11 @@
   animation: slideDown 0.22s ease;
 }
 
+
 .trainer-popup--compact {
   max-height: unset;
 }
+
 
 .trainer-popup h2 {
   margin: 0 0 16px;
@@ -351,28 +426,35 @@
   font-size: 1.15rem;
 }
 
+
 .trainer-popup .trainer-stats {
   font-size: 13px;
   padding: 8px 12px;
   margin: 0 0 12px;
 }
 
+
 .trainer-confirm-text {
   text-align: center;
+  color: var(--text-color);
   opacity: 0.7;
   font-size: 0.9rem;
   margin: 0 0 16px;
   line-height: 1.5;
 }
 
+
 /* ── Список ошибок в попапе ──────────────────────────────── */
+
 
 .trainer-no-mistakes {
   text-align: center;
+  color: var(--text-color);
   padding: 20px 0;
   font-size: 1.1rem;
   opacity: 0.7;
 }
+
 
 .trainer-mistakes-list {
   margin: 4px 0 16px;
@@ -380,6 +462,7 @@
   flex-direction: column;
   gap: 6px;
 }
+
 
 .trainer-mistake-word {
   padding: 10px 14px;
@@ -391,10 +474,13 @@
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
+
 .trainer-mistake-visible {
   font-size: 1rem;
+  color: var(--text-color);
   margin-bottom: 4px;
 }
+
 
 .trainer-mistake-correct {
   font-size: 0.88rem;
@@ -402,13 +488,16 @@
   font-weight: 600;
 }
 
+
 .trainer-mistake-notice {
   margin-top: 5px;
   font-size: 0.82rem;
+  color: var(--text-color);
   opacity: 0.65;
   font-style: italic;
   line-height: 1.4;
 }
+
 
 .trainer-popup-close {
   display: flex;
@@ -417,7 +506,9 @@
   flex-wrap: wrap;
 }
 
+
 /* ── TaskSelect ──────────────────────────────────────────── */
+
 
 .task-select {
   width: 90%;
@@ -426,14 +517,17 @@
   padding: 10px 10px 40px;
 }
 
+
 .task-select__header {
   font-family: var(--chapter-text);
   font-size: 0.9rem;
+  color: var(--text-color);
   opacity: 0.5;
   margin: 18px 0 8px;
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
+
 
 .task-select__item {
   display: flex;
@@ -457,6 +551,7 @@
   position: relative;
 }
 
+
 .task-select__item:active,
 .task-select__item.is-pressed {
   background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
@@ -465,11 +560,17 @@
   transition: background 0s, border-color 0s, transform 0s;
 }
 
-.task-select__item-name { flex: 1; }
+
+.task-select__item-name {
+  flex: 1;
+  color: var(--text-color);
+}
+
 
 .task-select__item-spinner {
   display: inline-block;
-  width: 16px; height: 16px;
+  width: 16px;
+  height: 16px;
   border: 2px solid color-mix(in srgb, var(--active-color) 30%, transparent);
   border-top-color: var(--active-color);
   border-radius: 50%;
@@ -478,34 +579,42 @@
   margin-left: 10px;
 }
 
+
 .task-select__spinner-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
   justify-content: center;
   padding: 40px 0;
+  color: var(--text-color);
   opacity: 0.6;
   font-family: var(--text-font);
 }
 
+
 .task-select__spinner-inline {
   display: inline-block;
-  width: 18px; height: 18px;
+  width: 18px;
+  height: 18px;
   border: 2px solid color-mix(in srgb, var(--text-color) 20%, transparent);
   border-top-color: var(--text-color);
   border-radius: 50%;
   animation: task-spin 0.6s linear infinite;
 }
 
+
 .task-select__empty {
   text-align: center;
+  color: var(--text-color);
   opacity: 0.5;
   padding: 40px 0;
   font-family: var(--text-font);
   font-size: 0.95rem;
 }
 
+
 /* ── Hover (только настоящий курсор) ─────────────────────── */
+
 
 @media (hover: hover) {
   .trainer-word-input:hover:not(.trainer-item--correct):not(.trainer-item--wrong):not(.trainer-word-input--active) {
@@ -552,50 +661,99 @@
   }
 }
 
+
 /* ── Адаптивность ────────────────────────────────────────── */
 
+
 @media (max-width: 600px) {
-  .trainer-container  { padding: 12px 4px; }
-  .spelling-trainer-container { padding-bottom: 130px; }
-  .trainer-word-input { font-size: 1rem; padding: 9px 12px; }
-  .trainer-button     { font-size: 12px; padding: 8px 14px; }
-  .trainer-button--small { font-size: 12px; padding: 7px 12px; }
-  .trainer-popup      { padding: 20px 16px; }
-  .spelling-key       { padding: 12px 8px; font-size: 0.95rem; }
-  .trainer-text-input { font-size: 0.95rem; padding: 10px 12px; }
-  .trainer-stats      { font-size: 13px; padding: 8px; }
+  .trainer-container {
+    padding: 12px 4px;
+  }
+
+  .spelling-trainer-container {
+    padding-bottom: 130px;
+  }
+
+  .trainer-word-input {
+    font-size: 1rem;
+    padding: 9px 12px;
+  }
+
+  .trainer-button {
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+
+  .trainer-button--small {
+    font-size: 12px;
+    padding: 7px 12px;
+  }
+
+  .trainer-popup {
+    padding: 20px 16px;
+  }
+
+  .spelling-key {
+    padding: 12px 8px;
+    font-size: 0.95rem;
+  }
+
+  .trainer-text-input {
+    font-size: 0.95rem;
+    padding: 10px 12px;
+  }
+
+  .trainer-stats {
+    font-size: 13px;
+    padding: 8px;
+  }
 }
 
-* { box-sizing: border-box; }
-.trainer-container * { max-width: 100%; }
+
+* {
+  box-sizing: border-box;
+}
+
+
+.trainer-container * {
+  max-width: 100%;
+}
+
 
 /* ── Светлая тема ────────────────────────────────────────── */
+
 
 body.theme--light .trainer-stats {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   border-color: color-mix(in srgb, var(--text-color) 10%, transparent);
 }
 
+
 body.theme--light .trainer-button {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
 
 body.theme--light .trainer-button:hover:not(:disabled) {
   box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 22%, transparent);
 }
 
+
 body.theme--light .trainer-word-input {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
 
 body.theme--light .trainer-word-input--active {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--active-color) 22%, transparent),
               0 3px 10px color-mix(in srgb, var(--active-color) 12%, transparent);
 }
 
+
 body.theme--light .trainer-item--correct {
   color: rgba(56, 176, 120, 0.95);
 }
+
 
 body.theme--light .trainer-mistake-word {
   background: color-mix(in srgb, var(--text-color) 2%, #ffffff);
@@ -603,50 +761,87 @@ body.theme--light .trainer-mistake-word {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
+
 body.theme--light .trainer-popup {
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
 }
+
 
 body.theme--light .spelling-keyboard {
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
 }
 
+
 body.theme--light .spelling-key {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
 
 body.theme--light .spelling-key:not(:disabled):hover {
   box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 22%, transparent);
 }
 
+
 body.theme--light .task-select__item {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
+
 
 body.theme--light .task-select__item:not(:disabled):hover {
   box-shadow: 0 3px 12px color-mix(in srgb, var(--active-color) 22%, transparent);
 }
 
+
 /* ── Анимации ────────────────────────────────────────────── */
 
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
+
 @keyframes task-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
+
+
+@keyframes blink-gap {
+  0%, 100% {
+    border-color: var(--active-color);
+  }
+  50% {
+    border-color: color-mix(in srgb, var(--active-color) 25%, transparent);
+  }
+}
+
 
 .trainer-item-strikethrough {
   text-decoration: line-through;
+  color: var(--text-color);
   opacity: 0.5;
 }
+
 
 .trainer-item-correct-answer {
   color: rgba(90, 200, 140, 1);
@@ -657,9 +852,11 @@ body.theme--light .task-select__item:not(:disabled):hover {
 
 /* ── TaskSelect: бейдж типа тренажёра ───────────────────── */
 
+
 .task-select__type-badge {
   font-size: 0.72rem;
   font-family: var(--text-font);
+  color: var(--text-color);
   opacity: 0.5;
   padding: 2px 7px;
   border-radius: 20px;
@@ -669,15 +866,19 @@ body.theme--light .task-select__item:not(:disabled):hover {
   margin-left: 8px;
 }
 
+
 .task-select__group {
   margin-bottom: 4px;
 }
+
 
 .task-select__item--indented {
   padding-left: 28px;
 }
 
+
 /* ── Тренажёр ударений ───────────────────────────────────── */
+
 
 .trainer-stress-word {
   display: inline-flex;
@@ -685,12 +886,21 @@ body.theme--light .task-select__item:not(:disabled):hover {
   align-items: baseline;
   gap: 0;
   letter-spacing: 0.01em;
+  color: var(--text-color);
 }
+
 
 .trainer-stress-vowel {
   position: relative;
+  color: var(--text-color);
   transition: color 0.15s ease;
 }
+
+
+.trainer-stress-consonant {
+  color: var(--text-color);
+}
+
 
 .trainer-stress-vowel--clickable {
   cursor: pointer;
@@ -701,47 +911,16 @@ body.theme--light .task-select__item:not(:disabled):hover {
   margin: 0 1px;
   border-radius: 5px;
   background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  color: var(--text-color);
   transition: background 0.15s ease, transform 0.1s ease;
 }
+
 
 .trainer-stress-vowel--clickable:hover {
   background: color-mix(in srgb, var(--text-color) 14%, transparent);
   transform: scale(1.1);
 }
 
-/* После клика — подчёркивание ударной позиции */
-.trainer-stress-mark {
-  position: relative;
-  font-weight: 700;
-}
-
-.trainer-stress-mark--correct {
-  color: rgba(90, 200, 140, 1);
-}
-
-.trainer-stress-mark--correct::after {
-  content: "́";  /* combining acute accent */
-}
-
-.trainer-stress-mark--wrong {
-  color: var(--exception-color);
-  text-decoration: underline;
-  text-decoration-style: wavy;
-  text-underline-offset: 3px;
-}
-
-/* Активный элемент ударений — подсказка снизу */
-.trainer-stress-item.trainer-word-input--active::after {
-  content: "Нажмите на ударную гласную";
-  position: absolute;
-  bottom: -20px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 0.7rem;
-  opacity: 0.4;
-  font-family: var(--text-font);
-  pointer-events: none;
-}
 
 .trainer-stress-vowel--clickable:active {
   transform: translateY(1px);
@@ -750,7 +929,49 @@ body.theme--light .task-select__item:not(:disabled):hover {
 }
 
 
+/* После клика — подчёркивание ударной позиции */
+.trainer-stress-mark {
+  position: relative;
+  font-weight: 700;
+}
+
+
+.trainer-stress-mark--correct {
+  color: rgba(90, 200, 140, 1);
+}
+
+
+.trainer-stress-mark--correct::after {
+  content: "́";
+}
+
+
+.trainer-stress-mark--wrong {
+  color: var(--exception-color);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+
+
+/* Активный элемент ударений — подсказка снизу */
+.trainer-stress-item.trainer-word-input--active::after {
+  content: "Нажмите на ударную гласную";
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--text-color);
+  opacity: 0.4;
+  font-family: var(--text-font);
+  pointer-events: none;
+}
+
+
 /* ── Тренажёр словарных слов ─────────────────────────────── */
+
 
 .trainer-dict-word {
   display: inline-flex;
@@ -758,7 +979,9 @@ body.theme--light .task-select__item:not(:disabled):hover {
   align-items: baseline;
   gap: 0;
   letter-spacing: 0.01em;
+  color: var(--text-color);
 }
+
 
 /* Пропуск — подчёркнутое место */
 .trainer-dict-gap {
@@ -768,13 +991,16 @@ body.theme--light .task-select__item:not(:disabled):hover {
   border-bottom: 2px solid;
   line-height: 1.2;
   font-weight: 600;
+  color: var(--text-color);
   transition: color 0.15s ease, border-color 0.15s ease;
 }
+
 
 .trainer-dict-gap--empty {
   border-color: color-mix(in srgb, var(--text-color) 30%, transparent);
   color: transparent;
 }
+
 
 /* Текущий активный пропуск */
 .trainer-dict-gap--current {
@@ -783,20 +1009,24 @@ body.theme--light .task-select__item:not(:disabled):hover {
   animation: blink-gap 1s ease infinite;
 }
 
+
 /* Заполненный пропуск */
 .trainer-dict-gap--filled {
   border-color: color-mix(in srgb, var(--active-color) 60%, transparent);
   color: var(--active-color);
 }
 
+
 /* Отвеченный пропуск */
 .trainer-dict-gap--answered {
   border-color: transparent;
-  color: inherit;
+  color: var(--text-color);
   font-weight: 700;
 }
 
+
 /* ── Клавиатура словарного тренажёра ─────────────────────── */
+
 
 .trainer-dict-keyboard {
   flex-wrap: wrap;
@@ -804,6 +1034,7 @@ body.theme--light .task-select__item:not(:disabled):hover {
   gap: 8px;
   padding: 10px 16px 28px;
 }
+
 
 .trainer-dict-key {
   flex: 0 0 auto;
@@ -815,16 +1046,25 @@ body.theme--light .task-select__item:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--block-color);
+  color: var(--text-color);
+  border: 2px solid color-mix(in srgb, var(--active-color) 50%, transparent);
+  border-radius: var(--border-size);
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
   box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 35%, transparent);
   transition: background 0.15s ease, transform 0.1s ease,
               box-shadow 0.1s ease, border-color 0.15s ease;
 }
+
 
 .trainer-dict-key:active:not(:disabled) {
   transform: translateY(2px);
   box-shadow: none;
   transition: transform 0s, box-shadow 0s;
 }
+
 
 .trainer-dict-key--backspace {
   flex: 0 0 auto;
@@ -836,10 +1076,18 @@ body.theme--light .task-select__item:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-color: color-mix(in srgb, var(--exception-color) 40%, transparent);
+  background: var(--block-color);
   color: var(--exception-color);
+  border: 2px solid color-mix(in srgb, var(--exception-color) 40%, transparent);
+  border-radius: var(--border-size);
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
   box-shadow: 0 3px 0 color-mix(in srgb, var(--exception-color) 30%, transparent);
+  transition: background 0.15s ease, transform 0.1s ease,
+              box-shadow 0.1s ease, border-color 0.15s ease;
 }
+
 
 .trainer-dict-key--backspace:active:not(:disabled) {
   background: color-mix(in srgb, var(--exception-color) 15%, var(--block-color));
@@ -849,7 +1097,9 @@ body.theme--light .task-select__item:not(:disabled):hover {
   transition: transform 0s, box-shadow 0s;
 }
 
+
 /* ── Адаптивность для новых типов ────────────────────────── */
+
 
 @media (max-width: 600px) {
   .trainer-stress-item.trainer-word-input--active::after {
@@ -871,27 +1121,31 @@ body.theme--light .task-select__item:not(:disabled):hover {
   }
 }
 
+
 /* ── Светлая тема для новых элементов ────────────────────── */
+
 
 body.theme--light .trainer-dict-gap--empty {
   border-color: color-mix(in srgb, var(--text-color) 25%, transparent);
 }
 
+
 body.theme--light .task-select__type-badge {
   background: color-mix(in srgb, var(--text-color) 4%, transparent);
 }
+
 
 body.theme--light .trainer-dict-key {
   box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 45%, transparent),
               0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+
 body.theme--light .trainer-dict-key--backspace {
   box-shadow: 0 3px 0 color-mix(in srgb, var(--exception-color) 40%, transparent),
               0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-/* ── Анимации ────────────────────────────────────────────── */
 
 @keyframes blink-gap {
   0%, 100% { border-color: var(--active-color); }

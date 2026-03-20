@@ -24,7 +24,7 @@ class IUserMistakesRepository(ABC):
 
     @abstractmethod
     async def create(self, session: AsyncSession, user_id: int, task_session_id: int,
-                     mistake_item_id: int, chosen_option_id: int) -> UserMistake: ...
+                     mistake_item_id: int, chosen_option_id: int, chosen_option_override: str) -> UserMistake: ...
 
     @abstractmethod
     async def resolve(self, session: AsyncSession,

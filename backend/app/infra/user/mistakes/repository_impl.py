@@ -61,7 +61,7 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
         return [mappers.map_user_mistake(m) for m in result.scalars().all()]
 
     async def create(self, session: AsyncSession, user_id: int, task_session_id: int,
-                    mistake_item_id: int, chosen_option_id: int) -> UserMistake:
+                    mistake_item_id: int, chosen_option_id: int, chosen_option_override: str) -> UserMistake:
         # Проверка на нерезолвнутый дубль
         existing = await session.execute(
             self._stmt().where(
@@ -80,6 +80,7 @@ class UserMistakesRepositoryImpl(IUserMistakesRepository):
             task_session_fk=task_session_id,
             mistake_item_fk=mistake_item_id,
             chosen_option_fk=chosen_option_id,
+            chosen_option_override=chosen_option_override,
         )
         session.add(m)
         await session.flush()

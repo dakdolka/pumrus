@@ -1,5 +1,6 @@
 /* ── Табы ────────────────────────────────────────────────── */
 
+
 .mistakes-tabs {
   display: flex;
   gap: 0;
@@ -8,6 +9,7 @@
   overflow: hidden;
   border: 2px solid color-mix(in srgb, var(--active-color) 35%, transparent);
 }
+
 
 .mistakes-tab {
   flex: 1;
@@ -29,21 +31,26 @@
   position: relative;
 }
 
+
 .mistakes-tab:first-child {
   border-right: 1px solid color-mix(in srgb, var(--active-color) 25%, transparent);
 }
+
 
 .mistakes-tab--active {
   background: color-mix(in srgb, var(--active-color) 15%, var(--block-color));
   color: var(--active-color);
 }
 
+
 .mistakes-tab:active {
   background: color-mix(in srgb, var(--active-color) 22%, var(--block-color));
   transition: background 0s;
 }
 
+
 /* ── Бейджи на табах ─────────────────────────────────────── */
+
 
 .mistakes-tab__badge {
   display: inline-flex;
@@ -60,12 +67,15 @@
   line-height: 1;
 }
 
+
 .mistakes-tab__badge--warn {
   background: color-mix(in srgb, var(--exception-color) 18%, transparent);
   color: var(--exception-color);
 }
 
+
 /* ── Страница целиком ────────────────────────────────────── */
+
 
 .mistakes-page {
   width: 90%;
@@ -77,38 +87,49 @@
   box-sizing: border-box;
 }
 
+
 /* ── Пустые состояния ────────────────────────────────────── */
+
 
 .mistakes-empty {
   text-align: center;
+  color: var(--text-color);
   padding: 48px 0;
   opacity: 0.55;
   font-size: 0.95rem;
 }
 
+
 /* ── Секция-заголовок ────────────────────────────────────── */
+
 
 .mistakes-section-title {
   font-size: 0.8rem;
   font-family: var(--chapter-text);
+  color: var(--text-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.5;
   margin: 18px 0 8px;
 }
 
+
 .mistakes-section-title--faded {
   opacity: 0.35;
 }
 
+
 /* ── Список ошибок ───────────────────────────────────────── */
+
 
 .mistakes-list {
   display: flex;
   flex-direction: column;
 }
 
+
 /* ── Строка ошибки ───────────────────────────────────────── */
+
 
 .mistake-row {
   display: flex;
@@ -123,20 +144,25 @@
   box-sizing: border-box;
 }
 
+
 .mistake-row--resolved {
   opacity: 0.4;
 }
+
 
 .mistake-row__body {
   flex: 1;
   min-width: 0;
 }
 
+
 .mistake-row__visible {
   font-size: 1rem;
+  color: var(--text-color);
   word-break: break-word;
   margin-bottom: 2px;
 }
+
 
 .mistake-row__correct {
   font-size: 0.85rem;
@@ -144,11 +170,14 @@
   font-weight: 600;
 }
 
+
 .mistake-row__chosen {
   font-size: 0.8rem;
+  color: var(--text-color);
   opacity: 0.55;
   margin-top: 2px;
 }
+
 
 .mistake-row__done {
   color: rgba(90, 200, 140, 1);
@@ -156,6 +185,7 @@
   flex-shrink: 0;
   font-weight: 700;
 }
+
 
 .mistake-row__btn {
   flex-shrink: 0;
@@ -176,23 +206,28 @@
   justify-content: center;
 }
 
+
 .mistake-row__btn:active {
   background: color-mix(in srgb, rgba(90, 200, 140, 0.9) 22%, var(--block-color));
   transform: scale(0.93);
   transition: background 0s, transform 0s;
 }
 
+
 .mistake-row__btn--loading {
   opacity: 0.5;
   cursor: default;
 }
 
+
 /* ── Отработка ───────────────────────────────────────────── */
+
 
 .practice-section {
   display: flex;
   flex-direction: column;
 }
+
 
 .practice-generate {
   display: flex;
@@ -202,11 +237,14 @@
   padding: 40px 0;
 }
 
+
 .practice-generate__text {
   font-size: 1.1rem;
+  color: var(--text-color);
   opacity: 0.7;
   text-align: center;
 }
+
 
 .practice-badge {
   font-size: 0.78rem;
@@ -218,7 +256,9 @@
   flex-shrink: 0;
 }
 
+
 /* ── Hover ───────────────────────────────────────────────── */
+
 
 @media (hover: hover) {
   .mistakes-tab:not(.mistakes-tab--active):hover {
@@ -236,52 +276,43 @@
   }
 }
 
+
 /* ── Светлая тема ────────────────────────────────────────── */
+
 
 body.theme--light .mistake-row {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+
 body.theme--light .mistakes-tabs {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
 }
+
 
 body.theme--light .trainer-button {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+
 /* ── Адаптивность ────────────────────────────────────────── */
 
+
 @media (max-width: 600px) {
-  .mistakes-page    { padding: 12px 4px 40px; }
-  .mistakes-tab     { padding: 11px 10px; font-size: 0.88rem; }
-  .mistake-row      { padding: 9px 10px; }
-  .mistake-row__visible { font-size: 0.95rem; }
-}
+  .mistakes-page {
+    padding: 12px 4px 40px;
+  }
 
-.mistakes-page,
-.mistakes-page *,
-.mistake-row__visible,
-.mistake-row__chosen,
-.mistakes-section-title,
-.mistakes-empty,
-.practice-generate__text {
-  color: var(--text-color);
-}
+  .mistakes-tab {
+    padding: 11px 10px;
+    font-size: 0.88rem;
+  }
 
-/* Перебиваем только цветные элементы обратно */
-.mistake-row__correct,
-.mistake-row__done,
-.mistake-row__btn {
-  color: rgba(90, 200, 140, 1);
-}
+  .mistake-row {
+    padding: 9px 10px;
+  }
 
-.mistakes-tab--active {
-  color: var(--active-color);
+  .mistake-row__visible {
+    font-size: 0.95rem;
+  }
 }
-
-.mistakes-tab__badge--warn,
-.practice-badge {
-  color: var(--exception-color);
-}
-
