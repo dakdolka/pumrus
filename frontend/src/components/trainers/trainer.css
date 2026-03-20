@@ -700,20 +700,13 @@ body.theme--light .task-select__item:not(:disabled):hover {
   padding: 1px 4px;
   margin: 0 1px;
   border-radius: 5px;
-  border: 1.5px solid color-mix(in srgb, var(--active-color) 55%, transparent);
-  background: color-mix(in srgb, var(--active-color) 10%, var(--block-color));
-  color: var(--active-color);
-  font-weight: 700;
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--active-color) 35%, transparent);
-  transition: background 0.15s ease, transform 0.1s ease,
-              box-shadow 0.1s ease, border-color 0.15s ease;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .trainer-stress-vowel--clickable:hover {
-  background: color-mix(in srgb, var(--active-color) 20%, var(--block-color));
-  border-color: var(--active-color);
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--active-color) 45%, transparent);
-  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--text-color) 14%, transparent);
+  transform: scale(1.1);
 }
 
 /* После клика — подчёркивание ударной позиции */
@@ -752,16 +745,10 @@ body.theme--light .task-select__item:not(:disabled):hover {
 
 .trainer-stress-vowel--clickable:active {
   transform: translateY(1px);
-  box-shadow: none;
-  background: color-mix(in srgb, var(--active-color) 25%, var(--block-color));
-  transition: transform 0s, box-shadow 0s;
+  background: color-mix(in srgb, var(--text-color) 18%, transparent);
+  transition: transform 0s;
 }
 
-/* Светлая тема */
-body.theme--light .trainer-stress-vowel--clickable {
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--active-color) 50%, transparent),
-              0 1px 3px rgba(0,0,0,0.1);
-}
 
 /* ── Тренажёр словарных слов ─────────────────────────────── */
 

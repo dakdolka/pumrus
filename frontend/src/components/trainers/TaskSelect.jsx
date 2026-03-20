@@ -1,5 +1,4 @@
 import './trainer.css';
-import { TRAINER_TYPE_LABELS } from './trainerUtils.js';
 
 function groupTasks(tasks) {
   const groups  = {};
@@ -30,15 +29,6 @@ function groupTasks(tasks) {
   return result;
 }
 
-function TrainerTypeBadge({ trainerType }) {
-  if (!trainerType) return null;
-  return (
-    <span className="task-select__type-badge">
-      {TRAINER_TYPE_LABELS[trainerType] ?? trainerType}
-    </span>
-  );
-}
-
 export function TaskSelect({ tasks, trainerLabel, onSelect }) {
   if (!tasks?.length) {
     return (
@@ -61,7 +51,6 @@ export function TaskSelect({ tasks, trainerLabel, onSelect }) {
               onClick={() => onSelect(entry.task)}
             >
               <span className="task-select__item-name">{entry.task.name}</span>
-              <TrainerTypeBadge trainerType={entry.task.trainer_type} />
             </button>
           );
         }
@@ -76,7 +65,6 @@ export function TaskSelect({ tasks, trainerLabel, onSelect }) {
                 onClick={() => onSelect(task)}
               >
                 <span className="task-select__item-name">{task.name}</span>
-                <TrainerTypeBadge trainerType={task.trainer_type} />
               </button>
             ))}
           </div>
