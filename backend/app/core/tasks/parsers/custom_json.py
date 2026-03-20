@@ -31,10 +31,6 @@ class JsonParser(BaseParser):
         if not word:
             raise ValueError("Поле 'word' обязательно")
 
-        if correct not in CORRECT_VALUES:
-            raise ValueError(
-                f"Поле 'correct' должно быть одним из {CORRECT_VALUES}, получено: '{correct}'"
-            )
 
         if correct == "Раздельно":
             content_correct = word.replace("(", "").replace(")", " ").strip()
@@ -44,7 +40,6 @@ class JsonParser(BaseParser):
             content_correct = word.replace("(", "").replace(")", "-")
         else:
             content_correct = word
-
         return ParsedItem(
             content_raw=str(raw),
             content_visible=word,

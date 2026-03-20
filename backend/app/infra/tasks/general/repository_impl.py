@@ -1,5 +1,6 @@
 from typing import List, Optional
-from sqlalchemy import select, delete
+from fastapi import HTTPException
+from sqlalchemy import and_, select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.core.tasks.general.entities import Task, TaskItem, Option, OptionSet, TaskGroup
@@ -244,6 +245,12 @@ class TaskItemRepositoryImpl(ITaskItemRepository):
             notice_wrong=notice_wrong,
             notice_right=notice_right,
         )
+        is_already_added = await session.execute(self._stmt().where(and_(TaskItemBD.content_visible == content_visible, 
+                                                                         TaskItemBD.content_correct == content_correct)))
+        is_already_added = is_already_added.scalars().all()
+        if is_already_added:
+            print(is_already_added)
+            raise HTTPException(status_code=409, detail="TaskItem already exists")
         session.add(m)
         await session.flush()
         # повторный select с relationships — refresh не нужен

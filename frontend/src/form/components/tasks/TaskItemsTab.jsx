@@ -1,79 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 
+
 const PARSERS = [
-  { value: "caps",      label: "Caps — заглавная → пропуск" },
-  { value: "custom_4",  label: "Custom4 — заглавная → строчная" },
+  { value: "caps",        label: "Caps — заглавная → пропуск" },
+  { value: "custom_4",    label: "Custom4 — заглавная → строчная" },
   { value: "custom_json", label: "Под json с опциями" },
+  { value: "stress",      label: "Ударения — заглавная = ударная" },
+  { value: "dictionary",  label: "Словарные — заглавная = пропуск" },
+  { value: "word_correct", label: "Формат {word, correct}" },
 ];
 
-// Парсеры на фронте для stress и dictionary — не идут на бэкенд
-function parseStressItems(rawContent) {
-  // Формат: ["прИбой", "катАлог"] — заглавная = ударная
-  return rawContent.map(word => {
-    const str = String(word);
-    const upperIdx = [...str].findIndex(c => /[А-ЯЁ]/.test(c));
-    if (upperIdx === -1) {
-      return {
-        content_raw:     str,
-        content_visible: str.toLowerCase(),
-        content_correct: str.toLowerCase(), // нет ударения — оставляем как есть
-        correct_option_id: null,
-        notice_wrong: "",
-        notice_right: "",
-      };
-    }
-    // content_correct — слово строчными, ударная буква заглавная
-    const chars = [...str.toLowerCase()];
-    chars[upperIdx] = chars[upperIdx].toUpperCase();
-    return {
-      content_raw:     str,
-      content_visible: str.toLowerCase(),
-      content_correct: chars.join(""),
-      correct_option_id: null,
-      notice_wrong: "",
-      notice_right: "",
-    };
-  });
-}
-
-function parseDictionaryItems(rawContent) {
-  // Формат: ["прИбой", ...] — заглавные буквы = пропуски (_)
-  // Либо явный формат: [{ visible: "пр_б_й", correct: "прибой" }]
-  return rawContent.map(entry => {
-    if (typeof entry === "object" && entry.visible !== undefined) {
-      return {
-        content_raw:     entry.correct ?? entry.visible,
-        content_visible: entry.visible,
-        content_correct: entry.correct ?? entry.visible,
-        correct_option_id: null,
-        notice_wrong: "",
-        notice_right: "",
-      };
-    }
-
-    const str = String(entry);
-    // Заглавные буквы → заменяем на _ в visible, строчные в correct
-    let visible = "";
-    let correct = "";
-    for (const ch of str) {
-      if (/[А-ЯЁ]/.test(ch)) {
-        visible += "_";
-        correct += ch.toLowerCase();
-      } else {
-        visible += ch;
-        correct += ch;
-      }
-    }
-    return {
-      content_raw:     str,
-      content_visible: visible,
-      content_correct: correct,
-      correct_option_id: null,
-      notice_wrong: "",
-      notice_right: "",
-    };
-  });
-}
 
 const EMPTY_MANUAL = {
   content_raw: "", content_visible: "", content_correct: "",
@@ -81,11 +17,11 @@ const EMPTY_MANUAL = {
   notice_wrong: "", notice_right: "",
 };
 
-// Подсказки по полям в зависимости от типа тренажёра
+
 const FIELD_HINTS = {
   stress: {
     content_visible: "строчными: прибой",
-    content_correct: "с заглавной ударной: прИбой → прИбой",
+    content_correct: "с заглавной ударной: прИбой",
   },
   dictionary: {
     content_visible: "с пропусками: пр_б_й",
@@ -100,6 +36,7 @@ const FIELD_HINTS = {
     content_correct: "правильный ответ (сравнение без регистра)",
   },
 };
+
 
 export default function TaskItemsTab({
   taskId, trainerType = "options",
@@ -132,7 +69,6 @@ export default function TaskItemsTab({
       .catch(console.error),
   [taskId]);
 
-  // Сброс при смене taskId
   useEffect(() => {
     loadItems();
     setParsedItems([]);
@@ -140,11 +76,10 @@ export default function TaskItemsTab({
     setParseError("");
     setManualDraft(EMPTY_MANUAL);
     setEditingItemId(null);
-    setBulkSetId(defaultOptionSetId ? String(defaultOptionSetId) : ""); // ← фикс бага
+    setBulkSetId(defaultOptionSetId ? String(defaultOptionSetId) : "");
     dirtyRef.current = false;
   }, [taskId]);
 
-  // autoSave — только для ручного черновика
   const autoSave = useCallback(async () => {
     if (!dirtyRef.current) return;
     const { manualDraft, editingItemId } = snapRef.current;
@@ -181,6 +116,7 @@ export default function TaskItemsTab({
 
   useEffect(() => { registerAutoSave(autoSave); });
 
+
   // ── bulk ───────────────────────────────────────────────
   const handleParse = async () => {
     setParseError("");
@@ -193,34 +129,6 @@ export default function TaskItemsTab({
       return;
     }
 
-    // ── stress: фронтовый парсинг ──
-    if (trainerType === "stress") {
-      setParsedItems(parseStressItems(rawContent));
-      return;
-    }
-
-    // ── dictionary: фронтовый парсинг ──
-    if (trainerType === "dictionary") {
-      setParsedItems(parseDictionaryItems(rawContent));
-      return;
-    }
-
-    // ── {word, correct} — фронтовый парсинг ──
-    if (Array.isArray(rawContent) && rawContent[0]?.word !== undefined) {
-      setParsedItems(rawContent.map(it => ({
-        content_raw:       String(it.word),
-        content_visible:   String(it.word),
-        content_correct:   String(it.correct),
-        correct_option_id: options.find(
-          o => o.content.trim().toLowerCase() === String(it.correct).trim().toLowerCase()
-        )?.id ?? null,
-        notice_wrong: "",
-        notice_right: "",
-      })));
-      return;
-    }
-
-    // ── стандартный бэкенд-парсер ──
     const res = await fetch("/api/tasks/general/parse-raw", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -236,7 +144,7 @@ export default function TaskItemsTab({
       return;
     }
     const data = await res.json();
-    setParsedItems(data.map(it => ({ ...it, notice_wrong: "", notice_right: "" })));
+    setParsedItems(data.map(it => ({ ...it, notice_wrong: it.notice_wrong ?? "", notice_right: it.notice_right ?? "" })));
   };
 
   const handleSaveBulk = async () => {
@@ -264,6 +172,7 @@ export default function TaskItemsTab({
 
   const updateParsed = (idx, field, value) =>
     setParsedItems(prev => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
+
 
   // ── manual ─────────────────────────────────────────────
   const handleEditItem = async (item) => {
@@ -300,12 +209,9 @@ export default function TaskItemsTab({
     dirtyRef.current = true;
   };
 
-  // Показывать ли поля опций — не нужны для stress/input
   const showOptionFields = trainerType === "options" || trainerType === "dictionary";
-
   const hints = FIELD_HINTS[trainerType] ?? FIELD_HINTS.options;
 
-  // ── стили ──────────────────────────────────────────────
   const inlineInput  = {
     fontSize: "0.78rem", background: "transparent", color: "var(--text-color)",
     border: "1px solid rgba(255,255,255,0.18)", borderRadius: 4,
@@ -317,6 +223,7 @@ export default function TaskItemsTab({
     background: "#b00020", color: "#fff", cursor: "pointer", fontSize: "0.75rem",
   };
   const editBtn = { ...deleteBtn, background: "rgba(255,255,255,0.12)", marginRight: 4 };
+
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -332,7 +239,6 @@ export default function TaskItemsTab({
             {t.label}
           </button>
         ))}
-        {/* Метка активного типа тренажёра */}
         <span style={{
           marginLeft: "auto", fontSize: "0.75rem", opacity: 0.45,
           alignSelf: "center", paddingRight: 4,
@@ -341,41 +247,30 @@ export default function TaskItemsTab({
         </span>
       </div>
 
-      {/* ── верхняя часть: режим ── */}
       <div style={{ flex: "0 0 auto" }}>
 
         {/* BULK */}
         {mode === "bulk" && (
           <div>
-            {/* Парсер и набор опций — только для options */}
-            {trainerType === "options" && (
-              <>
-                <div className="form-editor__field">
-                  <label>Парсер</label>
-                  <select
-                    value={parserType}
-                    onChange={e => { setParserType(e.target.value); setParsedItems([]); setParseError(""); }}
-                  >
-                    {PARSERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-                  </select>
-                </div>
-                <div className="form-editor__field">
-                  <label>Набор опций</label>
-                  <select value={bulkSetId} onChange={e => setBulkSetId(e.target.value)}>
-                    <option value="">Без автоматчинга</option>
-                    {optionSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
-
-            {/* Подсказка формата */}
-            <div style={{ fontSize: "0.78rem", opacity: 0.45, marginBottom: 6 }}>
-              {trainerType === "stress"     && 'Формат: ["прИбой", "катАлог"] — заглавная = ударная'}
-              {trainerType === "dictionary" && 'Формат: ["прИбой"] или [{"visible":"пр_б_й","correct":"прибой"}]'}
-              {trainerType === "options"    && 'Формат: ["слово1", "слово2"] или [{word, correct}]'}
-              {trainerType === "input"      && 'Формат: [{word, correct}] или стандартный массив строк'}
+            <div className="form-editor__field">
+              <label>Парсер</label>
+              <select
+                value={parserType}
+                onChange={e => { setParserType(e.target.value); setParsedItems([]); setParseError(""); }}
+              >
+                {PARSERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
             </div>
+
+            {showOptionFields && (
+              <div className="form-editor__field">
+                <label>Набор опций</label>
+                <select value={bulkSetId} onChange={e => setBulkSetId(e.target.value)}>
+                  <option value="">Без автоматчинга</option>
+                  {optionSets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
 
             <div className="form-editor__field" style={{ flexDirection: "column", alignItems: "stretch" }}>
               <label style={{ marginBottom: 4 }}>Raw-массив (JSON)</label>
@@ -383,11 +278,7 @@ export default function TaskItemsTab({
                 value={rawText}
                 rows={4}
                 onChange={e => { setRawText(e.target.value); setParsedItems([]); setParseError(""); }}
-                placeholder={
-                  trainerType === "stress"     ? '["прИбой", "катАлог"]' :
-                  trainerType === "dictionary" ? '["прИбой"] или [{"visible":"пр_б_й","correct":"прибой"}]' :
-                  '["слово1", "слово2"]'
-                }
+                placeholder='["слово1", "слово2"] или [{word, correct}]'
               />
             </div>
 
@@ -404,7 +295,6 @@ export default function TaskItemsTab({
               )}
             </div>
 
-            {/* предпросмотр */}
             {parsedItems.length > 0 && (
               <div style={{ overflowX: "auto", marginTop: 8, marginBottom: 12 }}>
                 <table style={{ width: "100%", fontSize: "0.78rem", borderCollapse: "collapse" }}>
@@ -483,13 +373,11 @@ export default function TaskItemsTab({
               {editingItemId ? `Редактирование #${editingItemId}` : "Новый элемент"}
             </div>
 
-            {/* content_raw */}
             <div className="form-editor__field" style={{ marginBottom: 5 }}>
               <label style={{ minWidth: 80 }}>Raw</label>
               <input type="text" value={manualDraft.content_raw} onChange={setField("content_raw")} />
             </div>
 
-            {/* content_visible */}
             <div className="form-editor__field" style={{ marginBottom: 5 }}>
               <label style={{ minWidth: 80 }}>Visible</label>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -500,7 +388,6 @@ export default function TaskItemsTab({
               </div>
             </div>
 
-            {/* content_correct */}
             <div className="form-editor__field" style={{ marginBottom: 5 }}>
               <label style={{ minWidth: 80 }}>Correct</label>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -511,7 +398,6 @@ export default function TaskItemsTab({
               </div>
             </div>
 
-            {/* Notice */}
             {[
               { key: "notice_wrong", label: "Notice ✗" },
               { key: "notice_right", label: "Notice ✓" },
@@ -522,7 +408,6 @@ export default function TaskItemsTab({
               </div>
             ))}
 
-            {/* Поля опций — только для options/dictionary */}
             {showOptionFields && (
               <>
                 <div className="form-editor__field" style={{ marginBottom: 5 }}>
