@@ -36,15 +36,14 @@ services:
     environment:
       - TOKEN=${TOKEN}
       - WEB_APP_URL=${WEB_APP_URL}
-      - API_URL=http://backend:8000/api
+      - API_URL=http://localhost:8000/api
     working_dir: /app
     command: python main.py
     restart: unless-stopped
     mem_limit: 256m
-    networks:
-      - appnet
     depends_on:
       - backend 
+    network_mode: "host"
 
 networks:
   appnet:
