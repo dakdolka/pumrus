@@ -6,3 +6,4 @@ __pycache__
 
 .env
 alembic.ini
+backend/app/core/tasks/parsers/data/test.json

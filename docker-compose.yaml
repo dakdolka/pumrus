@@ -36,14 +36,17 @@ services:
     environment:
       - TOKEN=${TOKEN}
       - WEB_APP_URL=${WEB_APP_URL}
-      - API_URL=http://localhost:8000/api
+      - API_URL=http://backend:8000/api
     working_dir: /app
-    command: python main.py
+    command: ["python", "main.py"]   # <-- вот так безопасно
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
-      - backend 
-    network_mode: "host"
+      - backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - appnet
 
 networks:
   appnet:
