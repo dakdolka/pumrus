@@ -51,42 +51,45 @@ a, button, [role="button"] {
    ============================================================ */
 
 .mainTitle {
-    margin-top: 10px;
-    margin-bottom: 30px;
+    margin: 2rem auto 0rem auto; /* верх-низ отступы, центрирование по ширине */
     width: 95%;
-    padding: 10px 0;
+    padding: 1rem 0;
 
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 1rem; /* добавим вертикальный интервал между элементами */
 }
 
 .mainTitle__picture {
-    width: 195px;
-    height: 195px;
+    width: 12rem;
+    height: 12rem;
     border-radius: 50%;
-    background-image: url('/picture.jpg');
+    background-image: url('/picture.png');
     background-position: center;
     background-size: cover;
 }
 
 .mainTitle__title {
-    margin: 10px 0;
-    font-size: 2em;
+    font-size: 2rem;
     font-family: var(--chapter-text);
     color: var(--text-color);
+    margin: 0.5rem 0; /* гармоничный вертикальный отступ */
 }
 
 .mainTitle__text {
     width: 90%;
-    font-size: medium;
+    font-size: 1rem;
     font-family: var(--text-font);
     color: var(--text-color);
     font-weight: 600;
     text-align: center;
+    margin-top: 0.5rem; /* небольшой отступ сверху */
+    line-height: 1.5; /* увеличим читаемость */
 }
 
 .mainTitle__link {
+    margin-top: 0.5rem;
     color: var(--active-color);
     font-family: var(--chapter-text);
     letter-spacing: 1px;
@@ -97,8 +100,6 @@ a, button, [role="button"] {
 .mainTitle__link:hover {
     text-decoration: underline;
 }
-
-
 /* ============================================================
    SUBJECT BLOCK
    ============================================================ */

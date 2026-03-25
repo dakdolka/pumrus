@@ -356,9 +356,8 @@ function App() {
   const header = (
     <div ref={title} className="mainTitle">
       <div className="mainTitle__picture" />
-      <div className="mainTitle__title">PumRus</div>
       <div className="mainTitle__text">
-        Супер крутой бот для подготовки к ЕГЭ. Йоу да свег супер топ МММ ++
+        Супер крутой бот для подготовки к ЕГЭ :)
         <br />
         <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
       </div>
@@ -377,14 +376,14 @@ function App() {
     content = (
       <>
         {header}
-        <Chapter ref={mistakes} func={() => navigateToPage("mistakes")}>
-          Ошибки
+        <Chapter ref={theory} func={() => navigateToPage("theory")}>
+          Теория
         </Chapter>
         <Chapter ref={task} func={() => navigateToPage("trainers", { resetTask: true })}>
           Практика
         </Chapter>
-        <Chapter ref={theory} func={() => navigateToPage("theory")}>
-          Теория
+        <Chapter ref={mistakes} func={() => navigateToPage("mistakes")}>
+          Ошибки
         </Chapter>
       </>
     );

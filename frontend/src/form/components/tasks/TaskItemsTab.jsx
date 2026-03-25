@@ -5,9 +5,7 @@ const PARSERS = [
   { value: "caps",        label: "Caps — заглавная → пропуск" },
   { value: "custom_4",    label: "Custom4 — заглавная → строчная" },
   { value: "custom_json", label: "Под json с опциями" },
-  { value: "stress",      label: "Ударения — заглавная = ударная" },
-  { value: "dictionary",  label: "Словарные — заглавная = пропуск" },
-  { value: "word_correct", label: "Формат {word, correct}" },
+  { value: "words", label: "Для слов с буквами"}
 ];
 
 
@@ -223,7 +221,16 @@ export default function TaskItemsTab({
     background: "#b00020", color: "#fff", cursor: "pointer", fontSize: "0.75rem",
   };
   const editBtn = { ...deleteBtn, background: "rgba(255,255,255,0.12)", marginRight: 4 };
-
+  const renderValue = (val) => {
+    if (val == null) return "";
+    if (typeof val === "object") {
+      if ("word" in val) {
+        return `${val.word}${val.correct ? " ✓" : ""}`;
+      }
+      return JSON.stringify(val);
+    }
+    return val;
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
@@ -312,7 +319,7 @@ export default function TaskItemsTab({
                     {parsedItems.map((it, idx) => (
                       <tr key={idx} style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
                         <td style={{ padding: "3px 5px", opacity: 0.45 }}>{idx + 1}</td>
-                        <td style={{ padding: "3px 5px" }}>{it.content_raw}</td>
+                        <td style={{ padding: "3px 5px" }}>{renderValue(it.content_raw)}</td>
                         <td style={{ padding: "3px 5px" }}>
                           <input
                             type="text"
@@ -474,7 +481,7 @@ export default function TaskItemsTab({
                     }}
                   >
                     <td style={{ padding: "3px 5px", opacity: 0.45 }}>{idx + 1}</td>
-                    <td style={{ padding: "3px 5px" }}>{it.content_raw}</td>
+                    <td style={{ padding: "3px 5px" }}>{renderValue(it.content_raw)}</td>
                     <td style={{ padding: "3px 5px" }}>{it.content_visible}</td>
                     <td style={{ padding: "3px 5px", fontWeight: 600 }}>{it.content_correct}</td>
                     {showOptionFields && (

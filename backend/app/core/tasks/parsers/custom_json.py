@@ -39,7 +39,7 @@ class JsonParser(BaseParser):
         elif correct == "Дефис":
             content_correct = word.replace("(", "").replace(")", "-")
         else:
-            content_correct = word
+            content_correct = word + ' - ' + str(correct)
         return ParsedItem(
             content_raw=str(raw),
             content_visible=word,

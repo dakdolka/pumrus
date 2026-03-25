@@ -146,5 +146,5 @@ class ParsedItemOut(BaseModel):
     content_raw: str | dict
     content_visible: str
     content_correct: str
-    correct_options: List[str]
+    correct_options: List[str] | str
     correct_option_id: Optional[int] = None
