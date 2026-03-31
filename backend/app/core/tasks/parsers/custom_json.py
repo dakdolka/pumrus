@@ -33,7 +33,7 @@ class JsonParser(BaseParser):
 
 
         if correct == "Раздельно":
-            content_correct = word.replace("(", "").replace(")", " ").strip()
+            content_correct = word.replace(" (", " ").replace('(', ' ').replace(") ", " ").replace('),', ',').replace(')', ' ').strip()
         elif correct == "Слитно":
             content_correct = word.replace("(", "").replace(")", "")
         elif correct == "Дефис":
