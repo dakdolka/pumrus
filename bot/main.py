@@ -9,7 +9,7 @@ from handlers import all_rts
 async def main():
     # AiohttpSession с SOCKS5-прокси
     session = AiohttpSession(
-        proxy="socks5://host.docker.internal:10808"
+        proxy=settings.TG_PROXY
     )
 
     bot = Bot(

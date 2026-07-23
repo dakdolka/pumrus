@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   frontend:
     build:
@@ -37,16 +35,59 @@ services:
       - TOKEN=${TOKEN}
       - WEB_APP_URL=${WEB_APP_URL}
       - API_URL=http://backend:8000/api
+      - TG_PROXY=${TG_PROXY}
     working_dir: /app
     command: ["python", "main.py"]   # <-- вот так безопасно
     restart: unless-stopped
     mem_limit: 256m
     depends_on:
-      - backend
+      sing-box:
+          condition: service_healthy
+          restart: true
+      backend:
+          condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - appnet
+    
+  sing-box:
+    image: ghcr.io/sagernet/sing-box:v1.13.12
+    restart: unless-stopped
+    command:
+      - -D
+      - /var/lib/sing-box
+      - -C
+      - /etc/sing-box
+      - run
+    volumes:
+      - /etc/pumrus/sing-box:/etc/sing-box:ro
+      - sing_box_data:/var/lib/sing-box
+    networks:
+      - appnet
+    healthcheck:
+      test:
+        - CMD
+        - sing-box
+        - check
+        - -c
+        - /etc/sing-box/config.json
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  sing_box_data:
 
 networks:
   appnet:

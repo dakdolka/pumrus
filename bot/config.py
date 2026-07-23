@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     TOKEN: str
     WEB_APP_URL: str
     API_URL: str
+    TG_PROXY :str
 
     model_config = SettingsConfigDict(env_file=BASE_DIR / '.env')
 
