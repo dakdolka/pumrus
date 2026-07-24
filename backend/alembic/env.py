@@ -11,7 +11,7 @@ if config.config_file_name is not None:
 
 # Подтягиваем URL из settings и прописываем в alembic config
 from app.core.config import settings
-config.set_main_option("sqlalchemy.url", settings.db_url)
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 from app.core.db import Base
 import app.infra.tasks.general
@@ -19,12 +19,17 @@ import app.infra.tasks.sessions
 import app.infra.user.general
 import app.infra.user.mistakes
 import app.infra.theory
+import app.infra.catalog
 
 target_metadata = Base.metadata
 
 
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+    )
     with context.begin_transaction():  # ← синхронный, внутри run_sync
         context.run_migrations()
 

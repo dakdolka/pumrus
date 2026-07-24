@@ -54,7 +54,7 @@ class TaskBD(TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
     trainer_type: Mapped[TrainerType] = mapped_column(
-        SQLEnum(TrainerType, name="trainertype"),
+        SQLEnum(TrainerType, name="trainertype", native_enum=False),
         nullable=False,
         default=TrainerType.options,
         server_default=TrainerType.options.value,

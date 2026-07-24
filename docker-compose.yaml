@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-pumrus}
+      - POSTGRES_USER=${POSTGRES_USER:-pumrus}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pumrus} -d ${POSTGRES_DB:-pumrus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - appnet
+
   frontend:
     build:
       context: ./frontend
@@ -11,16 +28,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - host=${host}
-      - user=${user}
-      - password=${password}
-      - db=${db}
-      - port=${port}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-pumrus}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-pumrus}
     working_dir: /app
-    command: python -m app
+    command: ["sh", "-c", "alembic upgrade head && python -m app"]
     ports:
     - "8000:8000"
     mem_limit: 512m
+    depends_on:
+      postgres:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:172.17.0.1"
     networks:
@@ -96,6 +112,7 @@ services:
 
 volumes:
   sing_box_data:
+  postgres_data:
 
 networks:
   appnet:

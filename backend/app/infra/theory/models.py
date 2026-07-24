@@ -26,7 +26,10 @@ class TaskTheoryAssociation(TimestampMixin, Base):
 class TheoryTypeBD(Base):
     __tablename__ = "theory_type"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[TheoryType] = mapped_column(Enum(TheoryType), unique=True)
+    name: Mapped[TheoryType] = mapped_column(
+        Enum(TheoryType, name="theorytype", native_enum=False),
+        unique=True,
+    )
     theories: Mapped[list["TheoryBD"]] = relationship(
         secondary=theory2theory_type,
         back_populates="types"
@@ -55,7 +58,9 @@ class TheoryBlockBD(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     content: Mapped[str] = mapped_column(Text)
-    type: Mapped[Optional[BlockType]] = mapped_column(Enum(BlockType))
+    type: Mapped[Optional[BlockType]] = mapped_column(
+        Enum(BlockType, name="blocktype", native_enum=False)
+    )
     
     theory_id: Mapped[Optional[int]] = mapped_column(ForeignKey("theory.id", ondelete="CASCADE"), nullable=True)
     theory: Mapped["TheoryBD"] = relationship(back_populates="blocks")
