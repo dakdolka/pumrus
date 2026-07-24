@@ -19,7 +19,12 @@ function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
 
   useEffect(() => {
-    const update = () => setPath(window.location.pathname);
+    const update = () => {
+      setPath(window.location.pathname);
+      const key = `umrus:scroll:${window.location.pathname}${window.location.search}`;
+      const saved = Number(sessionStorage.getItem(key) || 0);
+      requestAnimationFrame(() => window.scrollTo({ top: saved, behavior: "auto" }));
+    };
     window.addEventListener("popstate", update);
     return () => window.removeEventListener("popstate", update);
   }, []);
@@ -27,9 +32,19 @@ function useRoute() {
   const navigate = useCallback((nextPath) => {
     const url = new URL(nextPath, window.location.origin);
     if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+    sessionStorage.setItem(
+      `umrus:scroll:${window.location.pathname}${window.location.search}`,
+      String(window.scrollY),
+    );
     window.history.pushState({}, "", nextPath);
     setPath(url.pathname);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const saved = Number(
+      sessionStorage.getItem(`umrus:scroll:${url.pathname}${url.search}`) || 0,
+    );
+    requestAnimationFrame(() => window.scrollTo({
+      top: saved,
+      behavior: saved ? "auto" : "smooth",
+    }));
   }, []);
 
   return { path, navigate };
@@ -61,6 +76,8 @@ function AppIcon({ type }) {
     arrow: "m9 5 7 7-7 7",
     back: "m15 5-7 7 7 7",
     check: "m5 12 4 4L19 6",
+    home: "M3.5 11.2 12 4l8.5 7.2M5.5 9.7V20h13V9.7M9.5 20v-6h5v6",
+    bookmark: "M7 3.5h10v17L12 17l-5 3.5v-17Z",
   };
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -73,11 +90,15 @@ function AppIcon({ type }) {
 
 
 function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
+  const backPath = breadcrumbs.length > 1
+    ? breadcrumbs[breadcrumbs.length - 2].path
+    : "/";
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     tg?.ready?.();
     tg?.expand?.();
-    const handleBack = () => window.history.back();
+    const handleBack = () => navigate(backPath || "/");
     if (breadcrumbs.length) {
       tg?.BackButton?.show?.();
       tg?.BackButton?.onClick?.(handleBack);
@@ -85,7 +106,7 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
       tg?.BackButton?.hide?.();
     }
     return () => tg?.BackButton?.offClick?.(handleBack);
-  }, [breadcrumbs.length]);
+  }, [backPath, breadcrumbs.length, navigate]);
 
   return (
     <div className="app-shell">
@@ -98,6 +119,9 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
 
       {(breadcrumbs.length > 0 || contextAction) && (
         <div className="navigation-strip">
+          <button className="home-button" onClick={() => navigate("/")} aria-label="На главную">
+            <AppIcon type="home" />
+          </button>
           <nav className="breadcrumbs" aria-label="Навигация">
             {breadcrumbs.map((item, index) => (
               <span className="breadcrumb-wrap" key={`${item.label}-${index}`}>
@@ -303,7 +327,7 @@ function TaskTheory({ taskNumber, navigate }) {
       ]}
       contextAction={{
         label: "Практика",
-        icon: "practice",
+        icon: "bookmark",
         onClick: () => navigate(`/practice/tasks/${taskNumber}?origin=theory`),
       }}
     >
@@ -362,7 +386,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
       ]}
       contextAction={{
         label: "Практика",
-        icon: "practice",
+        icon: "bookmark",
         onClick: () => navigate(
           `/practice/tasks/${taskNumber}?topic=${topicId}&origin=theory`,
         ),
@@ -389,8 +413,9 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
 function TheoryDocument({ document }) {
   const roots = useMemo(() => {
     const children = new Map();
+    const ids = new Set(document.blocks.map((block) => block.id));
     document.blocks.forEach((block) => {
-      const key = block.parentId || null;
+      const key = block.parentId && ids.has(block.parentId) ? block.parentId : null;
       children.set(key, [...(children.get(key) || []), block]);
     });
     return { roots: children.get(null) || [], children };
@@ -399,56 +424,113 @@ function TheoryDocument({ document }) {
   return (
     <article className="theory-document">
       {roots.roots.map((block) => (
-        <TheoryBlock key={block.id} block={block} childMap={roots.children} />
+        <TheoryBlock key={block.id} block={block} childMap={roots.children} depth={0} />
       ))}
     </article>
   );
 }
 
 
-function TheoryBlock({ block, childMap }) {
+function TheoryBlock({ block, childMap, depth }) {
+  const [sectionOpen, setSectionOpen] = useState(true);
   const children = childMap.get(block.id) || [];
   const markdown = block.data?.markdown || "";
   if (block.type === "section") {
     return (
-      <details className="theory-section">
+      <details
+        className={`theory-section depth-${Math.min(depth, 3)}`}
+        open={sectionOpen}
+        onToggle={(event) => setSectionOpen(event.currentTarget.open)}
+      >
         <summary>
           <span>{block.data?.title || "Подраздел"}</span>
           <i>+</i>
         </summary>
         <div className="theory-section-content">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} childMap={childMap} />
+            <TheoryBlock key={child.id} block={child} childMap={childMap} depth={depth + 1} />
           ))}
         </div>
       </details>
     );
   }
+
+  let content;
   if (block.type === "callout") {
-    return (
+    content = (
       <aside className={`callout callout-${block.data?.variant || "note"}`}>
         <span>{calloutLabel(block.data?.variant)}</span>
         <MarkdownText value={markdown} />
       </aside>
     );
-  }
-  if (block.type === "example") {
-    return (
+  } else if (block.type === "example") {
+    content = (
       <div className="example-block">
         <span>Пример</span>
         <MarkdownText value={markdown} />
       </div>
     );
-  }
-  if (block.type === "image") {
-    return block.data?.sourceType === "inline_svg" ? (
-      <div className="legacy-visual">Схема из исходного материала</div>
+  } else if (block.type === "image") {
+    const source = block.data?.sourceType === "inline_svg"
+      ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(block.data?.svg || "")}`
+      : block.data?.url;
+    content = source ? (
+      <figure className="theory-image">
+        <img src={source} alt={block.data?.alt || ""} />
+        {block.data?.caption && <figcaption>{block.data.caption}</figcaption>}
+      </figure>
     ) : null;
+  } else if (block.type === "list") {
+    const items = block.data?.items || [];
+    const ListTag = block.data?.style === "ordered" ? "ol" : "ul";
+    content = (
+      <ListTag className="theory-list">
+        {items.map((item, index) => <li key={index}>{String(item?.text || item)}</li>)}
+      </ListTag>
+    );
+  } else if (block.type === "table") {
+    const rows = block.data?.rows || [];
+    content = (
+      <div className="table-scroll">
+        <table>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {(row?.cells || row || []).map((cell, cellIndex) => (
+                  <td key={cellIndex}>{String(cell?.text || cell || "")}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  } else if (block.type === "video_embed" && block.data?.url) {
+    content = (
+      <a className="video-link" href={block.data.url} target="_blank" rel="noreferrer">
+        Открыть видео
+        <AppIcon type="arrow" />
+      </a>
+    );
+  } else {
+    const variant = block.settings?.variant;
+    if (variant === "heading_1") content = <h2>{markdown}</h2>;
+    else if (variant === "heading_2") content = <h3>{markdown}</h3>;
+    else content = <MarkdownText value={markdown} />;
   }
-  const variant = block.settings?.variant;
-  if (variant === "heading_1") return <h2>{markdown}</h2>;
-  if (variant === "heading_2") return <h3>{markdown}</h3>;
-  return <MarkdownText value={markdown} />;
+
+  return (
+    <div className={`theory-block theory-block-${block.type}`}>
+      {content}
+      {children.length > 0 && (
+        <div className="theory-nested">
+          {children.map((child) => (
+            <TheoryBlock key={child.id} block={child} childMap={childMap} depth={depth + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 
@@ -467,10 +549,24 @@ function MarkdownText({ value }) {
   return (
     <div className="rich-text">
       {String(value || "").split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
+        <p key={index}><InlineMarkdown value={paragraph} /></p>
       ))}
     </div>
   );
+}
+
+
+function InlineMarkdown({ value }) {
+  const parts = String(value || "").split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={index}>{part.slice(1, -1)}</code>;
+    }
+    return part;
+  });
 }
 
 
@@ -489,18 +585,21 @@ function PracticeTask({ taskNumber, navigate }) {
       breadcrumbs={theoryOrigin ? [
         { label: "Теория", icon: "theory", path: "/theory" },
         { label: `Задание ${taskNumber}`, number: taskNumber, path: `/theory/tasks/${taskNumber}` },
-        ...(topicId ? [{ label: state.data?.sets?.[0]?.topicTitle || "Тема" }] : []),
+        ...(topicId ? [{
+          label: state.data?.sets?.[0]?.topicTitle || "Тема",
+          path: `/theory/tasks/${taskNumber}/topics/${topicId}`,
+        }] : []),
       ] : [
         { label: "Практика", icon: "practice", path: "/practice" },
         { label: `Задание ${taskNumber}`, number: taskNumber },
       ]}
       contextAction={theoryOrigin ? {
         label: "Практика",
-        icon: "practice",
+        icon: "bookmark",
         onClick: () => {},
       } : {
         label: "Теория",
-        icon: "theory",
+        icon: "bookmark",
         onClick: () => navigate(
           topicId
             ? `/theory/tasks/${taskNumber}/topics/${topicId}`
@@ -594,6 +693,13 @@ function PracticeSession({ sessionId, navigate }) {
     localStorage.setItem(key, JSON.stringify(response));
   }, [session?.id, index, response]);
 
+  const navigateFromSession = useCallback((nextPath) => {
+    if (!theoryOrigin && session?.status === "active") {
+      api(`/v2/practice/sessions/${session.id}/close`, { method: "POST" }).catch(() => {});
+    }
+    navigate(nextPath);
+  }, [navigate, session?.id, session?.status, theoryOrigin]);
+
   if (state.loading) {
     return <Shell navigate={navigate}><Loading /></Shell>;
   }
@@ -634,7 +740,7 @@ function PracticeSession({ sessionId, navigate }) {
   const finished = answered && index + 1 >= session.items.length;
   return (
     <Shell
-      navigate={navigate}
+      navigate={navigateFromSession}
       breadcrumbs={theoryOrigin ? [
         { label: "Теория", icon: "theory", path: "/theory" },
         {
@@ -642,16 +748,31 @@ function PracticeSession({ sessionId, navigate }) {
           number: session.context.taskNumber,
           path: `/theory/tasks/${session.context.taskNumber}`,
         },
-        ...(session.context.topicId ? [{ label: session.context.topicTitle }] : []),
+        ...(session.context.topicId ? [{
+          label: session.context.topicTitle,
+          path: `/theory/tasks/${session.context.taskNumber}/topics/${session.context.topicId}`,
+        }] : []),
       ] : [
         { label: "Практика", icon: "practice", path: "/practice" },
         { label: "Сессия", number: session.context.taskNumber },
       ]}
       contextAction={theoryOrigin ? {
-        label: "Практика",
-        icon: "practice",
-        onClick: () => {},
-      } : null}
+        label: "Вернуться к теории",
+        icon: "bookmark",
+        onClick: () => navigateFromSession(
+          session.context.topicId
+            ? `/theory/tasks/${session.context.taskNumber}/topics/${session.context.topicId}`
+            : `/theory/tasks/${session.context.taskNumber}`,
+        ),
+      } : {
+        label: "Открыть теорию",
+        icon: "bookmark",
+        onClick: () => setTheoryLink({
+          label: session.context.topicTitle || `Теория задания ${session.context.taskNumber}`,
+          taskNumber: session.context.taskNumber,
+          topicId: session.context.topicId,
+        }),
+      }}
     >
       <section className="trainer">
         <div className="trainer-meta">
