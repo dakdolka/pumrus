@@ -130,3 +130,23 @@ docker compose run --rm backend \
 
 The command is transactional and refuses to run if legacy theory has already
 been transformed.
+
+## Transform legacy exercises
+
+Preview the confirmed trainer mappings and validate every answer:
+
+```bash
+docker compose run --rm backend \
+  python -m app.scripts.transform_legacy_exercises
+```
+
+The dry run writes nothing and stops if a trainer has no confirmed catalog
+scope or an answer cannot be converted. After checking the report:
+
+```bash
+docker compose run --rm backend \
+  python -m app.scripts.transform_legacy_exercises --execute
+```
+
+Each legacy item becomes one published, versioned exercise linked to its exam
+task, optional topic, and exercise set. The legacy tables remain unchanged.

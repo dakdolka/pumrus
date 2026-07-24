@@ -21,6 +21,7 @@ import app.infra.user.mistakes
 import app.infra.theory
 import app.infra.catalog
 import app.infra.content
+import app.infra.exercises
 
 target_metadata = Base.metadata
 
