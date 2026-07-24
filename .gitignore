@@ -5,5 +5,7 @@
 __pycache__
 
 .env
+*.env
+!.env.example
 alembic.ini
 backend/app/core/tasks/parsers/data/test.json

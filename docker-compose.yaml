@@ -36,6 +36,12 @@ services:
       - WEB_APP_URL=${WEB_APP_URL}
       - API_URL=http://backend:8000/api
       - TG_PROXY=${TG_PROXY}
+      - BOT_MODE=${BOT_MODE:-polling}
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
+      - WEBHOOK_PATH=${WEBHOOK_PATH:-/telegram/webhook}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
+      - WEBHOOK_HOST=0.0.0.0
+      - WEBHOOK_PORT=8080
     working_dir: /app
     command: ["python", "main.py"]   # <-- вот так безопасно
     restart: unless-stopped
@@ -48,6 +54,8 @@ services:
           condition: service_started
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "${WEBHOOK_PORT:-8080}:8080"
     networks:
       - appnet
     
