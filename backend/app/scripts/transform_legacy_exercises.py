@@ -36,6 +36,7 @@ CONFIRMED_TASK_RULES = (
     (("11", "задан"), 11, None),
     (("словарн", "слов"), 9, "Словарные слова"),
     (("14", "задан"), 14, None),
+    (("18", "запоминал"), 18, None),
 )
 
 
@@ -63,6 +64,13 @@ def _stress_position(correct: str) -> int | None:
         and character != character.lower()
     ]
     return positions[0] if len(positions) == 1 else None
+
+
+def _is_empty_item(item: dict[str, Any]) -> bool:
+    return not any(
+        str(item.get(field) or "").strip()
+        for field in ("content_raw", "content_visible", "content_correct")
+    )
 
 
 def _convert_item(
@@ -257,18 +265,24 @@ async def _build_plan(
     plan: list[dict[str, Any]] = []
     problems: list[str] = []
     print("Exercise v2 transformation plan:")
+    total_skipped_empty = 0
     for task in tasks:
         scope = _scope_for_task(task["name"])
-        item_count = len(items_by_task[task["id"]])
+        legacy_items = items_by_task[task["id"]]
+        empty_items = [item for item in legacy_items if _is_empty_item(item)]
+        importable_items = [item for item in legacy_items if not _is_empty_item(item)]
+        item_count = len(importable_items)
+        total_skipped_empty += len(empty_items)
         if scope is None:
             problems.append(
                 f"legacy task {task['id']}: {task['name']} "
-                f"({task['trainer_type']}, {item_count} items) has no confirmed scope"
+                f"({task['trainer_type']}, {len(legacy_items)} items) "
+                "has no confirmed scope"
             )
             continue
         task_number, topic_title = scope
         invalid_items = 0
-        for item in items_by_task[task["id"]]:
+        for item in importable_items:
             try:
                 options = await _options_for_item(session, task, item)
                 _convert_item(task, item, options)
@@ -285,17 +299,22 @@ async def _build_plan(
                 "task_number": task_number,
                 "topic_title": topic_title,
                 "item_count": item_count,
+                "skipped_empty_count": len(empty_items),
                 "invalid_items": invalid_items,
             }
         )
         topic_suffix = f", topic '{topic_title}'" if topic_title else ""
+        skipped_suffix = (
+            f", skipped empty={len(empty_items)}" if empty_items else ""
+        )
         print(
             f"  trainer {task['id']}: {task['name']} "
             f"({task['trainer_type']}, {item_count} items) "
-            f"-> task {task_number}{topic_suffix}"
+            f"-> task {task_number}{topic_suffix}{skipped_suffix}"
         )
     print(f"  trainers ready: {len(plan)}")
     print(f"  exercises ready: {sum(item['item_count'] for item in plan)}")
+    print(f"  empty legacy items skipped: {total_skipped_empty}")
     print(f"  blocking problems: {len(problems)}")
     for problem in problems:
         print(f"  unresolved: {problem}")
@@ -363,7 +382,12 @@ async def _transform(
         await session.flush()
 
         converted_types: Counter[str] = Counter()
-        for position, item in enumerate(items_by_task[legacy_task["id"]], start=1):
+        importable_items = [
+            item
+            for item in items_by_task[legacy_task["id"]]
+            if not _is_empty_item(item)
+        ]
+        for position, item in enumerate(importable_items, start=1):
             options = await _options_for_item(session, legacy_task, item)
             converted = _convert_item(legacy_task, item, options)
             converted_types[converted["interaction_type"]] += 1
