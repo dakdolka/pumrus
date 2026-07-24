@@ -193,7 +193,9 @@ function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp || {};
     tg.ready?.();
-    tg.expand?.();
+    if (tg.requestFullscreen) {
+      tg.requestFullscreen();
+    }
 
     const params = tg.themeParams || {};
     const isDark = tg.colorScheme === "dark";
