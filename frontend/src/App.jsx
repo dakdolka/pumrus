@@ -94,7 +94,6 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
           <span className="brand-mark">У</span>
           <span>UmRus</span>
         </button>
-        <span className="topbar-caption">ЕГЭ по русскому</span>
       </header>
 
       {(breadcrumbs.length > 0 || contextAction) && (
@@ -107,8 +106,11 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
                   className={index === breadcrumbs.length - 1 ? "breadcrumb active" : "breadcrumb"}
                   onClick={() => item.path && navigate(item.path)}
                   disabled={!item.path}
+                  aria-label={item.label}
                 >
-                  {item.label}
+                  {item.icon && <AppIcon type={item.icon} />}
+                  {item.number && <span className="breadcrumb-number">{item.number}</span>}
+                  {!item.icon && !item.number && item.label}
                 </button>
               </span>
             ))}
@@ -116,7 +118,7 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
           {contextAction && (
             <button className="context-switch" onClick={contextAction.onClick}>
               <AppIcon type={contextAction.icon} />
-              <span>{contextAction.label}</span>
+              <span className="visually-hidden">{contextAction.label}</span>
             </button>
           )}
         </div>
@@ -157,11 +159,7 @@ function Home({ navigate }) {
         <div className="hero-orbit orbit-one" />
         <div className="hero-orbit orbit-two" />
         <p className="eyebrow">Подготовка без хаоса</p>
-        <h1>Русский становится<br /><em>понятным</em></h1>
-        <p className="hero-copy">
-          Короткая теория по каждой теме и практика, которая помогает
-          закрепить материал сразу.
-        </p>
+        <h1>Русский язык становится <em>понятным</em></h1>
         <div className="mode-grid">
           <button className="mode-card theory-card" onClick={() => navigate("/theory")}>
             <span className="mode-icon"><AppIcon type="theory" /></span>
@@ -179,10 +177,6 @@ function Home({ navigate }) {
           </button>
         </div>
       </section>
-      <section className="home-note">
-        <span className="note-number">27</span>
-        <p>заданий ЕГЭ — в единой структуре, чтобы всегда понимать, что изучать дальше.</p>
-      </section>
     </Shell>
   );
 }
@@ -195,42 +189,93 @@ function TaskCatalog({ mode, navigate }) {
   return (
     <Shell
       navigate={navigate}
-      breadcrumbs={[{ label: title }]}
+      breadcrumbs={[{ label: title, icon: mode }]}
     >
-      <section className="page-head">
-        <p className="eyebrow">{isTheory ? "База знаний" : "Тренажёры"}</p>
-        <h1>{isTheory ? "Выберите задание" : "Что тренируем?"}</h1>
-        <p>
-          {isTheory
-            ? "Внутри — темы и правила, собранные под структуру экзамена."
-            : "Откройте задание и выберите доступную подборку упражнений."}
-        </p>
+      <section className="catalog-title">
+        <h1>{title}</h1>
+        <InfoButton
+          title={title}
+          text={isTheory
+            ? "Выберите номер задания, чтобы открыть связанные темы и правила."
+            : "Выберите задание, затем доступную подборку упражнений. Ошибки появятся здесь отдельным режимом."}
+        />
       </section>
       {state.loading && <Loading />}
       {state.error && <ErrorState message={state.error} />}
       {state.data && (
         <section className="task-list">
-          {state.data.map((task) => (
-            <button
-              className="task-row"
-              key={task.id}
-              onClick={() => navigate(`/${mode}/tasks/${task.number}`)}
-            >
-              <span className="task-number">{String(task.number).padStart(2, "0")}</span>
-              <span className="task-content">
-                <strong>{task.title || `Задание ${task.number}`}</strong>
-                <small>
-                  {isTheory
-                    ? (task.topicCount ? `${task.topicCount} ${topicWord(task.topicCount)}` : "Материалы готовятся")
-                    : "Открыть тренажёры"}
-                </small>
-              </span>
-              <span className="row-arrow"><AppIcon type="arrow" /></span>
-            </button>
+          {groupTasks(state.data).map((group) => (
+            <div className={group.label ? "task-group" : "task-group standalone"} key={group.key}>
+              {group.label && <div className="group-rail"><span>{group.label}</span></div>}
+              <div className="task-group-rows">
+                {group.tasks.map((task) => (
+                  <button
+                    className="task-row"
+                    key={task.id}
+                    onClick={() => navigate(`/${mode}/tasks/${task.number}`)}
+                  >
+                    <span className="task-number">{task.number}</span>
+                    <span className="task-content">
+                      <strong>{task.title || `Задание ${task.number}`}</strong>
+                      {isTheory && task.topicCount > 0 && (
+                        <small>{task.topicCount} {topicWord(task.topicCount)}</small>
+                      )}
+                    </span>
+                    <span className="row-arrow"><AppIcon type="arrow" /></span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </section>
       )}
     </Shell>
+  );
+}
+
+
+function groupTasks(tasks) {
+  const definitions = [
+    { from: 1, to: 3, label: "Мини-текст" },
+    { from: 4, to: 4, label: null },
+    { from: 5, to: 7, label: "Лексика" },
+    { from: 8, to: 8, label: null },
+    { from: 9, to: 15, label: "Орфография" },
+    { from: 16, to: 21, label: "Пунктуация" },
+    { from: 22, to: 22, label: null },
+    { from: 23, to: 26, label: "Текст" },
+    { from: 27, to: 27, label: null },
+  ];
+  return definitions
+    .map((definition) => ({
+      ...definition,
+      key: `${definition.from}-${definition.to}`,
+      tasks: tasks.filter(
+        (task) => task.number >= definition.from && task.number <= definition.to,
+      ),
+    }))
+    .filter((group) => group.tasks.length);
+}
+
+
+function InfoButton({ title, text }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button className="info-button" aria-label={`О разделе «${title}»`} onClick={() => setOpen(true)}>
+        ?
+      </button>
+      {open && (
+        <div className="info-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
+          <section className="info-popup" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="popup-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+            <p className="eyebrow">О разделе</p>
+            <h2>{title}</h2>
+            <p>{text}</p>
+          </section>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -253,8 +298,8 @@ function TaskTheory({ taskNumber, navigate }) {
     <Shell
       navigate={navigate}
       breadcrumbs={[
-        { label: "Теория", path: "/theory" },
-        { label: `Задание ${taskNumber}` },
+        { label: "Теория", icon: "theory", path: "/theory" },
+        { label: `Задание ${taskNumber}`, number: taskNumber },
       ]}
       contextAction={{
         label: "Практика",
@@ -311,8 +356,8 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
     <Shell
       navigate={navigate}
       breadcrumbs={[
-        { label: "Теория", path: "/theory" },
-        { label: `Задание ${taskNumber}`, path: `/theory/tasks/${taskNumber}` },
+        { label: "Теория", icon: "theory", path: "/theory" },
+        { label: `Задание ${taskNumber}`, number: taskNumber, path: `/theory/tasks/${taskNumber}` },
         { label: state.data?.title || "Тема" },
       ]}
       contextAction={{
@@ -366,12 +411,17 @@ function TheoryBlock({ block, childMap }) {
   const markdown = block.data?.markdown || "";
   if (block.type === "section") {
     return (
-      <section className="theory-section">
-        {block.data?.title && <h2>{block.data.title}</h2>}
-        {children.map((child) => (
-          <TheoryBlock key={child.id} block={child} childMap={childMap} />
-        ))}
-      </section>
+      <details className="theory-section">
+        <summary>
+          <span>{block.data?.title || "Подраздел"}</span>
+          <i>+</i>
+        </summary>
+        <div className="theory-section-content">
+          {children.map((child) => (
+            <TheoryBlock key={child.id} block={child} childMap={childMap} />
+          ))}
+        </div>
+      </details>
     );
   }
   if (block.type === "callout") {
@@ -437,12 +487,12 @@ function PracticeTask({ taskNumber, navigate }) {
     <Shell
       navigate={navigate}
       breadcrumbs={theoryOrigin ? [
-        { label: "Теория", path: "/theory" },
-        { label: `Задание ${taskNumber}`, path: `/theory/tasks/${taskNumber}` },
+        { label: "Теория", icon: "theory", path: "/theory" },
+        { label: `Задание ${taskNumber}`, number: taskNumber, path: `/theory/tasks/${taskNumber}` },
         ...(topicId ? [{ label: state.data?.sets?.[0]?.topicTitle || "Тема" }] : []),
       ] : [
-        { label: "Практика", path: "/practice" },
-        { label: `Задание ${taskNumber}` },
+        { label: "Практика", icon: "practice", path: "/practice" },
+        { label: `Задание ${taskNumber}`, number: taskNumber },
       ]}
       contextAction={theoryOrigin ? {
         label: "Практика",
@@ -586,15 +636,16 @@ function PracticeSession({ sessionId, navigate }) {
     <Shell
       navigate={navigate}
       breadcrumbs={theoryOrigin ? [
-        { label: "Теория", path: "/theory" },
+        { label: "Теория", icon: "theory", path: "/theory" },
         {
           label: `Задание ${session.context.taskNumber}`,
+          number: session.context.taskNumber,
           path: `/theory/tasks/${session.context.taskNumber}`,
         },
         ...(session.context.topicId ? [{ label: session.context.topicTitle }] : []),
       ] : [
-        { label: "Практика", path: "/practice" },
-        { label: "Сессия" },
+        { label: "Практика", icon: "practice", path: "/practice" },
+        { label: "Сессия", number: session.context.taskNumber },
       ]}
       contextAction={theoryOrigin ? {
         label: "Практика",
@@ -822,6 +873,40 @@ function resolveRoute(path) {
 export default function App() {
   const { path, navigate } = useRoute();
   const route = resolveRoute(path);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    const applyTheme = () => {
+      const root = document.documentElement;
+      const params = tg?.themeParams || {};
+      const theme = tg?.colorScheme === "light" ? "light" : "dark";
+      root.dataset.theme = theme;
+      const values = {
+        "--paper": params.bg_color,
+        "--surface": params.secondary_bg_color || params.section_bg_color,
+        "--ink": params.text_color,
+        "--muted": params.hint_color,
+        "--blue": params.button_color || params.link_color,
+        "--button-text": params.button_text_color,
+        "--line": params.section_separator_color,
+      };
+      Object.entries(values).forEach(([name, value]) => {
+        if (value) root.style.setProperty(name, value);
+      });
+    };
+
+    applyTheme();
+    tg?.ready?.();
+    tg?.expand?.();
+    tg?.disableVerticalSwipes?.();
+    try {
+      tg?.requestFullscreen?.();
+    } catch {
+      // Older Telegram clients keep the expanded, non-fullscreen mode.
+    }
+    tg?.onEvent?.("themeChanged", applyTheme);
+    return () => tg?.offEvent?.("themeChanged", applyTheme);
+  }, []);
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
