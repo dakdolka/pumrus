@@ -45,6 +45,9 @@ def _normalise(value: str) -> str:
 
 def _scope_for_task(name: str) -> tuple[int, str | None] | None:
     normalised = _normalise(name)
+    # The confirmed legacy task 11 is named simply "11..." in the source DB.
+    if re.match(r"^11(?:\D|$)", normalised):
+        return 11, None
     for needles, task_number, topic_title in CONFIRMED_TASK_RULES:
         if all(needle in normalised for needle in needles):
             return task_number, topic_title
@@ -271,7 +274,11 @@ async def _build_plan(
                 _convert_item(task, item, options)
             except ValueError as error:
                 invalid_items += 1
-                problems.append(f"task {task['id']} item {item['id']}: {error}")
+                problems.append(
+                    f"task {task['id']} item {item['id']}: {error}; "
+                    f"visible={item['content_visible']!r}; "
+                    f"correct={item['content_correct']!r}"
+                )
         plan.append(
             {
                 "legacy_task": task,
