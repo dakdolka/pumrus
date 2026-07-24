@@ -67,9 +67,11 @@ def _stress_position(correct: str) -> int | None:
 
 
 def _is_empty_item(item: dict[str, Any]) -> bool:
+    # content_raw may contain parser/source residue even when the learner-facing
+    # prompt and answer are both empty. Such a row cannot form an exercise.
     return not any(
         str(item.get(field) or "").strip()
-        for field in ("content_raw", "content_visible", "content_correct")
+        for field in ("content_visible", "content_correct")
     )
 
 
