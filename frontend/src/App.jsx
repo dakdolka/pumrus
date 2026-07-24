@@ -1,557 +1,861 @@
-import { useRef, useState, useEffect } from "react";
-import "./General.css";
-import Chapter from "./components/Chapter/chapter.jsx";
-import { Element, TaskElement, Popup } from "./components.jsx";
-import { TaskSelect }        from "./components/trainers/TaskSelect.jsx";
-import { UniversalTrainer }  from "./components/trainers/UniversalTrainer.jsx";
-import { MistakesPage }      from "./components/mistakes/MistakesPage.jsx";
-import { PracticeTrainer }   from "./components/mistakes/PracticeTrainer.jsx";
-import { getStorageKey }     from "./components/trainers/trainerUtils.js";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import "./app.css";
 
 
-function Option({ children, onSelect, theme_id }) {
-  const [isChosen, setMood] = useState(false);
+async function api(path, options = {}) {
+  const response = await fetch(`/api${path}`, {
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || "Не удалось выполнить запрос");
+  }
+  return response.json();
+}
+
+
+function useRoute() {
+  const [path, setPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const update = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", update);
+    return () => window.removeEventListener("popstate", update);
+  }, []);
+
+  const navigate = useCallback((nextPath) => {
+    const url = new URL(nextPath, window.location.origin);
+    if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+    window.history.pushState({}, "", nextPath);
+    setPath(url.pathname);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  return { path, navigate };
+}
+
+
+function useRemote(loader, dependencies) {
+  const [state, setState] = useState({ loading: true, data: null, error: "" });
+  useEffect(() => {
+    let active = true;
+    setState({ loading: true, data: null, error: "" });
+    loader()
+      .then((data) => active && setState({ loading: false, data, error: "" }))
+      .catch((error) => active && setState({
+        loading: false,
+        data: null,
+        error: error.message,
+      }));
+    return () => { active = false; };
+  }, dependencies);
+  return state;
+}
+
+
+function AppIcon({ type }) {
+  const paths = {
+    theory: "M6 4.8A3.8 3.8 0 0 1 9.8 1H12v16H9.8A3.8 3.8 0 0 0 6 20.8V4.8Zm12 0A3.8 3.8 0 0 0 14.2 1H12v16h2.2a3.8 3.8 0 0 1 3.8 3.8V4.8Z",
+    practice: "m5 16.8 9.9-9.9 2.2 2.2-9.9 9.9-3 .8.8-3Zm10.9-10.9 1.2-1.2a1.6 1.6 0 0 1 2.2 0l.9.9a1.6 1.6 0 0 1 0 2.2L19 9.1l-3.1-3.2Z",
+    arrow: "m9 5 7 7-7 7",
+    back: "m15 5-7 7 7 7",
+    check: "m5 12 4 4L19 6",
+  };
   return (
-    <div
-      className="option"
-      data-ischosen={isChosen.toString()}
-      onClick={() => {
-        setMood((prev) => {
-          onSelect(theme_id, !prev);
-          return !prev;
-        });
-      }}
-    >
-      <div className={isChosen ? "option__button option__button--active" : "option__button"} />
-      <div className="option__nameBlock">
-        <div className="option__name">{children}</div>
-      </div>
-    </div>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={paths[type]} fill={type === "theory" ? "currentColor" : "none"}
+        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
+        strokeLinejoin="round" />
+    </svg>
   );
 }
 
 
-function TheoryChoose({
-  preloadedRules, preloadedTasks, availableTypes,
-  isPopup, setPopup, content, setContent,
-}) {
-  const task  = useRef();
-  const theme = useRef();
-
-  const [isTaskActive,  setTaskMood]    = useState(false);
-  const [isThemeActive, setThemeMood]   = useState(false);
-  const [chosenBlock,   setChosenBlock] = useState([]);
-  const [viewRules,     setViewRules]   = useState([]);
-  const [rules,         setRules]       = useState(preloadedRules || []);
-  const [tasks,         setTasks]       = useState(preloadedTasks || []);
-
-  useEffect(() => {
-    if (!preloadedRules) {
-      fetch(`/api/theory/all_theory`).then(r => r.json()).then(setRules).catch(console.error);
-    }
-  }, [preloadedRules]);
-
-  useEffect(() => {
-    if (!preloadedTasks) {
-      fetch(`/api/theory/get_tasks_theory`).then(r => r.json()).then(setTasks).catch(console.error);
-    }
-  }, [preloadedTasks]);
-
-  function handleSelect(id, isChoose) {
-    setChosenBlock(prev =>
-      isChoose ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter(i => i !== id)
-    );
-  }
-
-  useEffect(() => {
-    if (chosenBlock.length === 0) {
-      setViewRules(rules);
-    } else {
-      const filtered = [];
-      rules.forEach(item => {
-        (item.types || []).forEach(type => {
-          if (chosenBlock.includes(type.id)) filtered.push(item);
-        });
-      });
-      setViewRules(filtered);
-    }
-  }, [chosenBlock, rules]);
-
-  function showContent(parent) {
-    if (parent === "task") {
-      setTaskMood(prev => !prev);
-      if (isThemeActive) setThemeMood(false);
-    } else {
-      setThemeMood(prev => !prev);
-      if (isTaskActive) setTaskMood(false);
-    }
-  }
-
-  return (
-    <>
-      <div className="theoryChoose">
-        <div
-          ref={task}
-          className={isTaskActive
-            ? "theoryChoose__elem theoryChoose__task--active"
-            : "theoryChoose__elem theoryChoose__task--hidden"}
-          onClick={() => showContent("task")}
-        >Задания</div>
-        <div
-          ref={theme}
-          className={isThemeActive
-            ? "theoryChoose__elem theoryChoose__theme--active"
-            : "theoryChoose__elem theoryChoose__theme--hidden"}
-          onClick={() => showContent("theme")}
-        >Темы</div>
-      </div>
-
-      <div className={isThemeActive
-        ? "theoryChoose__block theoryChoose__block--active"
-        : "theoryChoose__block--hidden"}
-      >
-        {(availableTypes || []).map(type => (
-          <Option key={type.id} theme_id={type.id} onSelect={handleSelect}>
-            {type.name}
-          </Option>
-        ))}
-      </div>
-
-      <div className={isThemeActive ? "elementBlock elementBlock--small" : "elementBlock elementBlock--big"}>
-        {isTaskActive === false
-          ? viewRules.map((item, index) => (
-              <Element key={index} theory_id={item.id} setPopup={setPopup} setContent={setContent}>
-                {item.name}
-              </Element>
-            ))
-          : tasks.map((item, index) => (
-              <TaskElement
-                key={index}
-                is_single={item.is_single}
-                content={item.tasks}
-                setPopup={setPopup}
-                setContent={setContent}
-              >
-                {item.group_name}
-              </TaskElement>
-            ))
-        }
-      </div>
-    </>
-  );
-}
-
-
-// ─── App ──────────────────────────────────────────────────────────────────────
-
-function App() {
-  const task           = useRef();
-  const theory         = useRef();
-  const mistakes       = useRef();
-  const title          = useRef();
-  const trainerExitRef = useRef(null);
-
-  const [userId,          setUserId]          = useState(null);
-  const [selectedTask,    setSelectedTask]    = useState(null);
-  const [allTasks,        setAllTasks]        = useState([]);
-  const [tasksLoading,    setTasksLoading]    = useState(false);
-  const [tasksError,      setTasksError]      = useState('');
-
-  // Отработка ошибок
-  const [practiceTask,     setPracticeTask]     = useState(null);
-  const [practiceMistakes, setPracticeMistakes] = useState([]);
-  const [mistakesRefresh,  setMistakesRefresh]  = useState(0);
-
-  const [isFadingOut,          setIsFadingOut]          = useState(false);
-  const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
-  const [isContentReady,       setIsContentReady]       = useState(false);
-  const [theoryCache,          setTheoryCache]          = useState({});
-  const [page,                 setPage]                 = useState("subject");
-
-  const [isTheoryPopupOpen,  setIsTheoryPopupOpen]  = useState(false);
-  const [theoryPopupContent, setTheoryPopupContent] = useState({ title: "Отсутствует", blocks: [] });
-
-
-  // ── Загрузка заданий ──────────────────────────────────
-  async function loadTasks() {
-    setTasksLoading(true);
-    setTasksError('');
-    try {
-      const all    = await fetch('/api/tasks/general/').then(r => r.json());
-      const active = all.filter(t => t.items?.length > 0);
-      setAllTasks(active);
-    } catch (e) {
-      console.error('loadTasks error:', e);
-      setTasksError('Не удалось загрузить задания');
-    } finally {
-      setTasksLoading(false);
-    }
-  }
-
-
-  // ── Telegram WebApp init ───────────────────────────────
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp || {};
-    tg.ready?.();
-    if (tg.requestFullscreen) {
-      tg.requestFullscreen();
-    }
-
-    const params = tg.themeParams || {};
-    const isDark = tg.colorScheme === "dark";
-    const root   = document.documentElement;
-    const setVar = (name, value) => { if (value) root.style.setProperty(`--${name}`, value); };
-
-    document.body.classList.toggle("theme--light", !isDark);
-    document.body.classList.toggle("theme--dark",   isDark);
-
-    setVar("text-color",  params.text_color);
-    setVar("main-color",  params.bg_color);
-    setVar("block-color", params.secondary_bg_color || params.section_bg_color);
-
-    const accent = isDark ? "rgb(255, 200, 100)" : params.header_bg_color || "#3b6fd4";
-    const mix    = isDark ? "10%" : "7%";
-    setVar("active-color", accent);
-    root.style.setProperty("--rule-color", `color-mix(in srgb, ${accent} ${mix}, transparent)`);
-
-    const tgUser = tg.initDataUnsafe?.user;
-    if (tgUser?.id) {
-      fetch('/api/users/get-or-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tg_id:       String(tgUser.id),
-          name:        tgUser.first_name ?? 'User',
-          second_name: tgUser.last_name  ?? '',
-          username:    tgUser.username   ?? null,
-          avatar_url:  null,
-        }),
-      })
-        .then(r => r.json())
-        .then(data => setUserId(data.user.id))
-        .catch(console.error);
-    }
-  }, []);
-
-
-  // ── Touch-эффекты ─────────────────────────────────────
-  useEffect(() => {
-    const onStart = e => { const b = e.target.closest("button"); if (b) b.classList.add("is-pressed"); };
-    const onEnd   = e => { const b = e.target.closest("button"); if (b) setTimeout(() => b.classList.remove("is-pressed"), 270); };
-    document.addEventListener("touchstart", onStart, { passive: true });
-    document.addEventListener("touchend",   onEnd,   { passive: true });
-    return () => {
-      document.removeEventListener("touchstart", onStart);
-      document.removeEventListener("touchend",   onEnd);
-    };
-  }, []);
-
-
-  // ── Переход с анимацией ────────────────────────────────
-  async function performTransition(action, { withLoadingSpinner = true } = {}) {
-    setIsFadingOut(true);
-    await new Promise(r => setTimeout(r, 300));
-    setIsContentReady(false);
-
-    let loadingTimer;
-    if (withLoadingSpinner) loadingTimer = setTimeout(() => setShowLoadingIndicator(true), 300);
-
-    await action?.();
-    await new Promise(r => setTimeout(r, 50));
-
-    setIsContentReady(true);
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 50))));
-
-    clearTimeout(loadingTimer);
-    setShowLoadingIndicator(false);
-    setIsFadingOut(false);
-  }
-
-
-  // ── Telegram BackButton ────────────────────────────────
+function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if (!tg) return;
-
-    const handleBack = async () => {
-      setShowLoadingIndicator(false);
-
-      if (isTheoryPopupOpen) { setIsTheoryPopupOpen(false); return; }
-
-      // Внутри тренажёра — обрабатывает UniversalTrainer
-      if (page === "trainers" && selectedTask) return;
-
-      // Внутри отработки ошибок
-      if (page === "mistakes" && practiceTask) {
-        await performTransition(() => {
-          setPracticeTask(null);
-          setPracticeMistakes([]);
-        }, { withLoadingSpinner: false });
-        return;
-      }
-
-      const backMap = {
-        theory:   "subject",
-        trainers: "subject",
-        mistakes: "subject",
-      };
-
-      const targetPage = backMap[page];
-      if (!targetPage) { tg.close?.(); return; }
-
-      await performTransition(() => {
-        setPage(targetPage);
-        if (targetPage === "subject") {
-          setSelectedTask(null);
-          setPracticeTask(null);
-          setPracticeMistakes([]);
-        }
-      }, { withLoadingSpinner: false });
-    };
-
-    if (["subject", "theory", "trainers", "mistakes"].includes(page)) {
-      tg.BackButton.show();
-      tg.onEvent("backButtonClicked", handleBack);
+    tg?.ready?.();
+    tg?.expand?.();
+    const handleBack = () => window.history.back();
+    if (breadcrumbs.length) {
+      tg?.BackButton?.show?.();
+      tg?.BackButton?.onClick?.(handleBack);
     } else {
-      tg.BackButton.hide();
+      tg?.BackButton?.hide?.();
     }
-
-    return () => tg.offEvent?.("backButtonClicked", handleBack);
-  }, [page, isTheoryPopupOpen, selectedTask, practiceTask]);
-
-
-  // ── Первый рендер ─────────────────────────────────────
-  useEffect(() => {
-    requestAnimationFrame(() => requestAnimationFrame(() => setIsContentReady(true)));
-  }, []);
-
-
-  // ── Preload теории ─────────────────────────────────────
-  async function preloadTheoryData() {
-    const cacheKey = "global";
-    if (theoryCache[cacheKey]) return theoryCache[cacheKey];
-    const [rulesRes, tasksRes, typesRes] = await Promise.all([
-      fetch(`/api/theory/all_theory`),
-      fetch(`/api/theory/get_tasks_theory`),
-      fetch(`/api/theory/all_theory_types`),
-    ]);
-    const data = {
-      rules: await rulesRes.json(),
-      tasks: await tasksRes.json(),
-      types: await typesRes.json(),
-    };
-    setTheoryCache(prev => ({ ...prev, [cacheKey]: data }));
-    return data;
-  }
-
-  async function navigateToPage(targetPage, opts = {}) {
-    await performTransition(async () => {
-      if (targetPage === "theory")   await preloadTheoryData();
-      if (targetPage === "trainers") await loadTasks();
-      setPage(targetPage);
-      if (opts.resetTask) setSelectedTask(null);
-    });
-  }
-
-
-  // ── Header ────────────────────────────────────────────
-  const header = (
-    <div ref={title} className="mainTitle">
-      <div className="mainTitle__picture" />
-      <div className="mainTitle__text">
-        Супер крутой бот для подготовки к ЕГЭ :)
-        <br />
-        <a href="https://github.com/dakdolka/pumrus" className="mainTitle__link">Узнать больше</a>
-      </div>
-    </div>
-  );
-
-
-  // ─────────────────────────────────────────────────────
-  // СТРАНИЦЫ
-  // ─────────────────────────────────────────────────────
-
-  let content;
-
-  // ── subject ───────────────────────────────────────────
-  if (page === "subject") {
-    content = (
-      <>
-        {header}
-        <Chapter ref={theory} func={() => navigateToPage("theory")}>
-          Теория
-        </Chapter>
-        <Chapter ref={task} func={() => navigateToPage("trainers", { resetTask: true })}>
-          Практика
-        </Chapter>
-        <Chapter ref={mistakes} func={() => navigateToPage("mistakes")}>
-          Ошибки
-        </Chapter>
-      </>
-    );
-  }
-
-  // ── mistakes ──────────────────────────────────────────
-  if (page === "mistakes") {
-
-    // Режим отработки — внутри страницы ошибок
-    if (practiceTask) {
-      content = (
-        <>
-          <Chapter
-            isValue="true"
-            func={() => performTransition(() => {
-              setPracticeTask(null);
-              setPracticeMistakes([]);
-            }, { withLoadingSpinner: false })}
-          >
-            {practiceTask.name}
-          </Chapter>
-          <PracticeTrainer
-            task={practiceTask}
-            mistakes={practiceMistakes}
-            userId={userId}
-            onExit={() => performTransition(() => {
-              setPracticeTask(null);
-              setPracticeMistakes([]);
-            }, { withLoadingSpinner: false })}
-            onResolved={() => setMistakesRefresh(r => r + 1)}
-          />
-        </>
-      );
-
-    // Обычный режим — список ошибок
-    } else {
-      content = (
-        <>
-          <Chapter
-            isValue="true"
-            func={() => navigateToPage("subject")}
-          >
-            Ошибки
-          </Chapter>
-          <MistakesPage
-            userId={userId}
-            refreshKey={mistakesRefresh}
-            onStartPractice={(t, ms) => performTransition(() => {
-              setPracticeTask(t);
-              setPracticeMistakes(ms);
-            }, { withLoadingSpinner: false })}
-          />
-        </>
-      );
-    }
-  }
-
-  // ── trainers ──────────────────────────────────────────
-  if (page === "trainers") {
-
-    if (!selectedTask) {
-      content = (
-        <>
-          <div className="mainTitle">
-            <div className="mainTitle__picture" />
-            <div className="mainTitle__title">PumRus</div>
-            <div className="mainTitle__text">Выберите задание для практики</div>
-          </div>
-
-          {tasksLoading && (
-            <div className="task-select">
-              <div className="task-select__spinner-wrap">
-                <span className="task-select__spinner-inline" />
-                <span>Загрузка...</span>
-              </div>
-            </div>
-          )}
-
-          {tasksError && (
-            <div className="task-select">
-              <div className="task-select__empty">{tasksError}</div>
-            </div>
-          )}
-
-          {!tasksLoading && !tasksError && allTasks.length === 0 && (
-            <div className="task-select">
-              <div className="task-select__empty">Нет доступных заданий</div>
-            </div>
-          )}
-
-          {!tasksLoading && !tasksError && allTasks.length > 0 && (
-            <TaskSelect
-              tasks={allTasks}
-              onSelect={t => performTransition(() => setSelectedTask(t))}
-            />
-          )}
-        </>
-      );
-
-    } else {
-      const storageKey = getStorageKey(selectedTask.task_group?.name ?? 'general', selectedTask.id);
-      const onExit     = () => performTransition(() => setSelectedTask(null), { withLoadingSpinner: false });
-
-      content = (
-        <>
-          <Chapter
-            isValue="true"
-            func={() => {
-              if (trainerExitRef.current) trainerExitRef.current();
-              else onExit();
-            }}
-          >
-            {selectedTask.name}
-          </Chapter>
-          <UniversalTrainer
-            task={selectedTask}
-            userId={userId}
-            storageKey={storageKey}
-            onExit={onExit}
-            exitRef={trainerExitRef}
-          />
-        </>
-      );
-    }
-  }
-
-  // ── theory ────────────────────────────────────────────
-  if (page === "theory") {
-    const cachedData = theoryCache["global"] || null;
-    content = (
-      <>
-        <Chapter isValue="true" func={() => navigateToPage("subject")}>
-          Теория
-        </Chapter>
-        <TheoryChoose
-          preloadedRules={cachedData?.rules}
-          preloadedTasks={cachedData?.tasks}
-          availableTypes={cachedData?.types}
-          isPopup={isTheoryPopupOpen}
-          setPopup={setIsTheoryPopupOpen}
-          content={theoryPopupContent}
-          setContent={setTheoryPopupContent}
-        />
-        <Popup
-          isPopup={isTheoryPopupOpen}
-          setPopup={setIsTheoryPopupOpen}
-          content={theoryPopupContent}
-        />
-      </>
-    );
-  }
-
+    return () => tg?.BackButton?.offClick?.(handleBack);
+  }, [breadcrumbs.length]);
 
   return (
-    <>
-      <div className={`main ${isFadingOut ? "main--fading-out" : ""}`}>
-        {isContentReady ? content : null}
-      </div>
-      {showLoadingIndicator && (
-        <div className="loading-indicator">
-          <div className="loading-spinner" />
-          <div className="loading-text">Загрузка...</div>
+    <div className="app-shell">
+      <header className="topbar">
+        <button className="brand" onClick={() => navigate("/")} aria-label="На главную">
+          <span className="brand-mark">У</span>
+          <span>UmRus</span>
+        </button>
+        <span className="topbar-caption">ЕГЭ по русскому</span>
+      </header>
+
+      {(breadcrumbs.length > 0 || contextAction) && (
+        <div className="navigation-strip">
+          <nav className="breadcrumbs" aria-label="Навигация">
+            {breadcrumbs.map((item, index) => (
+              <span className="breadcrumb-wrap" key={`${item.label}-${index}`}>
+                {index > 0 && <span className="breadcrumb-separator">/</span>}
+                <button
+                  className={index === breadcrumbs.length - 1 ? "breadcrumb active" : "breadcrumb"}
+                  onClick={() => item.path && navigate(item.path)}
+                  disabled={!item.path}
+                >
+                  {item.label}
+                </button>
+              </span>
+            ))}
+          </nav>
+          {contextAction && (
+            <button className="context-switch" onClick={contextAction.onClick}>
+              <AppIcon type={contextAction.icon} />
+              <span>{contextAction.label}</span>
+            </button>
+          )}
         </div>
       )}
-    </>
+      <main>{children}</main>
+    </div>
   );
 }
 
-export default App;
+
+function Loading() {
+  return (
+    <div className="state-card">
+      <span className="loader" />
+      <p>Загружаем материалы…</p>
+    </div>
+  );
+}
+
+
+function ErrorState({ message }) {
+  return (
+    <div className="state-card error-state">
+      <span>Что-то пошло не так</span>
+      <p>{message}</p>
+      <button className="secondary-button" onClick={() => window.location.reload()}>
+        Попробовать снова
+      </button>
+    </div>
+  );
+}
+
+
+function Home({ navigate }) {
+  return (
+    <Shell navigate={navigate}>
+      <section className="hero">
+        <div className="hero-orbit orbit-one" />
+        <div className="hero-orbit orbit-two" />
+        <p className="eyebrow">Подготовка без хаоса</p>
+        <h1>Русский становится<br /><em>понятным</em></h1>
+        <p className="hero-copy">
+          Короткая теория по каждой теме и практика, которая помогает
+          закрепить материал сразу.
+        </p>
+        <div className="mode-grid">
+          <button className="mode-card theory-card" onClick={() => navigate("/theory")}>
+            <span className="mode-icon"><AppIcon type="theory" /></span>
+            <span className="mode-index">01</span>
+            <strong>Теория</strong>
+            <span>Разобраться в правилах</span>
+            <i><AppIcon type="arrow" /></i>
+          </button>
+          <button className="mode-card practice-card" onClick={() => navigate("/practice")}>
+            <span className="mode-icon"><AppIcon type="practice" /></span>
+            <span className="mode-index">02</span>
+            <strong>Практика</strong>
+            <span>Проверить себя</span>
+            <i><AppIcon type="arrow" /></i>
+          </button>
+        </div>
+      </section>
+      <section className="home-note">
+        <span className="note-number">27</span>
+        <p>заданий ЕГЭ — в единой структуре, чтобы всегда понимать, что изучать дальше.</p>
+      </section>
+    </Shell>
+  );
+}
+
+
+function TaskCatalog({ mode, navigate }) {
+  const state = useRemote(() => api("/v2/catalog/tasks"), []);
+  const isTheory = mode === "theory";
+  const title = isTheory ? "Теория" : "Практика";
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={[{ label: title }]}
+    >
+      <section className="page-head">
+        <p className="eyebrow">{isTheory ? "База знаний" : "Тренажёры"}</p>
+        <h1>{isTheory ? "Выберите задание" : "Что тренируем?"}</h1>
+        <p>
+          {isTheory
+            ? "Внутри — темы и правила, собранные под структуру экзамена."
+            : "Откройте задание и выберите доступную подборку упражнений."}
+        </p>
+      </section>
+      {state.loading && <Loading />}
+      {state.error && <ErrorState message={state.error} />}
+      {state.data && (
+        <section className="task-list">
+          {state.data.map((task) => (
+            <button
+              className="task-row"
+              key={task.id}
+              onClick={() => navigate(`/${mode}/tasks/${task.number}`)}
+            >
+              <span className="task-number">{String(task.number).padStart(2, "0")}</span>
+              <span className="task-content">
+                <strong>{task.title || `Задание ${task.number}`}</strong>
+                <small>
+                  {isTheory
+                    ? (task.topicCount ? `${task.topicCount} ${topicWord(task.topicCount)}` : "Материалы готовятся")
+                    : "Открыть тренажёры"}
+                </small>
+              </span>
+              <span className="row-arrow"><AppIcon type="arrow" /></span>
+            </button>
+          ))}
+        </section>
+      )}
+    </Shell>
+  );
+}
+
+
+function topicWord(count) {
+  const tail = count % 10;
+  const lastTwo = count % 100;
+  if (tail === 1 && lastTwo !== 11) return "тема";
+  if (tail >= 2 && tail <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return "темы";
+  return "тем";
+}
+
+
+function TaskTheory({ taskNumber, navigate }) {
+  const state = useRemote(
+    () => api(`/v2/catalog/tasks/${taskNumber}`),
+    [taskNumber],
+  );
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={[
+        { label: "Теория", path: "/theory" },
+        { label: `Задание ${taskNumber}` },
+      ]}
+      contextAction={{
+        label: "Практика",
+        icon: "practice",
+        onClick: () => navigate(`/practice/tasks/${taskNumber}?origin=theory`),
+      }}
+    >
+      {state.loading && <Loading />}
+      {state.error && <ErrorState message={state.error} />}
+      {state.data && (
+        <>
+          <section className="page-head task-head">
+            <p className="eyebrow">Задание {taskNumber}</p>
+            <h1>{state.data.title}</h1>
+            {state.data.shortDescription && <p>{state.data.shortDescription}</p>}
+          </section>
+          {state.data.theory && <TheoryDocument document={state.data.theory} />}
+          <section className="section-block">
+            <div className="section-heading">
+              <p className="eyebrow">По частям</p>
+              <h2>Темы задания</h2>
+            </div>
+            {state.data.topics.length ? (
+              <div className="topic-grid">
+                {state.data.topics.map((topic, index) => (
+                  <button
+                    className="topic-card"
+                    key={topic.id}
+                    onClick={() => navigate(`/theory/tasks/${taskNumber}/topics/${topic.id}`)}
+                  >
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{topic.title}</strong>
+                    <i><AppIcon type="arrow" /></i>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <EmptyCard text="Темы для этого задания пока готовятся." />
+            )}
+          </section>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+
+function TopicTheory({ taskNumber, topicId, navigate }) {
+  const state = useRemote(
+    () => api(`/v2/theory/topics/${topicId}`),
+    [topicId],
+  );
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={[
+        { label: "Теория", path: "/theory" },
+        { label: `Задание ${taskNumber}`, path: `/theory/tasks/${taskNumber}` },
+        { label: state.data?.title || "Тема" },
+      ]}
+      contextAction={{
+        label: "Практика",
+        icon: "practice",
+        onClick: () => navigate(
+          `/practice/tasks/${taskNumber}?topic=${topicId}&origin=theory`,
+        ),
+      }}
+    >
+      {state.loading && <Loading />}
+      {state.error && <ErrorState message={state.error} />}
+      {state.data && (
+        <>
+          <section className="page-head topic-head">
+            <p className="eyebrow">Задание {taskNumber} · тема</p>
+            <h1>{state.data.title}</h1>
+          </section>
+          {state.data.theory
+            ? <TheoryDocument document={state.data.theory} />
+            : <EmptyCard text="Материал этой темы пока готовится." />}
+        </>
+      )}
+    </Shell>
+  );
+}
+
+
+function TheoryDocument({ document }) {
+  const roots = useMemo(() => {
+    const children = new Map();
+    document.blocks.forEach((block) => {
+      const key = block.parentId || null;
+      children.set(key, [...(children.get(key) || []), block]);
+    });
+    return { roots: children.get(null) || [], children };
+  }, [document]);
+
+  return (
+    <article className="theory-document">
+      {roots.roots.map((block) => (
+        <TheoryBlock key={block.id} block={block} childMap={roots.children} />
+      ))}
+    </article>
+  );
+}
+
+
+function TheoryBlock({ block, childMap }) {
+  const children = childMap.get(block.id) || [];
+  const markdown = block.data?.markdown || "";
+  if (block.type === "section") {
+    return (
+      <section className="theory-section">
+        {block.data?.title && <h2>{block.data.title}</h2>}
+        {children.map((child) => (
+          <TheoryBlock key={child.id} block={child} childMap={childMap} />
+        ))}
+      </section>
+    );
+  }
+  if (block.type === "callout") {
+    return (
+      <aside className={`callout callout-${block.data?.variant || "note"}`}>
+        <span>{calloutLabel(block.data?.variant)}</span>
+        <MarkdownText value={markdown} />
+      </aside>
+    );
+  }
+  if (block.type === "example") {
+    return (
+      <div className="example-block">
+        <span>Пример</span>
+        <MarkdownText value={markdown} />
+      </div>
+    );
+  }
+  if (block.type === "image") {
+    return block.data?.sourceType === "inline_svg" ? (
+      <div className="legacy-visual">Схема из исходного материала</div>
+    ) : null;
+  }
+  const variant = block.settings?.variant;
+  if (variant === "heading_1") return <h2>{markdown}</h2>;
+  if (variant === "heading_2") return <h3>{markdown}</h3>;
+  return <MarkdownText value={markdown} />;
+}
+
+
+function calloutLabel(variant) {
+  return {
+    warning: "Обратите внимание",
+    rule: "Правило",
+    important: "Важно",
+    tip: "Подсказка",
+    note: "Примечание",
+  }[variant] || "Примечание";
+}
+
+
+function MarkdownText({ value }) {
+  return (
+    <div className="rich-text">
+      {String(value || "").split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
+        <p key={index}>{paragraph}</p>
+      ))}
+    </div>
+  );
+}
+
+
+function PracticeTask({ taskNumber, navigate }) {
+  const search = new URLSearchParams(window.location.search);
+  const topicId = search.get("topic");
+  const theoryOrigin = search.get("origin") === "theory";
+  const suffix = topicId ? `?topic_id=${topicId}` : "";
+  const state = useRemote(
+    () => api(`/v2/practice/tasks/${taskNumber}/sets${suffix}`),
+    [taskNumber, topicId],
+  );
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={theoryOrigin ? [
+        { label: "Теория", path: "/theory" },
+        { label: `Задание ${taskNumber}`, path: `/theory/tasks/${taskNumber}` },
+        ...(topicId ? [{ label: state.data?.sets?.[0]?.topicTitle || "Тема" }] : []),
+      ] : [
+        { label: "Практика", path: "/practice" },
+        { label: `Задание ${taskNumber}` },
+      ]}
+      contextAction={theoryOrigin ? {
+        label: "Практика",
+        icon: "practice",
+        onClick: () => {},
+      } : {
+        label: "Теория",
+        icon: "theory",
+        onClick: () => navigate(
+          topicId
+            ? `/theory/tasks/${taskNumber}/topics/${topicId}`
+            : `/theory/tasks/${taskNumber}`,
+        ),
+      }}
+    >
+      {state.loading && <Loading />}
+      {state.error && <ErrorState message={state.error} />}
+      {state.data && (
+        <>
+          <section className="page-head task-head">
+            <p className="eyebrow">Практика · задание {taskNumber}</p>
+            <h1>{state.data.task.title}</h1>
+            <p>Выберите подборку. В одну сессию войдёт до 20 случайных упражнений.</p>
+          </section>
+          <section className="set-list">
+            {state.data.sets.length ? state.data.sets.map((set) => (
+              <button
+                className="set-card"
+                key={set.id}
+                onClick={async () => {
+                  try {
+                    const session = await api("/v2/practice/sessions", {
+                      method: "POST",
+                      body: JSON.stringify({
+                        exercise_set_id: set.id,
+                        user_id: window.__umrusUserId || null,
+                        limit: 20,
+                      }),
+                    });
+                    const contextQuery = theoryOrigin
+                      ? `?origin=theory`
+                      : "";
+                    navigate(`/practice/sessions/${session.id}${contextQuery}`);
+                  } catch (error) {
+                    window.alert(error.message);
+                  }
+                }}
+              >
+                <span className="set-label">{set.topicTitle ? "Тема" : "Задание"}</span>
+                <strong>{set.title}</strong>
+                <small>{set.exerciseCount} упражнений в банке</small>
+                <i><AppIcon type="arrow" /></i>
+              </button>
+            )) : <EmptyCard text="Для этого раздела пока нет опубликованных тренажёров." />}
+          </section>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+
+function PracticeSession({ sessionId, navigate }) {
+  const theoryOrigin = new URLSearchParams(window.location.search).get("origin") === "theory";
+  const state = useRemote(
+    () => api(`/v2/practice/sessions/${sessionId}`),
+    [sessionId],
+  );
+  const [session, setSession] = useState(null);
+  const [index, setIndex] = useState(0);
+  const [response, setResponse] = useState({});
+  const [result, setResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [theoryLink, setTheoryLink] = useState(null);
+
+  useEffect(() => {
+    if (!state.data) return;
+    setSession(state.data);
+    setIndex(Math.min(state.data.currentPosition, state.data.items.length - 1));
+  }, [state.data]);
+
+  useEffect(() => {
+    if (!session) return;
+    const currentItem = session.items[index];
+    if (!currentItem) return;
+    const key = `umrus:draft:${session.id}:${currentItem.sessionItemId}`;
+    try {
+      setResponse(JSON.parse(localStorage.getItem(key) || "{}"));
+    } catch {
+      setResponse({});
+    }
+  }, [session?.id, index]);
+
+  useEffect(() => {
+    if (!session) return;
+    const currentItem = session.items[index];
+    if (!currentItem || !Object.keys(response).length) return;
+    const key = `umrus:draft:${session.id}:${currentItem.sessionItemId}`;
+    localStorage.setItem(key, JSON.stringify(response));
+  }, [session?.id, index, response]);
+
+  if (state.loading) {
+    return <Shell navigate={navigate}><Loading /></Shell>;
+  }
+  if (state.error) {
+    return <Shell navigate={navigate}><ErrorState message={state.error} /></Shell>;
+  }
+  if (!session) return null;
+
+  const item = session.items[index];
+  const answered = Boolean(result);
+  const progress = ((index + (answered ? 1 : 0)) / session.items.length) * 100;
+
+  async function submit() {
+    if (!hasResponse(item, response) || submitting) return;
+    setSubmitting(true);
+    try {
+      const answer = await api(
+        `/v2/practice/sessions/${session.id}/items/${item.sessionItemId}/attempts`,
+        { method: "POST", body: JSON.stringify({ response }) },
+      );
+      localStorage.removeItem(`umrus:draft:${session.id}:${item.sessionItemId}`);
+      setResult(answer);
+      setSession((current) => ({ ...current, status: answer.sessionStatus }));
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function next() {
+    if (index + 1 >= session.items.length) return;
+    setIndex((current) => current + 1);
+    setResponse({});
+    setResult(null);
+  }
+
+  const finished = answered && index + 1 >= session.items.length;
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={theoryOrigin ? [
+        { label: "Теория", path: "/theory" },
+        {
+          label: `Задание ${session.context.taskNumber}`,
+          path: `/theory/tasks/${session.context.taskNumber}`,
+        },
+        ...(session.context.topicId ? [{ label: session.context.topicTitle }] : []),
+      ] : [
+        { label: "Практика", path: "/practice" },
+        { label: "Сессия" },
+      ]}
+      contextAction={theoryOrigin ? {
+        label: "Практика",
+        icon: "practice",
+        onClick: () => {},
+      } : null}
+    >
+      <section className="trainer">
+        <div className="trainer-meta">
+          <span>{index + 1} / {session.items.length}</span>
+          <span>{Math.round(progress)}%</span>
+        </div>
+        <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
+
+        <div className="question-card">
+          <p className="eyebrow">Выберите ответ</p>
+          <QuestionPrompt item={item} />
+          <Interaction
+            item={item}
+            response={response}
+            setResponse={setResponse}
+            disabled={answered}
+          />
+        </div>
+
+        {result && <ResultCard result={result} onTheory={setTheoryLink} />}
+
+        {!answered ? (
+          <button
+            className="primary-button"
+            disabled={!hasResponse(item, response) || submitting}
+            onClick={submit}
+          >
+            {submitting ? "Проверяем…" : "Проверить"}
+          </button>
+        ) : finished ? (
+          <button className="primary-button" onClick={() => navigate("/practice")}>
+            Завершить тренировку
+          </button>
+        ) : (
+          <button className="primary-button" onClick={next}>
+            Следующее упражнение
+          </button>
+        )}
+      </section>
+      {theoryLink && (
+        <TheoryOverlay link={theoryLink} onClose={() => setTheoryLink(null)} />
+      )}
+    </Shell>
+  );
+}
+
+
+function QuestionPrompt({ item }) {
+  const content = item.prompt?.word || item.prompt?.content || "";
+  if (item.interactionType === "stress_selection") return null;
+  return <div className="question-text">{content}</div>;
+}
+
+
+function Interaction({ item, response, setResponse, disabled }) {
+  if (item.interactionType === "single_choice") {
+    return (
+      <div className="choice-list">
+        {(item.interaction?.options || []).map((option) => (
+          <button
+            key={option.key}
+            className={response.optionKey === option.key ? "choice active" : "choice"}
+            disabled={disabled}
+            onClick={() => setResponse({ optionKey: option.key })}
+          >
+            <i>{response.optionKey === option.key ? "●" : "○"}</i>
+            <span>{option.label}</span>
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (item.interactionType === "stress_selection") {
+    const word = item.prompt?.word || "";
+    const selectable = new Set(item.interaction?.selectablePositions || []);
+    return (
+      <div className="stress-word" aria-label="Выберите ударную гласную">
+        {[...word].map((character, position) => selectable.has(position) ? (
+          <button
+            key={position}
+            disabled={disabled}
+            className={response.selectedCharacterIndex === position ? "selected" : ""}
+            onClick={() => setResponse({ selectedCharacterIndex: position })}
+          >
+            {character}
+          </button>
+        ) : <span key={position}>{character}</span>)}
+      </div>
+    );
+  }
+  return (
+    <input
+      className="answer-input"
+      value={response.text || ""}
+      disabled={disabled}
+      placeholder={item.interaction?.variant === "masked_letters"
+        ? "Введите слово целиком"
+        : "Введите ответ"}
+      onChange={(event) => setResponse({ text: event.target.value })}
+      onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+    />
+  );
+}
+
+
+function hasResponse(item, response) {
+  if (item.interactionType === "single_choice") return Boolean(response.optionKey);
+  if (item.interactionType === "stress_selection") {
+    return Number.isInteger(response.selectedCharacterIndex);
+  }
+  return Boolean(response.text?.trim());
+}
+
+
+function ResultCard({ result, onTheory }) {
+  const correct = result.status === "correct";
+  return (
+    <div className={`result-card ${correct ? "correct" : "incorrect"}`}>
+      <div className="result-title">
+        <span><AppIcon type={correct ? "check" : "back"} /></span>
+        <strong>{correct ? "Верно" : "Нужно повторить"}</strong>
+      </div>
+      {!correct && result.correctAnswer && (
+        <p>Правильный ответ: <b>{result.correctAnswer}</b></p>
+      )}
+      {result.feedback?.message && <p>{result.feedback.message}</p>}
+      {(result.feedback?.theoryLinks || []).map((link) => (
+        <button className="theory-link" key={link.route} onClick={() => onTheory(link)}>
+          <AppIcon type="theory" />
+          {link.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+
+function TheoryOverlay({ link, onClose }) {
+  const state = useRemote(
+    () => link.topicId
+      ? api(`/v2/theory/topics/${link.topicId}`)
+      : api(`/v2/catalog/tasks/${link.taskNumber}`),
+    [link.topicId, link.taskNumber],
+  );
+  const document = state.data?.theory;
+
+  useEffect(() => {
+    const handle = (event) => event.key === "Escape" && onClose();
+    window.addEventListener("keydown", handle);
+    return () => window.removeEventListener("keydown", handle);
+  }, [onClose]);
+
+  return (
+    <div className="overlay-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="theory-overlay"
+        role="dialog"
+        aria-modal="true"
+        aria-label={link.label}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="overlay-handle" />
+        <header>
+          <div>
+            <p className="eyebrow">Теория к упражнению</p>
+            <h2>{state.data?.title || link.label}</h2>
+          </div>
+          <button onClick={onClose} aria-label="Закрыть">×</button>
+        </header>
+        <div className="overlay-scroll">
+          {state.loading && <Loading />}
+          {state.error && <ErrorState message={state.error} />}
+          {state.data && (
+            document
+              ? <TheoryDocument document={document} />
+              : <EmptyCard text="Связанная теория пока готовится." />
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+
+function EmptyCard({ text }) {
+  return <div className="empty-card">{text}</div>;
+}
+
+
+function NotFound({ navigate }) {
+  return (
+    <Shell navigate={navigate}>
+      <div className="state-card">
+        <h1>Страница не найдена</h1>
+        <button className="primary-button" onClick={() => navigate("/")}>На главную</button>
+      </div>
+    </Shell>
+  );
+}
+
+
+function resolveRoute(path) {
+  let match;
+  if (path === "/") return { screen: "home" };
+  if (path === "/theory") return { screen: "catalog", mode: "theory" };
+  if (path === "/practice") return { screen: "catalog", mode: "practice" };
+  match = path.match(/^\/theory\/tasks\/(\d+)\/topics\/(\d+)$/);
+  if (match) return { screen: "topicTheory", taskNumber: +match[1], topicId: +match[2] };
+  match = path.match(/^\/theory\/tasks\/(\d+)$/);
+  if (match) return { screen: "taskTheory", taskNumber: +match[1] };
+  match = path.match(/^\/practice\/tasks\/(\d+)$/);
+  if (match) return { screen: "practiceTask", taskNumber: +match[1] };
+  match = path.match(/^\/practice\/sessions\/(\d+)$/);
+  if (match) return { screen: "session", sessionId: +match[1] };
+  return { screen: "notFound" };
+}
+
+
+export default function App() {
+  const { path, navigate } = useRoute();
+  const route = resolveRoute(path);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    if (!user?.id) return;
+    api("/users/get-or-create", {
+      method: "POST",
+      body: JSON.stringify({
+        tg_id: String(user.id),
+        name: user.first_name || "Ученик",
+        second_name: user.last_name || "",
+        username: user.username || null,
+        avatar_url: user.photo_url || null,
+      }),
+    }).then((payload) => {
+      window.__umrusUserId = payload.user.id;
+    }).catch(() => {});
+  }, []);
+
+  if (route.screen === "home") return <Home navigate={navigate} />;
+  if (route.screen === "catalog") {
+    return <TaskCatalog mode={route.mode} navigate={navigate} />;
+  }
+  if (route.screen === "taskTheory") {
+    return <TaskTheory taskNumber={route.taskNumber} navigate={navigate} />;
+  }
+  if (route.screen === "topicTheory") {
+    return <TopicTheory {...route} navigate={navigate} />;
+  }
+  if (route.screen === "practiceTask") {
+    return <PracticeTask taskNumber={route.taskNumber} navigate={navigate} />;
+  }
+  if (route.screen === "session") {
+    return <PracticeSession sessionId={route.sessionId} navigate={navigate} />;
+  }
+  return <NotFound navigate={navigate} />;
+}
