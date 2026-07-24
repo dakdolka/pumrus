@@ -80,6 +80,10 @@ class TopicBD(TimestampMixin, Base):
     __tablename__ = "topic"
     __table_args__ = (
         UniqueConstraint("course_version_id", "code", name="uq_topic_code"),
+        UniqueConstraint(
+            "source_legacy_theory_id",
+            name="uq_topic_legacy_theory_source",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -91,6 +95,7 @@ class TopicBD(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(256))
     short_description: Mapped[Optional[str]] = mapped_column(String(1024))
     status: Mapped[str] = mapped_column(String(32), default="draft")
+    source_legacy_theory_id: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     task_links: Mapped[list["ExamTaskTopicBD"]] = relationship(
         back_populates="topic",

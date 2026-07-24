@@ -86,3 +86,47 @@ docker compose run --rm \
 
 The import is performed in one PostgreSQL transaction. Any failure rolls back
 all inserted content. A second import into non-empty tables is rejected.
+
+## Transform theory into the v2 model
+
+After the legacy content import succeeds, rebuild the backend image so the
+latest Alembic migration and transformer are available:
+
+```bash
+docker compose build backend
+docker compose up -d backend
+```
+
+Run the transformation plan first:
+
+```bash
+docker compose run --rm backend \
+  python -m app.scripts.transform_legacy_theory
+```
+
+The plan:
+
+- creates empty catalog entries for exam tasks 1–27;
+- ignores legacy documents named `№N Общее`;
+- turns confirmed learning materials into topics;
+- prints every theory-to-task association;
+- refuses execution if an unresolved theory remains.
+
+When the plan is correct:
+
+```bash
+docker compose run --rm backend \
+  python -m app.scripts.transform_legacy_theory --execute
+```
+
+The default active course version is `2026`. Override it when needed:
+
+```bash
+docker compose run --rm backend \
+  python -m app.scripts.transform_legacy_theory \
+  --course-version 2027 \
+  --execute
+```
+
+The command is transactional and refuses to run if legacy theory has already
+been transformed.
