@@ -9,12 +9,17 @@ export default [
     ignores: [
       "dist/**",
       "src/components/**",
-      "src/form/**",
+      "src/form/components/**",
       "src/components.jsx",
     ],
   },
   {
-    files: ["src/App.jsx", "src/main.jsx"],
+    files: [
+      "src/App.jsx",
+      "src/main.jsx",
+      "src/form/FormApp.jsx",
+      "src/form/index.jsx",
+    ],
     ...js.configs.recommended,
     languageOptions: {
       ecmaVersion: 2022,

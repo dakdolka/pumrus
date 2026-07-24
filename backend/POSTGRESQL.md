@@ -150,3 +150,31 @@ docker compose run --rm backend \
 
 Each legacy item becomes one published, versioned exercise linked to its exam
 task, optional topic, and exercise set. The legacy tables remain unchanged.
+
+## Theory editor
+
+The browser editor is built at `/form/` and uses the v2 admin API. It can:
+
+- edit exam task and topic metadata;
+- create topics and theory documents;
+- create a draft from the published version;
+- add, nest, reorder, edit, and delete theory blocks;
+- publish the completed draft.
+
+No database migration is required for the editor.
+
+By default the editor is open. To protect it with a shared key, set a long
+random value in `ADMIN_TOKEN` and restart the backend. The form will then ask
+for that key and send it as `X-Admin-Key` with every administrative request.
+
+After pulling the update on the server:
+
+```bash
+docker compose build backend frontend
+docker compose up -d backend
+docker compose run --rm frontend npm run build
+```
+
+The frontend build contains both `dist/index.html` and
+`dist/form/index.html`. The web server must serve directory indexes (or
+redirect `/form` to `/form/`) for `https://bestgreen.ru/form` to open.

@@ -11,6 +11,7 @@ from app.api.theory.router import router as theory_router
 from app.api.user.general.router import router as users_router
 from app.api.user.mistakes.router import router as user_mistakes_router
 from app.api.v2.router import router as v2_router
+from app.api.v2.admin_router import router as v2_admin_router
 from app.core.db import async_engine
 
 
@@ -36,6 +37,7 @@ app.include_router(task_session_router)
 app.include_router(user_mistakes_router)
 app.include_router(users_router)
 app.include_router(v2_router)
+app.include_router(v2_admin_router)
 
 app.add_middleware(
     CORSMiddleware,
