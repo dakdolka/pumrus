@@ -47,4 +47,42 @@ Expected response:
 ```
 
 The content tables are initially empty. Importing selected content from the
-legacy MySQL dump is a separate, optional stage.
+legacy MySQL database is a separate, optional stage.
+
+## Import legacy content
+
+The importer copies only learning content:
+
+- theory and theory blocks;
+- task theory groups and links;
+- trainer tasks and task items;
+- options and option sets.
+
+It deliberately skips users, practice sessions, and mistakes.
+
+The source MySQL database must remain available temporarily. If MySQL runs on
+the Docker host, use `host.docker.internal` as its hostname.
+
+First perform a dry run:
+
+```bash
+docker compose run --rm \
+  -e LEGACY_DATABASE_URL='mysql+asyncmy://USER:PASSWORD@host.docker.internal:3306/pumrus_db' \
+  backend \
+  python -m app.scripts.import_legacy_content
+```
+
+The command prints source table counts and verifies that the target content
+tables are empty. It does not write anything.
+
+If the summary is correct, execute the import:
+
+```bash
+docker compose run --rm \
+  -e LEGACY_DATABASE_URL='mysql+asyncmy://USER:PASSWORD@host.docker.internal:3306/pumrus_db' \
+  backend \
+  python -m app.scripts.import_legacy_content --execute
+```
+
+The import is performed in one PostgreSQL transaction. Any failure rolls back
+all inserted content. A second import into non-empty tables is rejected.
