@@ -194,6 +194,136 @@ async def _load_source_rows(
     ]
 
 
+async def _load_all_source_rows(
+    connection: AsyncConnection,
+) -> dict[str, list[dict[str, Any]]]:
+    return {
+        spec.name: await _load_source_rows(connection, spec)
+        for spec in TABLES
+    }
+
+
+def _ids(rows: list[dict[str, Any]]) -> set[int]:
+    return {int(row["id"]) for row in rows}
+
+
+def _sanitize_source_rows(
+    source_rows: dict[str, list[dict[str, Any]]],
+) -> tuple[dict[str, list[dict[str, Any]]], list[str]]:
+    rows = {
+        table_name: [dict(row) for row in table_rows]
+        for table_name, table_rows in source_rows.items()
+    }
+    adjustments: list[str] = []
+
+    option_ids = _ids(rows["option"])
+    option_set_ids = _ids(rows["option_set"])
+    task_group_ids = _ids(rows["task_group"])
+    task_ids = _ids(rows["task"])
+    theory_ids = _ids(rows["theory"])
+    theory_type_ids = _ids(rows["theory_type"])
+    task_theory_group_ids = _ids(rows["task_theory_group"])
+    task_theory_ids = _ids(rows["task_theory"])
+
+    original = rows["option_set2option"]
+    rows["option_set2option"] = [
+        row
+        for row in original
+        if row["option_set_id"] in option_set_ids
+        and row["option_id"] in option_ids
+    ]
+    removed = len(original) - len(rows["option_set2option"])
+    if removed:
+        adjustments.append(
+            f"option_set2option: skipped {removed} orphaned links"
+        )
+
+    for row in rows["task"]:
+        if row["task_group_fk"] not in task_group_ids:
+            if row["task_group_fk"] is not None:
+                adjustments.append(
+                    f"task {row['id']}: cleared missing task_group_fk="
+                    f"{row['task_group_fk']}"
+                )
+            row["task_group_fk"] = None
+        if row["default_option_set_fk"] not in option_set_ids:
+            if row["default_option_set_fk"] is not None:
+                adjustments.append(
+                    f"task {row['id']}: cleared missing default_option_set_fk="
+                    f"{row['default_option_set_fk']}"
+                )
+            row["default_option_set_fk"] = None
+
+    original = rows["task_item"]
+    rows["task_item"] = [
+        row for row in original if row["task_id"] in task_ids
+    ]
+    removed = len(original) - len(rows["task_item"])
+    if removed:
+        adjustments.append(f"task_item: skipped {removed} orphaned items")
+    for row in rows["task_item"]:
+        if row["correct_option_fk"] not in option_ids:
+            row["correct_option_fk"] = None
+        if row["option_set_override_fk"] not in option_set_ids:
+            row["option_set_override_fk"] = None
+
+    original = rows["theory2theory_type"]
+    rows["theory2theory_type"] = [
+        row
+        for row in original
+        if row["theory_id"] in theory_ids
+        and row["type_id"] in theory_type_ids
+    ]
+    removed = len(original) - len(rows["theory2theory_type"])
+    if removed:
+        adjustments.append(
+            f"theory2theory_type: skipped {removed} orphaned links"
+        )
+
+    original = rows["theory_block"]
+    rows["theory_block"] = [
+        row
+        for row in original
+        if row["theory_id"] is None or row["theory_id"] in theory_ids
+    ]
+    removed = len(original) - len(rows["theory_block"])
+    if removed:
+        adjustments.append(f"theory_block: skipped {removed} orphaned blocks")
+    block_ids = _ids(rows["theory_block"])
+    for row in rows["theory_block"]:
+        if row["parent_id"] not in block_ids:
+            if row["parent_id"] is not None:
+                adjustments.append(
+                    f"theory_block {row['id']}: cleared missing parent_id="
+                    f"{row['parent_id']}"
+                )
+            row["parent_id"] = None
+
+    for row in rows["task_theory"]:
+        if row["group_id"] not in task_theory_group_ids:
+            if row["group_id"] is not None:
+                adjustments.append(
+                    f"task_theory {row['id']}: cleared missing group_id="
+                    f"{row['group_id']}"
+                )
+            row["group_id"] = None
+
+    original = rows["task_theory2theory"]
+    rows["task_theory2theory"] = [
+        row
+        for row in original
+        if row["theory_id"] in theory_ids
+        and row["task_theory_id"] in task_theory_ids
+    ]
+    removed = len(original) - len(rows["task_theory2theory"])
+    if removed:
+        adjustments.append(
+            f"task_theory2theory: skipped {removed} orphaned links"
+        )
+
+    return rows, adjustments
+
+
 async def _reset_sequence(connection: AsyncConnection, table_name: str) -> None:
     await connection.execute(
         text(
@@ -219,6 +349,25 @@ async def _print_source_summary(source: AsyncConnection) -> None:
     print(f"  total: {total}")
 
 
+def _print_integrity_report(
+    source_rows: dict[str, list[dict[str, Any]]],
+    sanitized_rows: dict[str, list[dict[str, Any]]],
+    adjustments: list[str],
+) -> None:
+    print("Legacy integrity report:")
+    if not adjustments:
+        print("  no broken references found")
+        return
+
+    for adjustment in adjustments:
+        print(f"  - {adjustment}")
+
+    source_total = sum(len(rows) for rows in source_rows.values())
+    sanitized_total = sum(len(rows) for rows in sanitized_rows.values())
+    print(f"  source rows: {source_total}")
+    print(f"  importable rows: {sanitized_total}")
+
+
 async def import_content(source_dsn: str, execute: bool) -> None:
     source_url = make_url(source_dsn)
     target_url = make_url(settings.database_url)
@@ -230,6 +379,9 @@ async def import_content(source_dsn: str, execute: bool) -> None:
     try:
         async with source_engine.connect() as source:
             await _print_source_summary(source)
+            source_rows = await _load_all_source_rows(source)
+            sanitized_rows, adjustments = _sanitize_source_rows(source_rows)
+            _print_integrity_report(source_rows, sanitized_rows, adjustments)
 
             async with target_engine.connect() as target:
                 await _assert_target_is_empty(target)
@@ -241,7 +393,7 @@ async def import_content(source_dsn: str, execute: bool) -> None:
 
             async with target_engine.begin() as target:
                 for spec in TABLES:
-                    rows = await _load_source_rows(source, spec)
+                    rows = sanitized_rows[spec.name]
                     if rows:
                         await target.execute(text(_target_insert(spec)), rows)
 
