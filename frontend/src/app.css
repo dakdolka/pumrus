@@ -2,10 +2,10 @@
 
 :root {
   color-scheme: dark;
-  --bg: #111018;
-  --surface: #1c1b24;
-  --surface-raised: #24232d;
-  --surface-soft: #17161e;
+  --bg: #222129;
+  --surface: #2c2b34;
+  --surface-raised: #34323d;
+  --surface-soft: #27262f;
   --text: #eeeef3;
   --text-soft: #b5b3bf;
   --text-faint: #85828f;
@@ -30,10 +30,10 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f2f2f7;
-  --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --surface-soft: #e9e9ef;
+  --bg: #eceae6;
+  --surface: #f8f7f4;
+  --surface-raised: #fffefa;
+  --surface-soft: #e5e2dc;
   --text: #1a1921;
   --text-soft: #5e5b67;
   --text-faint: #85828d;
@@ -93,18 +93,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
   background: color-mix(in srgb, var(--bg) 92%, transparent);
   backdrop-filter: blur(18px);
 }
-.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
-.brand-mark {
-  width: 29px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  color: var(--accent-text);
-  background: var(--accent);
-  font-size: 14px;
-  font-weight: 800;
-}
+.brand { display: flex; align-items: center; font-size: 16px; font-weight: 800; letter-spacing: -.03em; }
 
 .navigation-strip {
   min-height: 46px;
@@ -129,18 +118,26 @@ main { width: min(100%, 760px); margin: 0 auto; }
   border-radius: var(--radius-sm);
 }
 .home-button { color: var(--text-soft); }
-.context-switch { color: var(--accent-text); border-color: transparent; background: var(--accent); }
-.breadcrumbs { min-width: 0; flex: 1; display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.context-switch { color: var(--text-faint); background: transparent; }
+.context-switch.active { color: var(--accent-text); border-color: transparent; background: var(--accent); }
+.breadcrumbs { min-width: 0; flex: 1; display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; }
 .breadcrumbs::-webkit-scrollbar { display: none; }
-.breadcrumb-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumb-wrap { min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumb-wrap:last-child { flex: 1; }
 .breadcrumb-separator { color: var(--text-faint); opacity: .45; }
 .breadcrumb {
+  max-width: 100%;
   min-height: 30px;
   padding: 5px 7px;
   border-radius: var(--radius-sm);
   color: var(--text-soft);
   font-size: 12px;
   font-weight: 600;
+}
+.breadcrumb:not(:has(svg)):not(:has(.breadcrumb-number)) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .breadcrumb.active { color: var(--accent-text); background: var(--accent); font-weight: 800; }
 .breadcrumb:disabled { cursor: default; }
@@ -240,6 +237,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
   font-size: 12px;
   font-weight: 800;
 }
+.info-button.compact { width: 25px; height: 25px; font-size: 10px; }
 .task-list, .set-list { padding: 0 12px 48px; display: grid; gap: 8px; }
 .task-group { display: grid; grid-template-columns: 24px 1fr; gap: 6px; }
 .task-group.standalone { grid-template-columns: 24px 1fr; }
@@ -356,39 +354,32 @@ main { width: min(100%, 760px); margin: 0 auto; }
 
 .callout, .example-block {
   min-width: 0;
+  min-inline-size: 0;
   margin: 24px 0;
-  padding: 20px 15px 15px;
-  position: relative;
+  padding: 15px;
   color: var(--text);
   background: var(--surface-soft);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
 }
-.callout > span, .example-block > span {
-  max-width: calc(100% - 24px);
+.callout > legend, .example-block > legend {
   padding: 0 7px;
-  position: absolute;
-  top: 0;
-  left: 11px;
-  transform: translateY(-55%);
   color: var(--text-soft);
-  background: var(--bg);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
-.theory-section-content .callout > span, .theory-section-content .example-block > span { background: var(--surface); }
 .callout-rule { border-color: color-mix(in srgb, var(--success) 45%, var(--line)); background: var(--success-soft); }
-.callout-rule > span { color: var(--success); }
+.callout-rule > legend { color: var(--success); }
 .callout-tip { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: var(--accent-soft); }
-.callout-tip > span { color: var(--accent); }
+.callout-tip > legend { color: var(--accent); }
 .callout-important { border-color: color-mix(in srgb, var(--warning) 48%, var(--line)); background: var(--warning-soft); }
-.callout-important > span { color: var(--warning); }
+.callout-important > legend { color: var(--warning); }
 .callout-warning { border-color: color-mix(in srgb, var(--danger) 48%, var(--line)); background: var(--danger-soft); }
-.callout-warning > span { color: var(--danger); }
+.callout-warning > legend { color: var(--danger); }
 .example-block { border-color: color-mix(in srgb, var(--accent) 36%, var(--line)); background: var(--accent-soft); }
-.example-block > span { color: var(--accent); }
+.example-block > legend { color: var(--accent); }
 .callout p:last-child, .example-block p:last-child { margin-bottom: 0; }
 .theory-image { margin: 20px 0; }
 .theory-image img { width: 100%; max-height: 540px; display: block; object-fit: contain; background: white; border-radius: var(--radius-md); }
@@ -546,6 +537,19 @@ main { width: min(100%, 760px); margin: 0 auto; }
   border-radius: var(--radius-lg);
   text-align: center;
 }
+.app-footer {
+  margin: 8px 18px 0;
+  padding: 20px 0 max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+}
+.app-footer nav { display: flex; align-items: center; gap: 12px; }
+.app-footer a { color: var(--text-soft); font-weight: 700; text-decoration: none; }
 .state-card { min-height: 210px; display: grid; place-items: center; align-content: center; }
 .state-card p { margin: 8px 0; }
 .state-card .secondary-button, .state-card .primary-button { width: auto; padding: 0 20px; }

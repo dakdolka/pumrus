@@ -71,7 +71,7 @@ function useRemote(loader, dependencies) {
 
 function AppIcon({ type }) {
   const paths = {
-    theory: "M6 4.8A3.8 3.8 0 0 1 9.8 1H12v16H9.8A3.8 3.8 0 0 0 6 20.8V4.8Zm12 0A3.8 3.8 0 0 0 14.2 1H12v16h2.2a3.8 3.8 0 0 1 3.8 3.8V4.8Z",
+    theory: "M4.5 5.5c2.5-1.4 5-1.4 7.5.2v14c-2.5-1.6-5-1.6-7.5-.2v-14Zm15 0c-2.5-1.4-5-1.4-7.5.2v14c2.5-1.6 5-1.6 7.5-.2v-14ZM12 5.7v14",
     practice: "m5 16.8 9.9-9.9 2.2 2.2-9.9 9.9-3 .8.8-3Zm10.9-10.9 1.2-1.2a1.6 1.6 0 0 1 2.2 0l.9.9a1.6 1.6 0 0 1 0 2.2L19 9.1l-3.1-3.2Z",
     arrow: "m9 5 7 7-7 7",
     back: "m15 5-7 7 7 7",
@@ -81,7 +81,7 @@ function AppIcon({ type }) {
   };
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d={paths[type]} fill={type === "theory" ? "currentColor" : "none"}
+      <path d={paths[type]} fill="none"
         stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"
         strokeLinejoin="round" />
     </svg>
@@ -112,7 +112,6 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => navigate("/")} aria-label="На главную">
-          <span className="brand-mark">У</span>
           <span>UmRus</span>
         </button>
       </header>
@@ -127,7 +126,11 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
               <span className="breadcrumb-wrap" key={`${item.label}-${index}`}>
                 {index > 0 && <span className="breadcrumb-separator">/</span>}
                 <button
-                  className={index === breadcrumbs.length - 1 ? "breadcrumb active" : "breadcrumb"}
+                  className={
+                    !contextAction?.active && index === breadcrumbs.length - 1
+                      ? "breadcrumb active"
+                      : "breadcrumb"
+                  }
                   onClick={() => item.path && navigate(item.path)}
                   disabled={!item.path}
                   aria-label={item.label}
@@ -140,7 +143,10 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
             ))}
           </nav>
           {contextAction && (
-            <button className="context-switch" onClick={contextAction.onClick}>
+            <button
+              className={contextAction.active ? "context-switch active" : "context-switch"}
+              onClick={contextAction.onClick}
+            >
               <AppIcon type={contextAction.icon} />
               <span className="visually-hidden">{contextAction.label}</span>
             </button>
@@ -205,7 +211,27 @@ function Home({ navigate }) {
           </button>
         </div>
       </section>
+      <AppFooter />
     </Shell>
+  );
+}
+
+
+function AppFooter() {
+  return (
+    <footer className="app-footer">
+      <span>UmRus · подготовка к ЕГЭ</span>
+      <nav aria-label="Справка и контакты">
+        <a href="https://t.me/dak_dolka" target="_blank" rel="noreferrer">
+          Связаться
+        </a>
+        <InfoButton
+          title="О проекте"
+          text="UmRus помогает последовательно изучать правила русского языка и сразу закреплять их на практике."
+          compact
+        />
+      </nav>
+    </footer>
   );
 }
 
@@ -286,11 +312,15 @@ function groupTasks(tasks) {
 }
 
 
-function InfoButton({ title, text }) {
+function InfoButton({ title, text, compact = false }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="info-button" aria-label={`О разделе «${title}»`} onClick={() => setOpen(true)}>
+      <button
+        className={compact ? "info-button compact" : "info-button"}
+        aria-label={`О разделе «${title}»`}
+        onClick={() => setOpen(true)}
+      >
         ?
       </button>
       {open && (
@@ -332,6 +362,7 @@ function TaskTheory({ taskNumber, navigate }) {
       contextAction={{
         label: "Практика",
         icon: "bookmark",
+        active: false,
         onClick: () => navigate(`/practice/tasks/${taskNumber}?origin=theory`),
       }}
     >
@@ -391,6 +422,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
       contextAction={{
         label: "Практика",
         icon: "bookmark",
+        active: false,
         onClick: () => navigate(
           `/practice/tasks/${taskNumber}?topic=${topicId}&origin=theory`,
         ),
@@ -479,17 +511,17 @@ function TheoryBlock({ block, depth }) {
   let content;
   if (block.type === "callout") {
     content = (
-      <aside className={`callout callout-${block.data?.variant || "note"}`}>
-        <span>{calloutLabel(block.data?.variant)}</span>
+      <fieldset className={`callout callout-${block.data?.variant || "note"}`}>
+        <legend>{calloutLabel(block.data?.variant)}</legend>
         <MarkdownText value={markdown} />
-      </aside>
+      </fieldset>
     );
   } else if (block.type === "example") {
     content = (
-      <div className="example-block">
-        <span>Пример</span>
+      <fieldset className="example-block">
+        <legend>Пример</legend>
         <MarkdownText value={markdown} />
-      </div>
+      </fieldset>
     );
   } else if (block.type === "image") {
     const source = block.data?.sourceType === "inline_svg"
@@ -617,10 +649,12 @@ function PracticeTask({ taskNumber, navigate }) {
       contextAction={theoryOrigin ? {
         label: "Практика",
         icon: "bookmark",
+        active: true,
         onClick: () => {},
       } : {
         label: "Теория",
         icon: "bookmark",
+        active: false,
         onClick: () => navigate(
           topicId
             ? `/theory/tasks/${taskNumber}/topics/${topicId}`
@@ -780,6 +814,7 @@ function PracticeSession({ sessionId, navigate }) {
       contextAction={theoryOrigin ? {
         label: "Вернуться к теории",
         icon: "bookmark",
+        active: true,
         onClick: () => navigateFromSession(
           session.context.topicId
             ? `/theory/tasks/${session.context.taskNumber}/topics/${session.context.topicId}`
@@ -788,6 +823,7 @@ function PracticeSession({ sessionId, navigate }) {
       } : {
         label: "Открыть теорию",
         icon: "bookmark",
+        active: Boolean(theoryLink),
         onClick: () => setTheoryLink({
           label: session.context.topicTitle || `Теория задания ${session.context.taskNumber}`,
           taskNumber: session.context.taskNumber,
