@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./app.css";
+import { TheoryDocument } from "./theory/TheoryRenderer";
 
 
 async function api(path, options = {}) {
@@ -466,7 +467,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
 }
 
 
-function TheoryDocument({ document }) {
+function LegacyTheoryDocument({ document }) {
   const blockTree = useMemo(() => {
     const blocks = document.blocks || [];
     if (blocks.some((block) => Array.isArray(block.children))) {

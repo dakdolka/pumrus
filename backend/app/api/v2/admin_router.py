@@ -59,6 +59,22 @@ class BlockUpdateIn(BaseModel):
     sort_order: int | None = None
 
 
+class LiveBlockIn(BaseModel):
+    client_id: str = Field(min_length=1, max_length=96)
+    parent_client_id: str | None = Field(default=None, max_length=96)
+    block_type: str = Field(min_length=1, max_length=32)
+    data: dict[str, Any] = Field(default_factory=dict)
+    settings: dict[str, Any] = Field(default_factory=dict)
+    sort_order: int = 0
+
+
+class LivePublishIn(BaseModel):
+    title: str = Field(min_length=1, max_length=256)
+    owner_title: str = Field(min_length=1, max_length=256)
+    owner_description: str | None = Field(default=None, max_length=1024)
+    blocks: list[LiveBlockIn]
+
+
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
     expected = settings.admin_token
     if expected and (
@@ -96,17 +112,19 @@ async def _document_out(
             .order_by(TheoryDocumentVersionBD.version_number.desc())
         )
     ).all()
-    editing = next(
-        (version for version in versions if version.status == "draft"),
-        None,
-    )
-    if editing is None and document.published_version_id is not None:
+    editing = None
+    if document.published_version_id is not None:
         editing = next(
             (
                 version
                 for version in versions
                 if version.id == document.published_version_id
             ),
+            None,
+        )
+    if editing is None:
+        editing = next(
+            (version for version in versions if version.status == "draft"),
             None,
         )
     blocks = []
@@ -302,12 +320,106 @@ async def create_document(
     )
     db.add(document)
     await db.flush()
+    await db.commit()
+    return await _document_out(db, document)
+
+
+@router.post(
+    "/theory-documents/{document_id}/publish-live",
+    dependencies=[Depends(require_admin)],
+)
+async def publish_live_document(
+    document_id: int,
+    body: LivePublishIn,
+    db: AsyncSession = Depends(get_db),
+):
+    document = await db.get(TheoryDocumentBD, document_id)
+    if document is None:
+        raise HTTPException(404, "Документ не найден")
+    if not body.blocks:
+        raise HTTPException(409, "Нельзя опубликовать пустой документ")
+
+    client_ids = [block.client_id for block in body.blocks]
+    if len(client_ids) != len(set(client_ids)):
+        raise HTTPException(400, "Идентификаторы блоков должны быть уникальными")
+    known_ids = set(client_ids)
+    parents = {
+        block.client_id: block.parent_client_id
+        for block in body.blocks
+    }
+    for block_id, parent_id in parents.items():
+        if parent_id is not None and parent_id not in known_ids:
+            raise HTTPException(400, "Родительский блок не входит в документ")
+        visited = {block_id}
+        cursor = parent_id
+        while cursor is not None:
+            if cursor in visited:
+                raise HTTPException(400, "Вложенность блоков содержит цикл")
+            visited.add(cursor)
+            cursor = parents.get(cursor)
+
+    owner = (
+        await db.get(ExamTaskBD, document.exam_task_id)
+        if document.exam_task_id is not None
+        else await db.get(TopicBD, document.topic_id)
+    )
+    if owner is None:
+        raise HTTPException(409, "Владелец документа не найден")
+
+    latest_number = await db.scalar(
+        select(func.max(TheoryDocumentVersionBD.version_number)).where(
+            TheoryDocumentVersionBD.document_id == document.id
+        )
+    )
+    now = datetime.now(timezone.utc)
     version = TheoryDocumentVersionBD(
         document_id=document.id,
-        version_number=1,
-        status="draft",
+        version_number=int(latest_number or 0) + 1,
+        status="published",
+        published_at=now,
     )
     db.add(version)
+    await db.flush()
+
+    created: dict[str, TheoryBlockV2BD] = {}
+    for item in body.blocks:
+        block = TheoryBlockV2BD(
+            document_version_id=version.id,
+            block_type=item.block_type,
+            schema_version=1,
+            data=item.data,
+            settings=item.settings,
+            sort_order=item.sort_order,
+        )
+        db.add(block)
+        await db.flush()
+        created[item.client_id] = block
+    for item in body.blocks:
+        if item.parent_client_id is not None:
+            created[item.client_id].parent_block_id = created[
+                item.parent_client_id
+            ].id
+
+    previous = [
+        item
+        for item in (
+            await db.scalars(
+                select(TheoryDocumentVersionBD).where(
+                    TheoryDocumentVersionBD.document_id == document.id,
+                    TheoryDocumentVersionBD.id != version.id,
+                )
+            )
+        ).all()
+        if item.status == "published"
+    ]
+    for item in previous:
+        item.status = "archived"
+
+    document.title = body.title.strip()
+    document.published_version_id = version.id
+    document.status = "published"
+    owner.title = body.owner_title.strip()
+    owner.short_description = body.owner_description
     await db.commit()
     return await _document_out(db, document)
 

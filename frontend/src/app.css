@@ -235,7 +235,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   letter-spacing: -.035em;
 }
 .page-head h1 { max-width: 650px; font-size: clamp(31px, 8vw, 48px); }
-.page-head > p:last-child { max-width: 610px; margin: 14px 0 0; color: var(--text-soft); line-height: 1.65; }
+.page-head > p:last-child { max-width: 610px; margin: 10px 0 0; color: var(--text); opacity: .86; line-height: 1.55; }
 .task-head, .topic-head { padding-bottom: 28px; }
 
 .catalog-title { max-width: 840px; margin: 0 auto; padding: 19px 16px 14px; display: flex; align-items: center; justify-content: space-between; }

@@ -1,36 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
+import { TheoryDocument, buildTheoryTree } from "../theory/TheoryRenderer";
 import "./form.css";
 
-
 const BLOCK_TYPES = [
-  ["rich_text", "Текст"],
-  ["section", "Подгруппа"],
-  ["callout", "Выноска"],
-  ["example", "Пример"],
-  ["list", "Список"],
-  ["table", "Таблица"],
-  ["image", "Изображение"],
-  ["video_embed", "Видео"],
+  ["rich_text", "Текст"], ["section", "Группа"], ["callout", "Выноска"],
+  ["example", "Пример"], ["list", "Список"], ["table", "Таблица"],
+  ["image", "Изображение"], ["video_embed", "Видео"],
 ];
-
-const CALLOUT_VARIANTS = [
-  ["note", "Примечание"],
-  ["rule", "Правило"],
-  ["warning", "Предупреждение"],
-  ["important", "Важно"],
-  ["tip", "Подсказка"],
+const CALLOUTS = [
+  ["note", "Примечание"], ["rule", "Правило"], ["warning", "Предупреждение"],
+  ["important", "Важно"], ["tip", "Подсказка"],
 ];
-
 
 async function adminApi(path, options = {}) {
   const token = sessionStorage.getItem("umrus:admin-key") || "";
   const response = await fetch(`/api/v2/admin${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { "X-Admin-Key": token } : {}),
-      ...(options.headers || {}),
-    },
+    headers: { "Content-Type": "application/json", ...(token ? { "X-Admin-Key": token } : {}), ...(options.headers || {}) },
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -38,776 +24,221 @@ async function adminApi(path, options = {}) {
     error.status = response.status;
     throw error;
   }
-  if (response.status === 204) return null;
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
-
-function useAdminAccess() {
-  const [state, setState] = useState({ loading: true, required: false, allowed: false, error: "" });
-
-  async function verify(key = null) {
-    if (key !== null) sessionStorage.setItem("umrus:admin-key", key);
-    setState((current) => ({ ...current, loading: true, error: "" }));
-    try {
-      const status = await adminApi("/status");
-      if (!status.requiresAuth) {
-        setState({ loading: false, required: false, allowed: true, error: "" });
-        return;
-      }
-      await adminApi("/catalog");
-      setState({ loading: false, required: true, allowed: true, error: "" });
-    } catch (error) {
-      setState({
-        loading: false,
-        required: true,
-        allowed: false,
-        error: error.status === 401 ? "Неверный ключ" : error.message,
-      });
-    }
-  }
-
-  useEffect(() => { verify(); }, []);
-  return { ...state, verify };
+function makeId() {
+  return `local-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
 }
-
-
-function AccessGate({ access }) {
-  const [key, setKey] = useState("");
-  if (access.loading) {
-    return <div className="admin-gate"><span className="admin-loader" />Проверяем доступ…</div>;
-  }
-  return (
-    <div className="admin-gate">
-      <div className="gate-card">
-        <div className="admin-brand"><span>У</span><strong>UmRus</strong></div>
-        <p className="kicker">Редактор контента</p>
-        <h1>Введите ключ доступа</h1>
-        <p>Ключ задаётся переменной <code>ADMIN_TOKEN</code> на сервере.</p>
-        <input
-          type="password"
-          value={key}
-          autoFocus
-          placeholder="Ключ"
-          onChange={(event) => setKey(event.target.value)}
-          onKeyDown={(event) => event.key === "Enter" && access.verify(key)}
-        />
-        {access.error && <div className="form-error">{access.error}</div>}
-        <button className="primary-action" onClick={() => access.verify(key)}>Войти</button>
-      </div>
-    </div>
-  );
+function normalizeBlocks(blocks = []) {
+  const flat = [];
+  const walk = (items, parentId = null) => items.forEach((item, index) => {
+    const id = String(item.id);
+    flat.push({ ...item, id, parentId: item.parentId == null ? parentId : String(item.parentId), sortOrder: item.sortOrder ?? index, children: undefined });
+    if (item.children?.length) walk(item.children, id);
+  });
+  walk(blocks);
+  return flat;
 }
-
+function signature(value) {
+  return JSON.stringify(value);
+}
+function defaultData(type, previous = {}) {
+  const markdown = previous.markdown || "";
+  if (type === "section") return { title: previous.title || markdown || "Новая группа" };
+  if (type === "list") return { style: "unordered", items: previous.items || (markdown ? markdown.split("\n") : ["Новый пункт"]) };
+  if (type === "table") return { rows: previous.rows || [{ cells: ["Ячейка"] }] };
+  if (type === "image") return { url: previous.url || "", alt: previous.alt || "", caption: previous.caption || "" };
+  if (type === "video_embed") return { url: previous.url || "" };
+  if (type === "callout") return { markdown: markdown || previous.title || "", variant: previous.variant || "note" };
+  return { markdown: markdown || previous.title || "" };
+}
 
 export default function FormApp() {
-  const access = useAdminAccess();
-  if (!access.allowed) return <AccessGate access={access} />;
-  return <TheoryAdmin />;
+  const [access, setAccess] = useState({ loading: true, allowed: false, required: false, error: "" });
+  async function verify(key = null) {
+    if (key !== null) sessionStorage.setItem("umrus:admin-key", key);
+    try {
+      const status = await adminApi("/status");
+      if (status.requiresAuth) await adminApi("/catalog");
+      setAccess({ loading: false, allowed: true, required: status.requiresAuth, error: "" });
+    } catch (error) {
+      setAccess({ loading: false, allowed: false, required: true, error: error.message });
+    }
+  }
+  useEffect(() => { verify(); }, []);
+  if (!access.allowed) return <AccessGate access={access} verify={verify} />;
+  return <PocketEditor />;
 }
 
+function AccessGate({ access, verify }) {
+  const [key, setKey] = useState("");
+  if (access.loading) return <main className="form-gate"><p>Открываем редактор…</p></main>;
+  return <main className="form-gate"><section><Logo /><p className="overline">Редактор контента</p><h1>Вход в форму</h1><p>Введите ключ, заданный в <code>ADMIN_TOKEN</code>.</p><input autoFocus type="password" value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && verify(key)} placeholder="Ключ доступа" />{access.error && <p className="form-error">{access.error}</p>}<button className="button primary" onClick={() => verify(key)}>Войти</button></section></main>;
+}
 
-function TheoryAdmin() {
+function PocketEditor() {
   const [catalog, setCatalog] = useState(null);
   const [selected, setSelected] = useState(null);
   const [document, setDocument] = useState(null);
-  const [selectedBlockId, setSelectedBlockId] = useState(null);
-  const [loadingDocument, setLoadingDocument] = useState(false);
+  const [blocks, setBlocks] = useState([]);
+  const [ownerTitle, setOwnerTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [documentTitle, setDocumentTitle] = useState("");
+  const [baseline, setBaseline] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [draggedId, setDraggedId] = useState(null);
+  const [panel, setPanel] = useState("edit");
+  const [catalogOpen, setCatalogOpen] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [mobilePanel, setMobilePanel] = useState("catalog");
+
+  const currentState = useMemo(() => ({ blocks, ownerTitle, description, documentTitle }), [blocks, ownerTitle, description, documentTitle]);
+  const dirty = Boolean(document) && signature(currentState) !== baseline;
+  const tree = useMemo(() => buildTheoryTree(blocks), [blocks]);
+  const selectedBlock = blocks.find((item) => item.id === selectedId);
 
   async function loadCatalog() {
-    try {
-      setCatalog(await adminApi("/catalog"));
-    } catch (loadError) {
-      setError(loadError.message);
-    }
+    const data = await adminApi("/catalog");
+    setCatalog(data);
+    return data;
   }
-
-  useEffect(() => { loadCatalog(); }, []);
+  useEffect(() => { loadCatalog().catch((e) => setError(e.message)); }, []);
   useEffect(() => {
-    const handle = (event) => {
-      const message = event.reason?.message || "Неожиданная ошибка редактора";
-      setError(message);
-    };
-    window.addEventListener("unhandledrejection", handle);
-    return () => window.removeEventListener("unhandledrejection", handle);
-  }, []);
+    const stop = (event) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", stop);
+    return () => window.removeEventListener("beforeunload", stop);
+  }, [dirty]);
 
-  async function selectOwner(owner) {
-    setSelected(owner);
-    setSelectedBlockId(null);
-    setMobilePanel("blocks");
-    setLoadingDocument(true);
-    setError("");
-    try {
-      const result = await adminApi(
-        `/theory-documents?owner_type=${owner.type}&owner_id=${owner.id}`,
-      );
-      setDocument(result);
-    } catch (loadError) {
-      setError(loadError.message);
-    } finally {
-      setLoadingDocument(false);
+  async function choose(owner) {
+    if (dirty && !window.confirm("Отменить неопубликованные изменения?")) return;
+    setSelected(owner); setSelectedId(null); setError(""); setPanel("edit");
+    let doc = await adminApi(`/theory-documents?owner_type=${owner.type}&owner_id=${owner.id}`);
+    if (!doc) {
+      doc = await adminApi("/theory-documents", { method: "POST", body: JSON.stringify({ owner_type: owner.type, owner_id: owner.id, title: owner.title }) });
     }
+    const next = { blocks: normalizeBlocks(doc.blocks), ownerTitle: owner.title, description: owner.shortDescription || "", documentTitle: doc.title || owner.title };
+    setDocument(doc); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description); setDocumentTitle(next.documentTitle); setBaseline(signature(next));
+    if (window.innerWidth < 820) setCatalogOpen(false);
   }
 
-  async function refreshDocument() {
-    if (!selected) return;
-    const result = await adminApi(
-      `/theory-documents?owner_type=${selected.type}&owner_id=${selected.id}`,
-    );
-    setDocument(result);
-    return result;
+  function updateBlock(id, patch) {
+    setBlocks((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
-
-  function flash(message) {
-    setNotice(message);
-    window.setTimeout(() => setNotice(""), 2200);
+  function addBlock(parentId = null) {
+    const siblings = blocks.filter((item) => item.parentId === parentId);
+    const id = makeId();
+    setBlocks((items) => [...items, { id, parentId, type: "rich_text", data: { markdown: "" }, settings: {}, sortOrder: siblings.length }]);
+    setSelectedId(id);
   }
-
-  async function createTopic(task) {
-    const title = window.prompt("Название новой темы");
-    if (!title?.trim()) return;
-    await adminApi("/topics", {
-      method: "POST",
-      body: JSON.stringify({
-        exam_task_id: task.id,
-        title: title.trim(),
-        short_description: null,
-      }),
+  function removeBlock(id) {
+    const doomed = new Set([id]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      blocks.forEach((item) => { if (item.parentId && doomed.has(item.parentId) && !doomed.has(item.id)) { doomed.add(item.id); changed = true; } });
+    }
+    if (!window.confirm(`Удалить блок${doomed.size > 1 ? " и все вложенные блоки" : ""}?`)) return;
+    setBlocks((items) => items.filter((item) => !doomed.has(item.id)));
+    setSelectedId(null);
+  }
+  function dropBefore(targetId) {
+    if (!draggedId || draggedId === targetId) return;
+    setBlocks((items) => {
+      const target = items.find((item) => item.id === targetId);
+      const moved = items.find((item) => item.id === draggedId);
+      if (!target || !moved || isDescendant(items, target.parentId, draggedId)) return items;
+      const siblings = items.filter((item) => item.parentId === target.parentId && item.id !== draggedId).sort((a, b) => a.sortOrder - b.sortOrder);
+      const index = siblings.findIndex((item) => item.id === targetId);
+      siblings.splice(index, 0, { ...moved, parentId: target.parentId });
+      const order = new Map(siblings.map((item, i) => [item.id, i]));
+      return items.map((item) => item.id === draggedId ? { ...item, parentId: target.parentId, sortOrder: order.get(item.id) } : order.has(item.id) ? { ...item, sortOrder: order.get(item.id) } : item);
     });
-    await loadCatalog();
-    flash("Тема создана");
+    setDraggedId(null);
   }
-
-  const blocks = document?.blocks || [];
-  const selectedBlock = blocks.find((block) => block.id === selectedBlockId) || null;
-  const isDraft = document?.editingVersion?.status === "draft";
-
-  return (
-    <div className="admin-app">
-      <header className="admin-header">
-        <div className="admin-brand"><span>У</span><strong>UmRus</strong></div>
-        <div>
-          <p className="kicker">Контент</p>
-          <h1>Теория</h1>
-        </div>
-        <div className="header-actions">
-          <a href="/" target="_blank" rel="noreferrer" className="ghost-action">Открыть сайт</a>
-          {selected && (
-            <a
-              href={selected.type === "topic"
-                ? `/theory/tasks/${selected.taskNumber}/topics/${selected.id}`
-                : `/theory/tasks/${selected.taskNumber}`}
-              target="_blank"
-              rel="noreferrer"
-              className="ghost-action"
-            >
-              Предпросмотр
-            </a>
-          )}
-        </div>
-      </header>
-
-      <nav className="mobile-tabs">
-        {[
-          ["catalog", "Раздел"],
-          ["blocks", "Блоки"],
-          ["editor", "Редактор"],
-        ].map(([value, label]) => (
-          <button
-            key={value}
-            className={mobilePanel === value ? "active" : ""}
-            onClick={() => setMobilePanel(value)}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      <div className="admin-workspace">
-        <aside className={`catalog-panel mobile-${mobilePanel}`}>
-          <div className="panel-heading">
-            <div>
-              <p className="kicker">{catalog?.courseVersion?.code || "—"}</p>
-              <h2>Задания и темы</h2>
-            </div>
-            <button className="icon-action" onClick={loadCatalog} title="Обновить">↻</button>
-          </div>
-          {!catalog && <PanelLoading />}
-          <div className="catalog-tree">
-            {(catalog?.tasks || []).map((task) => (
-              <details key={task.id} className="catalog-task">
-                <summary>
-                  <span>{task.number}</span>
-                  <strong>{task.title}</strong>
-                  <i>⌄</i>
-                </summary>
-                <div className="catalog-task-content">
-                  <button
-                    className={selected?.type === "task" && selected.id === task.id ? "owner-row active" : "owner-row"}
-                    onClick={() => selectOwner({
-                      type: "task",
-                      id: task.id,
-                      taskNumber: task.number,
-                      title: task.title,
-                      shortDescription: task.shortDescription,
-                    })}
-                  >
-                    <span className="owner-kind">Введение</span>
-                    <strong>Общая теория задания</strong>
-                  </button>
-                  {task.topics.map((topic) => (
-                    <button
-                      key={topic.id}
-                      className={selected?.type === "topic" && selected.id === topic.id ? "owner-row active" : "owner-row"}
-                      onClick={() => selectOwner({
-                        type: "topic",
-                        id: topic.id,
-                        taskNumber: task.number,
-                        title: topic.title,
-                        shortDescription: topic.shortDescription,
-                      })}
-                    >
-                      <span className="owner-kind">Тема</span>
-                      <strong>{topic.title}</strong>
-                    </button>
-                  ))}
-                  <button className="add-topic" onClick={() => createTopic(task)}>+ Добавить тему</button>
-                </div>
-              </details>
-            ))}
-          </div>
-        </aside>
-
-        <section className={`blocks-panel mobile-${mobilePanel}`}>
-          {!selected ? (
-            <EmptyPanel title="Выберите раздел" text="Слева находятся задания и связанные с ними темы." />
-          ) : loadingDocument ? <PanelLoading /> : (
-            <>
-              <OwnerHeader
-                selected={selected}
-                document={document}
-                isDraft={isDraft}
-                onCatalogReload={loadCatalog}
-                onDocumentReload={refreshDocument}
-                onNotice={flash}
-              />
-              {!document ? (
-                <CreateDocument selected={selected} onCreated={refreshDocument} />
-              ) : (
-                <>
-                  <DocumentBar
-                    document={document}
-                    isDraft={isDraft}
-                    onChanged={refreshDocument}
-                    onNotice={flash}
-                  />
-                  <BlockTree
-                    blocks={blocks}
-                    selectedId={selectedBlockId}
-                    onSelect={(id) => {
-                      setSelectedBlockId(id);
-                      setMobilePanel("editor");
-                    }}
-                    disabled={!isDraft}
-                    documentId={document.id}
-                    onChanged={async (id = null) => {
-                      const updated = await refreshDocument();
-                      if (id) setSelectedBlockId(id);
-                      else if (selectedBlockId && !updated.blocks.some((block) => block.id === selectedBlockId)) {
-                        setSelectedBlockId(null);
-                      }
-                    }}
-                  />
-                </>
-              )}
-            </>
-          )}
-        </section>
-
-        <aside className={`editor-panel mobile-${mobilePanel}`}>
-          {selectedBlock ? (
-            <BlockEditor
-              key={selectedBlock.id}
-              block={selectedBlock}
-              blocks={blocks}
-              disabled={!isDraft}
-              onSaved={async () => {
-                await refreshDocument();
-                flash("Блок сохранён");
-              }}
-            />
-          ) : (
-            <EmptyPanel title="Выберите блок" text="Настройки выбранного блока появятся здесь." compact />
-          )}
-        </aside>
-      </div>
-      {notice && <div className="toast">{notice}</div>}
-      {error && <div className="global-error" onClick={() => setError("")}>{error}</div>}
-    </div>
-  );
-}
-
-
-function OwnerHeader({ selected, document, isDraft, onCatalogReload, onDocumentReload, onNotice }) {
-  const [title, setTitle] = useState(selected.title);
-  const [description, setDescription] = useState(selected.shortDescription || "");
-
-  useEffect(() => {
-    setTitle(selected.title);
-    setDescription(selected.shortDescription || "");
-  }, [selected]);
-
-  async function save() {
-    await adminApi(`/${selected.type === "task" ? "tasks" : "topics"}/${selected.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        title: title.trim(),
-        short_description: description.trim() || null,
-      }),
-    });
-    if (document && document.title !== title.trim() && isDraft) {
-      // The document title remains intentionally version-independent for now.
-      await onDocumentReload();
-    }
-    await onCatalogReload();
-    onNotice("Название сохранено");
-  }
-
-  return (
-    <div className="owner-header">
-      <p className="kicker">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</p>
-      <input className="owner-title" value={title} onChange={(event) => setTitle(event.target.value)} />
-      <textarea
-        className="owner-description"
-        value={description}
-        placeholder="Краткое описание — необязательно"
-        onChange={(event) => setDescription(event.target.value)}
-      />
-      <button className="text-action" onClick={save}>Сохранить название</button>
-    </div>
-  );
-}
-
-
-function CreateDocument({ selected, onCreated }) {
-  const [creating, setCreating] = useState(false);
-  async function create() {
-    setCreating(true);
-    try {
-      await adminApi("/theory-documents", {
-        method: "POST",
-        body: JSON.stringify({
-          owner_type: selected.type,
-          owner_id: selected.id,
-          title: selected.title,
-        }),
-      });
-      await onCreated();
-    } finally {
-      setCreating(false);
-    }
-  }
-  return (
-    <EmptyPanel
-      title="Теория ещё не создана"
-      text="Создайте первый черновик документа для этого раздела."
-      action={<button className="primary-action" onClick={create} disabled={creating}>
-        {creating ? "Создаём…" : "Создать документ"}
-      </button>}
-    />
-  );
-}
-
-
-function DocumentBar({ document, isDraft, onChanged, onNotice }) {
-  const [busy, setBusy] = useState(false);
-  async function draft() {
-    setBusy(true);
-    try {
-      await adminApi(`/theory-documents/${document.id}/draft`, { method: "POST" });
-      await onChanged();
-      onNotice("Черновик создан");
-    } finally {
-      setBusy(false);
-    }
+  function nestInside(parentId) {
+    if (!draggedId || draggedId === parentId || isDescendant(blocks, parentId, draggedId)) return;
+    const count = blocks.filter((item) => item.parentId === parentId && item.id !== draggedId).length;
+    updateBlock(draggedId, { parentId, sortOrder: count });
+    setDraggedId(null);
   }
   async function publish() {
-    if (!window.confirm("Опубликовать эту версию? Она сразу появится у пользователей.")) return;
-    setBusy(true);
+    if (!blocks.length) { setError("Добавьте хотя бы один блок"); return; }
+    setBusy(true); setError("");
     try {
-      await adminApi(`/theory-documents/${document.id}/publish`, { method: "POST" });
-      await onChanged();
-      onNotice("Новая версия опубликована");
-    } finally {
-      setBusy(false);
-    }
+      const payload = {
+        title: documentTitle.trim() || ownerTitle.trim(),
+        owner_title: ownerTitle.trim(),
+        owner_description: description.trim() || null,
+        blocks: blocks.map((item) => ({ client_id: item.id, parent_client_id: item.parentId, block_type: item.type, data: item.data || {}, settings: item.settings || {}, sort_order: item.sortOrder || 0 })),
+      };
+      const result = await adminApi(`/theory-documents/${document.id}/publish-live`, { method: "POST", body: JSON.stringify(payload) });
+      const freshCatalog = await loadCatalog();
+      const refreshedOwner = findOwner(freshCatalog, selected.type, selected.id) || { ...selected, title: ownerTitle, shortDescription: description };
+      const next = { blocks: normalizeBlocks(result.blocks), ownerTitle: refreshedOwner.title, description: refreshedOwner.shortDescription || "", documentTitle: result.title };
+      setDocument(result); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description); setDocumentTitle(next.documentTitle); setBaseline(signature(next)); setSelected({ ...selected, ...refreshedOwner });
+      setNotice("Опубликовано"); setTimeout(() => setNotice(""), 2200);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
-  return (
-    <div className="document-bar">
-      <div>
-        <span className={`status-dot ${isDraft ? "draft" : "published"}`} />
-        <strong>
-          Версия {document.editingVersion?.number || "—"} · {isDraft ? "черновик" : "опубликована"}
-        </strong>
-      </div>
-      {isDraft ? (
-        <button className="publish-action" disabled={busy} onClick={publish}>Опубликовать</button>
-      ) : (
-        <button className="primary-action small" disabled={busy} onClick={draft}>Редактировать</button>
-      )}
+
+  return <div className="form-app">
+    <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap">{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
+    <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
+      <Catalog catalog={catalog} selected={selected} choose={choose} />
+      <main className="workspace">
+        {!selected ? <Welcome /> : <>
+          <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
+          <section className={`edit-pane mobile-${panel}`}>
+            <div className="owner-fields"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
+            <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
+            <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropBefore} onNest={nestInside} onAdd={addBlock} />)}</div>
+            {selectedBlock && <BlockInspector block={selectedBlock} blocks={blocks} update={updateBlock} remove={removeBlock} />}
+          </section>
+          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Так страницу увидит ученик</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} selectedBlockId={selectedId} onBlockClick={(id) => { setSelectedId(String(id)); setPanel("edit"); }} /></div></section>
+        </>}
+      </main>
     </div>
-  );
+    {notice && <div className="toast">{notice}</div>}{error && <button className="global-error" onClick={() => setError("")}>{error}</button>}
+  </div>;
 }
 
-
-function buildTree(blocks) {
-  const nodes = new Map(blocks.map((block) => [block.id, { ...block, children: [] }]));
-  const roots = [];
-  nodes.forEach((node) => {
-    const parent = nodes.get(node.parentId);
-    if (parent && parent.id !== node.id) parent.children.push(node);
-    else roots.push(node);
-  });
-  const sort = (items) => {
-    items.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
-    items.forEach((item) => sort(item.children));
-  };
-  sort(roots);
-  return roots;
+function Catalog({ catalog, selected, choose }) {
+  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button>{task.topics.map((topic) => <button key={topic.id} className={`topic ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}>{topic.title}</button>)}</div>)}</div></aside>;
 }
+function Welcome() { return <section className="welcome"><Logo /><p className="overline">Карманная форма</p><h1>Выберите задание или тему</h1><p>Редактируйте блоки слева и сразу смотрите итоговую страницу. На сервер изменения попадут только после публикации.</p></section>; }
+function Logo() { return <a className="form-logo" href="/"><span>U</span>mRus</a>; }
 
-
-function BlockTree({ blocks, selectedId, onSelect, disabled, documentId, onChanged }) {
-  const tree = useMemo(() => buildTree(blocks), [blocks]);
-
-  async function add(parentId = null) {
-    const siblings = blocks.filter((block) => block.parentId === parentId);
-    const sortOrder = siblings.length
-      ? Math.max(...siblings.map((block) => block.sortOrder)) + 1
-      : 0;
-    const block = await adminApi(`/theory-documents/${documentId}/blocks`, {
-      method: "POST",
-      body: JSON.stringify({
-        block_type: "rich_text",
-        parent_block_id: parentId,
-        data: { markdown: "" },
-        settings: {},
-        sort_order: sortOrder,
-      }),
-    });
-    await onChanged(block.id);
-  }
-
-  return (
-    <div className="block-tree-wrap">
-      <div className="block-tree-heading">
-        <h3>Структура документа</h3>
-        <button className="primary-action small" onClick={() => add()} disabled={disabled}>+ Блок</button>
-      </div>
-      {!tree.length && <div className="empty-tree">Пока нет блоков</div>}
-      <div className="block-tree">
-        {tree.map((node) => (
-          <BlockNode
-            key={node.id}
-            node={node}
-            depth={0}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onAdd={add}
-            disabled={disabled}
-          />
-        ))}
-      </div>
+function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, onAdd }) {
+  return <div className="tree-node">
+    <div className={`block-row ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDrop(node.id); }}>
+      <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong></button>
+      {node.type === "section" && <button className="nest-button" title="Перетащите блок сюда, чтобы вложить" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); onNest(node.id); }}>↳</button>}
+      <button className="add-child" onClick={() => onAdd(node.id)}>+</button>
     </div>
-  );
+    {node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
+  </div>;
 }
 
-
-function BlockNode({ node, depth, selectedId, onSelect, onAdd, disabled }) {
-  return (
-    <div className="block-node">
-      <div className={node.id === selectedId ? "block-row active" : "block-row"} style={{ "--depth": depth }}>
-        <button onClick={() => onSelect(node.id)}>
-          <span className={`block-type-icon type-${node.type}`}>{blockSymbol(node.type)}</span>
-          <span>
-            <strong>{blockLabel(node.type)}</strong>
-            <small>{blockExcerpt(node)}</small>
-          </span>
-        </button>
-        <button className="inline-add" title="Добавить внутрь" disabled={disabled} onClick={() => onAdd(node.id)}>+</button>
-      </div>
-      {node.children.map((child) => (
-        <BlockNode
-          key={child.id}
-          node={child}
-          depth={depth + 1}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          onAdd={onAdd}
-          disabled={disabled}
-        />
-      ))}
-    </div>
-  );
+function BlockInspector({ block, blocks, update, remove }) {
+  const setData = (patch) => update(block.id, { data: { ...(block.data || {}), ...patch } });
+  function changeType(type) { update(block.id, { type, data: defaultData(type, block.data) }); }
+  const invalidParents = new Set([block.id, ...descendants(blocks, block.id)]);
+  return <aside className="inspector"><div className="inspector-head"><div><span className="overline">Блок</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
+    <div className="field-grid"><label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label><label>Родитель<select value={block.parentId || ""} onChange={(e) => update(block.id, { parentId: e.target.value || null })}><option value="">Корень документа</option>{blocks.filter((item) => !invalidParents.has(item.id)).map((item) => <option key={item.id} value={item.id}>{label(item.type)} · {excerpt(item)}</option>)}</select></label></div>
+    <BlockFields block={block} setData={setData} update={update} />
+  </aside>;
 }
-
-
-function blockLabel(type) {
-  return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type;
+function BlockFields({ block, setData, update }) {
+  if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
+  if (block.type === "section") return <label>Название группы · Markdown<input value={block.data?.title || ""} onChange={(e) => setData({ title: e.target.value })} /></label>;
+  if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><label>Пункты · один на строку<textarea className="markdown-editor short" value={(block.data?.items || []).map((item) => item?.text || item).join("\n")} onChange={(e) => setData({ items: e.target.value.split("\n") })} /></label></>;
+  if (block.type === "table") return <label>Таблица · строки с новой строки, ячейки через |<textarea className="markdown-editor short" value={(block.data?.rows || []).map((row) => (row?.cells || row || []).map((cell) => cell?.text || cell).join(" | ")).join("\n")} onChange={(e) => setData({ rows: e.target.value.split("\n").map((row) => ({ cells: row.split("|").map((cell) => cell.trim()) })) })} /></label>;
+  if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
+  return <label>Ссылка на видео<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label>;
 }
-
-function blockSymbol(type) {
-  return {
-    rich_text: "¶",
-    section: "▤",
-    callout: "!",
-    example: "→",
-    list: "≡",
-    table: "▦",
-    image: "◇",
-    video_embed: "▶",
-  }[type] || "•";
-}
-
-function blockExcerpt(block) {
-  const value = block.data?.markdown || block.data?.title || block.data?.url || "";
-  return String(value).replace(/\s+/g, " ").slice(0, 54) || "Пустой блок";
-}
-
-
-function defaultData(type) {
-  if (type === "section") return { title: "Новая подгруппа" };
-  if (type === "list") return { style: "unordered", items: ["Новый пункт"] };
-  if (type === "table") return { rows: [{ cells: ["Ячейка"] }] };
-  if (type === "image") return { url: "", alt: "", caption: "" };
-  if (type === "video_embed") return { url: "" };
-  if (type === "callout") return { markdown: "", variant: "note" };
-  return { markdown: "" };
-}
-
-
-function BlockEditor({ block, blocks, disabled, onSaved }) {
-  const [draft, setDraft] = useState({
-    type: block.type,
-    parentId: block.parentId,
-    data: block.data || {},
-    settings: block.settings || {},
-    sortOrder: block.sortOrder,
-  });
-  const [advanced, setAdvanced] = useState(false);
-  const [dataJson, setDataJson] = useState(JSON.stringify(block.data || {}, null, 2));
-  const [jsonError, setJsonError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const siblings = blocks
-    .filter((item) => item.parentId === block.parentId)
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
-
-  function changeType(type) {
-    const data = defaultData(type);
-    setDraft((current) => ({ ...current, type, data }));
-    setDataJson(JSON.stringify(data, null, 2));
-  }
-
-  function updateData(patch) {
-    const data = { ...draft.data, ...patch };
-    setDraft((current) => ({ ...current, data }));
-    setDataJson(JSON.stringify(data, null, 2));
-  }
-
-  async function save() {
-    let data = draft.data;
-    if (advanced) {
-      try {
-        data = JSON.parse(dataJson);
-        setJsonError("");
-      } catch {
-        setJsonError("JSON содержит ошибку");
-        return;
-      }
-    }
-    setBusy(true);
-    try {
-      await adminApi(`/blocks/${block.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          block_type: draft.type,
-          parent_block_id: draft.parentId,
-          data,
-          settings: draft.settings,
-          sort_order: draft.sortOrder,
-        }),
-      });
-      await onSaved();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function remove() {
-    if (!window.confirm("Удалить блок вместе со всеми вложенными блоками?")) return;
-    await adminApi(`/blocks/${block.id}`, { method: "DELETE" });
-    await onSaved();
-  }
-
-  async function move(direction) {
-    const index = siblings.findIndex((item) => item.id === block.id);
-    const other = siblings[index + direction];
-    if (!other) return;
-    await Promise.all([
-      adminApi(`/blocks/${block.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ sort_order: other.sortOrder }),
-      }),
-      adminApi(`/blocks/${other.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ sort_order: block.sortOrder }),
-      }),
-    ]);
-    await onSaved();
-  }
-
-  return (
-    <div className="block-editor">
-      <div className="panel-heading">
-        <div><p className="kicker">Блок #{block.id}</p><h2>Редактор</h2></div>
-        <div className="move-actions">
-          <button onClick={() => move(-1)} disabled={disabled}>↑</button>
-          <button onClick={() => move(1)} disabled={disabled}>↓</button>
-        </div>
-      </div>
-      {disabled && <div className="readonly-note">Создайте черновик, чтобы редактировать блоки.</div>}
-      <label>Тип блока</label>
-      <select value={draft.type} disabled={disabled} onChange={(event) => changeType(event.target.value)}>
-        {BLOCK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
-
-      <label>Родитель</label>
-      <select
-        value={draft.parentId || ""}
-        disabled={disabled}
-        onChange={(event) => setDraft((current) => ({
-          ...current,
-          parentId: event.target.value ? Number(event.target.value) : null,
-        }))}
-      >
-        <option value="">Корень документа</option>
-        {blocks.filter((item) => item.id !== block.id).map((item) => (
-          <option key={item.id} value={item.id}>#{item.id} · {blockLabel(item.type)} · {blockExcerpt(item)}</option>
-        ))}
-      </select>
-
-      <BlockFields draft={draft} disabled={disabled} updateData={updateData} />
-
-      <button className="advanced-toggle" onClick={() => setAdvanced((value) => !value)}>
-        {advanced ? "Скрыть JSON" : "Расширенные данные JSON"}
-      </button>
-      {advanced && (
-        <>
-          <textarea
-            className="json-editor"
-            value={dataJson}
-            disabled={disabled}
-            spellCheck={false}
-            onChange={(event) => setDataJson(event.target.value)}
-          />
-          {jsonError && <div className="form-error">{jsonError}</div>}
-        </>
-      )}
-
-      <div className="editor-actions">
-        <button className="primary-action" onClick={save} disabled={disabled || busy}>
-          {busy ? "Сохраняем…" : "Сохранить блок"}
-        </button>
-        <button className="danger-action" onClick={remove} disabled={disabled}>Удалить</button>
-      </div>
-    </div>
-  );
-}
-
-
-function BlockFields({ draft, disabled, updateData }) {
-  if (["rich_text", "example", "callout"].includes(draft.type)) {
-    return (
-      <>
-        {draft.type === "callout" && (
-          <>
-            <label>Вариант</label>
-            <select
-              value={draft.data.variant || "note"}
-              disabled={disabled}
-              onChange={(event) => updateData({ variant: event.target.value })}
-            >
-              {CALLOUT_VARIANTS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </>
-        )}
-        <label>Текст · Markdown</label>
-        <textarea
-          className="content-editor"
-          value={draft.data.markdown || ""}
-          disabled={disabled}
-          placeholder="Введите текст…"
-          onChange={(event) => updateData({ markdown: event.target.value })}
-        />
-      </>
-    );
-  }
-  if (draft.type === "section") {
-    return (
-      <>
-        <label>Название подгруппы</label>
-        <input
-          value={draft.data.title || ""}
-          disabled={disabled}
-          onChange={(event) => updateData({ title: event.target.value })}
-        />
-      </>
-    );
-  }
-  if (draft.type === "image") {
-    return (
-      <>
-        <label>URL изображения</label>
-        <input value={draft.data.url || ""} disabled={disabled} onChange={(event) => updateData({ url: event.target.value })} />
-        <label>Описание для доступности</label>
-        <input value={draft.data.alt || ""} disabled={disabled} onChange={(event) => updateData({ alt: event.target.value })} />
-        <label>Подпись</label>
-        <input value={draft.data.caption || ""} disabled={disabled} onChange={(event) => updateData({ caption: event.target.value })} />
-      </>
-    );
-  }
-  if (draft.type === "video_embed") {
-    return (
-      <>
-        <label>Ссылка на видео</label>
-        <input value={draft.data.url || ""} disabled={disabled} onChange={(event) => updateData({ url: event.target.value })} />
-      </>
-    );
-  }
-  return (
-    <div className="structured-hint">
-      Данные списка или таблицы редактируются в JSON. В следующей версии добавим визуальный конструктор строк.
-    </div>
-  );
-}
-
-
-function PanelLoading() {
-  return <div className="panel-loading"><span className="admin-loader" />Загрузка…</div>;
-}
-
-function EmptyPanel({ title, text, action = null, compact = false }) {
-  return (
-    <div className={compact ? "empty-panel compact" : "empty-panel"}>
-      <span>◇</span>
-      <h2>{title}</h2>
-      <p>{text}</p>
-      {action}
-    </div>
-  );
-}
+function label(type) { return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type; }
+function excerpt(block) { return String(block.data?.title || block.data?.markdown || block.data?.url || "Пустой блок").replace(/[#*_`]/g, "").replace(/\s+/g, " ").slice(0, 55); }
+function descendants(blocks, id) { const result = []; const walk = (parent) => blocks.filter((item) => item.parentId === parent).forEach((item) => { result.push(item.id); walk(item.id); }); walk(id); return result; }
+function isDescendant(blocks, id, possibleAncestor) { let cursor = id; while (cursor) { if (cursor === possibleAncestor) return true; cursor = blocks.find((item) => item.id === cursor)?.parentId; } return false; }
+function findOwner(catalog, type, id) { for (const task of catalog?.tasks || []) { if (type === "task" && task.id === id) return { ...task, type, taskNumber: task.number }; const topic = task.topics.find((item) => item.id === id); if (type === "topic" && topic) return { ...topic, type, taskNumber: task.number }; } return null; }
