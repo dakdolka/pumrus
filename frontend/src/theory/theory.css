@@ -11,13 +11,13 @@
 .rich-text blockquote { margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--accent); color: var(--text-secondary, var(--text)); }
 .rich-text code { padding: 2px 5px; border-radius: 5px; background: var(--surface-soft); }
 .rich-text a, .theory-list a, .table-scroll a { color: var(--accent); text-underline-offset: 3px; }
-.theory-nested { margin: 7px 0 0 10px; padding-left: 11px; border-left: 2px solid color-mix(in srgb, var(--accent) 48%, var(--line)); }
+.theory-nested { margin: 7px 0 0 10px; padding-left: 11px; border-left: 2px solid var(--line-strong, var(--line)); }
 .theory-section { margin: 7px 0; border: 1px solid var(--line-strong, var(--line)); border-radius: var(--radius-md, 12px); background: var(--surface); overflow: hidden; transition: border-color .18s ease, background .18s ease; }
-.theory-section[open] { border-color: color-mix(in srgb, var(--accent) 48%, var(--line)); background: color-mix(in srgb, var(--surface) 95%, var(--accent) 5%); }
+.theory-section[open] { border-color: var(--line-strong, var(--line)); background: var(--surface); }
 .theory-section summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 13px; cursor: pointer; font-weight: 700; list-style: none; }
 .theory-section summary::-webkit-details-marker { display: none; }
 .theory-section summary i { color: var(--text-soft, var(--text-secondary)); font-style: normal; transition: transform .2s ease, color .2s ease; }
-.theory-section[open] > summary i { color: var(--accent); }
+.theory-section[open] > summary i { color: var(--text); }
 .theory-section[open] > summary i { transform: rotate(45deg); }
 .theory-section-content { padding: 0 12px 12px; }
 .callout, .example-block { min-width: 0; margin: 11px 0; padding: 10px 13px 12px; border: 1px solid var(--callout-color, var(--accent)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--callout-color, var(--accent)) 5%, transparent); }
@@ -26,7 +26,9 @@
 .callout-rule { --callout-color: var(--success, #6fbd92); }
 .callout-warning { --callout-color: var(--danger, #d97a74); }
 .callout-important { --callout-color: var(--warning, #dda45a); }
-.callout-tip, .example-block { --callout-color: var(--example, #9b83c9); }
+.callout-tip { --callout-color: var(--example, #9b83c9); }
+.example-block { --callout-color: var(--line-strong, var(--line)); background: var(--surface-soft); }
+.example-block legend { color: var(--text-soft, var(--text-secondary)); }
 .theory-image { margin: 14px 0; }
 .theory-image img { display: block; max-width: 100%; height: auto; border-radius: 14px; }
 .theory-image figcaption { margin-top: 6px; color: var(--text-secondary); font-size: 13px; }

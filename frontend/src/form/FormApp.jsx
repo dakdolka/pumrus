@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TheoryDocument, buildTheoryTree } from "../theory/TheoryRenderer";
 import BrandLogo from "../BrandLogo";
 import "./form.css";
@@ -144,6 +144,7 @@ function PocketEditor() {
     const id = makeId();
     setBlocks((items) => [...items, { id, parentId, type: "rich_text", data: { markdown: "" }, settings: {}, sortOrder: siblings.length }]);
     setSelectedId(id);
+    return id;
   }
   function removeBlock(id) {
     const doomed = new Set([id]);
@@ -204,11 +205,17 @@ function PocketEditor() {
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
           <section className={`edit-pane mobile-${panel}`}>
             <div className="owner-fields"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
-            <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
-            <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropBefore} onNest={nestInside} onAdd={addBlock} />)}</div>
-            {selectedBlock && <BlockInspector block={selectedBlock} blocks={blocks} update={updateBlock} remove={removeBlock} />}
+            <div className="editing-body">
+              <div className="structure-column">
+                <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
+                <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropBefore} onNest={nestInside} onAdd={addBlock} />)}</div>
+              </div>
+              {selectedBlock
+                ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} />
+                : <aside className="inspector inspector-empty"><span className="overline">Редактор блока</span><p>Выберите блок или добавьте новый.</p></aside>}
+            </div>
           </section>
-          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Так страницу увидит ученик</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} selectedBlockId={selectedId} onBlockClick={(id) => { setSelectedId(String(id)); setPanel("edit"); }} /></div></section>
+          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Так страницу увидит ученик</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} onBlockClick={(id) => { setSelectedId(String(id)); setPanel("edit"); }} /></div></section>
         </>}
       </main>
     </div>
@@ -223,22 +230,43 @@ function Welcome() { return <section className="welcome"><Logo /><p className="o
 function Logo() { return <a className="form-logo" href="/"><BrandLogo className="form-brand-logo" /></a>; }
 
 function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, onAdd }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasChildren = Boolean(node.children?.length);
+  function handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const position = (event.clientY - bounds.top) / bounds.height;
+    if (position < .25) onDrop(node.id);
+    else {
+      onNest(node.id);
+      setExpanded(true);
+    }
+  }
+  function addChild() {
+    setExpanded(true);
+    onAdd(node.id);
+  }
   return <div className="tree-node">
-    <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDrop(node.id); }}>
+    <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong></button>
-      {node.type === "section" && <button className="nest-button" title="Перетащите блок сюда, чтобы вложить" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); onNest(node.id); }}>↳</button>}
-      <button className="add-child" onClick={() => onAdd(node.id)}>+</button>
+      {hasChildren ? <button className={`tree-toggle ${expanded ? "open" : ""}`} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "Свернуть группу" : "Развернуть группу"}>›</button> : <span />}
+      <button className="add-child" onClick={addChild} title="Добавить вложенный блок">+</button>
     </div>
-    {node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
+    {expanded && node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
   </div>;
 }
 
-function BlockInspector({ block, blocks, update, remove }) {
+function BlockInspector({ block, update, remove }) {
+  const editorRef = useRef(null);
   const setData = (patch) => update(block.id, { data: { ...(block.data || {}), ...patch } });
   function changeType(type) { update(block.id, { type, data: defaultData(type, block.data) }); }
-  const invalidParents = new Set([block.id, ...descendants(blocks, block.id)]);
-  return <aside className="inspector"><div className="inspector-head"><div><span className="overline">Блок</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
-    <div className="field-grid"><label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label><label>Родитель<select value={block.parentId || ""} onChange={(e) => update(block.id, { parentId: e.target.value || null })}><option value="">Корень документа</option>{blocks.filter((item) => !invalidParents.has(item.id)).map((item) => <option key={item.id} value={item.id}>{label(item.type)} · {excerpt(item)}</option>)}</select></label></div>
+  useEffect(() => {
+    const field = editorRef.current?.querySelector(".markdown-editor, input:not([type]), textarea");
+    field?.focus();
+  }, [block.id]);
+  return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
+    <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
     <BlockFields block={block} setData={setData} update={update} />
   </aside>;
 }
@@ -252,6 +280,5 @@ function BlockFields({ block, setData, update }) {
 }
 function label(type) { return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type; }
 function excerpt(block) { return String(block.data?.title || block.data?.markdown || block.data?.url || "Пустой блок").replace(/[#*_`]/g, "").replace(/\s+/g, " ").slice(0, 55); }
-function descendants(blocks, id) { const result = []; const walk = (parent) => blocks.filter((item) => item.parentId === parent).forEach((item) => { result.push(item.id); walk(item.id); }); walk(id); return result; }
 function isDescendant(blocks, id, possibleAncestor) { let cursor = id; while (cursor) { if (cursor === possibleAncestor) return true; cursor = blocks.find((item) => item.id === cursor)?.parentId; } return false; }
 function findOwner(catalog, type, id) { for (const task of catalog?.tasks || []) { if (type === "task" && task.id === id) return { ...task, type, taskNumber: task.number }; const topic = task.topics.find((item) => item.id === id); if (type === "topic" && topic) return { ...topic, type, taskNumber: task.number }; } return null; }
