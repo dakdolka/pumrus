@@ -70,8 +70,11 @@ def _topic_out(topic: TopicBD) -> dict[str, Any]:
     }
 
 
-def _block_out(block: TheoryBlockV2BD) -> dict[str, Any]:
-    return {
+def _block_out(
+    block: TheoryBlockV2BD,
+    children: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    result = {
         "id": block.id,
         "parentId": block.parent_block_id,
         "type": block.block_type,
@@ -80,6 +83,38 @@ def _block_out(block: TheoryBlockV2BD) -> dict[str, Any]:
         "settings": block.settings,
         "sortOrder": block.sort_order,
     }
+    if children is not None:
+        result["children"] = children
+    return result
+
+
+def _block_tree(blocks: list[TheoryBlockV2BD]) -> list[dict[str, Any]]:
+    by_parent: dict[int | None, list[TheoryBlockV2BD]] = {}
+    block_ids = {block.id for block in blocks}
+    for block in blocks:
+        parent_id = (
+            block.parent_block_id
+            if block.parent_block_id in block_ids
+            else None
+        )
+        by_parent.setdefault(parent_id, []).append(block)
+
+    for siblings in by_parent.values():
+        siblings.sort(key=lambda block: (block.sort_order, block.id))
+
+    def serialize(block: TheoryBlockV2BD, ancestors: frozenset[int]) -> dict[str, Any]:
+        if block.id in ancestors:
+            return _block_out(block, [])
+        next_ancestors = ancestors | {block.id}
+        return _block_out(
+            block,
+            [
+                serialize(child, next_ancestors)
+                for child in by_parent.get(block.id, [])
+            ],
+        )
+
+    return [serialize(block, frozenset()) for block in by_parent.get(None, [])]
 
 
 async def _published_document(
@@ -115,7 +150,7 @@ async def _published_document(
         "id": document.id,
         "title": document.title,
         "version": version.version_number,
-        "blocks": [_block_out(block) for block in blocks],
+        "blocks": _block_tree(list(blocks)),
     }
 
 

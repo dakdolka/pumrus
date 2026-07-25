@@ -182,21 +182,25 @@ function Home({ navigate }) {
       <section className="hero">
         <div className="hero-orbit orbit-one" />
         <div className="hero-orbit orbit-two" />
-        <p className="eyebrow">Подготовка без хаоса</p>
-        <h1>Русский язык становится <em>понятным</em></h1>
+        <h1>
+          <span>Русский язык —</span>
+          <em>это легко</em>
+        </h1>
         <div className="mode-grid">
           <button className="mode-card theory-card" onClick={() => navigate("/theory")}>
             <span className="mode-icon"><AppIcon type="theory" /></span>
-            <span className="mode-index">01</span>
-            <strong>Теория</strong>
-            <span>Разобраться в правилах</span>
+            <span className="mode-copy">
+              <strong>Теория</strong>
+              <span>Разобраться в правилах</span>
+            </span>
             <i><AppIcon type="arrow" /></i>
           </button>
           <button className="mode-card practice-card" onClick={() => navigate("/practice")}>
             <span className="mode-icon"><AppIcon type="practice" /></span>
-            <span className="mode-index">02</span>
-            <strong>Практика</strong>
-            <span>Проверить себя</span>
+            <span className="mode-copy">
+              <strong>Практика</strong>
+              <span>Проверить себя</span>
+            </span>
             <i><AppIcon type="arrow" /></i>
           </button>
         </div>
@@ -411,29 +415,46 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
 
 
 function TheoryDocument({ document }) {
-  const roots = useMemo(() => {
+  const blockTree = useMemo(() => {
+    const blocks = document.blocks || [];
+    if (blocks.some((block) => Array.isArray(block.children))) {
+      return blocks;
+    }
+
     const children = new Map();
-    const ids = new Set(document.blocks.map((block) => block.id));
-    document.blocks.forEach((block) => {
-      const key = block.parentId && ids.has(block.parentId) ? block.parentId : null;
+    const ids = new Set(blocks.map((block) => block.id));
+    blocks.forEach((block) => {
+      const key = block.parentId != null && ids.has(block.parentId)
+        ? block.parentId
+        : null;
       children.set(key, [...(children.get(key) || []), block]);
     });
-    return { roots: children.get(null) || [], children };
+
+    const attachChildren = (block, ancestors = new Set()) => {
+      if (ancestors.has(block.id)) return { ...block, children: [] };
+      const nextAncestors = new Set(ancestors).add(block.id);
+      return {
+        ...block,
+        children: (children.get(block.id) || [])
+          .map((child) => attachChildren(child, nextAncestors)),
+      };
+    };
+    return (children.get(null) || []).map((block) => attachChildren(block));
   }, [document]);
 
   return (
     <article className="theory-document">
-      {roots.roots.map((block) => (
-        <TheoryBlock key={block.id} block={block} childMap={roots.children} depth={0} />
+      {blockTree.map((block) => (
+        <TheoryBlock key={block.id} block={block} depth={0} />
       ))}
     </article>
   );
 }
 
 
-function TheoryBlock({ block, childMap, depth }) {
+function TheoryBlock({ block, depth }) {
   const [sectionOpen, setSectionOpen] = useState(true);
-  const children = childMap.get(block.id) || [];
+  const children = block.children || [];
   const markdown = block.data?.markdown || "";
   if (block.type === "section") {
     return (
@@ -448,7 +469,7 @@ function TheoryBlock({ block, childMap, depth }) {
         </summary>
         <div className="theory-section-content">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} childMap={childMap} depth={depth + 1} />
+            <TheoryBlock key={child.id} block={child} depth={depth + 1} />
           ))}
         </div>
       </details>
@@ -525,7 +546,7 @@ function TheoryBlock({ block, childMap, depth }) {
       {children.length > 0 && (
         <div className="theory-nested">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} childMap={childMap} depth={depth + 1} />
+            <TheoryBlock key={child.id} block={child} depth={depth + 1} />
           ))}
         </div>
       )}
