@@ -1020,21 +1020,8 @@ export default function App() {
     const tg = window.Telegram?.WebApp;
     const applyTheme = () => {
       const root = document.documentElement;
-      const params = tg?.themeParams || {};
       const theme = tg?.colorScheme === "light" ? "light" : "dark";
       root.dataset.theme = theme;
-      const values = {
-        "--paper": params.bg_color,
-        "--surface": params.secondary_bg_color || params.section_bg_color,
-        "--ink": params.text_color,
-        "--muted": params.hint_color,
-        "--blue": params.button_color || params.link_color,
-        "--button-text": params.button_text_color,
-        "--line": params.section_separator_color,
-      };
-      Object.entries(values).forEach(([name, value]) => {
-        if (value) root.style.setProperty(name, value);
-      });
     };
 
     applyTheme();
