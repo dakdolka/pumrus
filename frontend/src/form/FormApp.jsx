@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { TheoryDocument, buildTheoryTree } from "../theory/TheoryRenderer";
+import BrandLogo from "../BrandLogo";
 import "./form.css";
 
 const BLOCK_TYPES = [
@@ -66,7 +67,19 @@ export default function FormApp() {
       setAccess({ loading: false, allowed: false, required: true, error: error.message });
     }
   }
-  useEffect(() => { verify(); }, []);
+  useEffect(() => {
+    const telegram = window.Telegram?.WebApp;
+    const applyTheme = () => {
+      const theme = telegram?.initData
+        ? (telegram.colorScheme === "light" ? "light" : "dark")
+        : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme;
+    };
+    applyTheme();
+    telegram?.onEvent?.("themeChanged", applyTheme);
+    verify();
+    return () => telegram?.offEvent?.("themeChanged", applyTheme);
+  }, []);
   if (!access.allowed) return <AccessGate access={access} verify={verify} />;
   return <PocketEditor />;
 }
@@ -207,11 +220,11 @@ function Catalog({ catalog, selected, choose }) {
   return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button>{task.topics.map((topic) => <button key={topic.id} className={`topic ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}>{topic.title}</button>)}</div>)}</div></aside>;
 }
 function Welcome() { return <section className="welcome"><Logo /><p className="overline">Карманная форма</p><h1>Выберите задание или тему</h1><p>Редактируйте блоки слева и сразу смотрите итоговую страницу. На сервер изменения попадут только после публикации.</p></section>; }
-function Logo() { return <a className="form-logo" href="/"><span>U</span>mRus</a>; }
+function Logo() { return <a className="form-logo" href="/"><BrandLogo className="form-brand-logo" /></a>; }
 
 function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, onAdd }) {
   return <div className="tree-node">
-    <div className={`block-row ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDrop(node.id); }}>
+    <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDrop(node.id); }}>
       <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong></button>
       {node.type === "section" && <button className="nest-button" title="Перетащите блок сюда, чтобы вложить" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.stopPropagation(); onNest(node.id); }}>↳</button>}
       <button className="add-child" onClick={() => onAdd(node.id)}>+</button>

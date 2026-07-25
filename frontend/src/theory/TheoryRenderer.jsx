@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import "./theory.css";
 
 export function buildTheoryTree(blocks = []) {
@@ -39,7 +39,6 @@ export function TheoryDocument({ document, onBlockClick, selectedBlockId }) {
 }
 
 function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
-  const [open, setOpen] = useState(true);
   const children = block.children || [];
   const markdown = block.data?.markdown || "";
   const click = (event) => {
@@ -52,9 +51,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
     return (
       <details
         className={`theory-section depth-${Math.min(depth, 3)} ${selectedBlockId === block.id ? "is-selected" : ""}`}
-        open={open}
         onClick={click}
-        onToggle={(event) => setOpen(event.currentTarget.open)}
       >
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
         <div className="theory-section-content">
