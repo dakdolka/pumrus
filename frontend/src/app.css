@@ -27,6 +27,8 @@
   --radius-md: 12px;
   --radius-lg: 18px;
   --shadow: 0 14px 40px rgba(0, 0, 0, .18);
+  --layout-max: 1120px;
+  --reading-max: 760px;
   --safe-top: max(env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px));
 }
 
@@ -82,7 +84,7 @@ svg { width: 1.2em; height: 1.2em; display: block; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 
 .app-shell { min-height: 100vh; min-height: 100dvh; }
-main { width: min(100%, 760px); margin: 0 auto; }
+main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 
 .topbar {
   height: calc(50px + var(--safe-top));
@@ -106,15 +108,19 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .navigation-strip {
   min-height: 46px;
   padding: 7px max(14px, env(safe-area-inset-right)) 7px max(14px, env(safe-area-inset-left));
-  display: flex;
-  align-items: center;
-  gap: 10px;
   position: sticky;
   top: calc(50px + var(--safe-top));
   z-index: 19;
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--surface) 95%, transparent);
   backdrop-filter: blur(18px);
+}
+.navigation-inner {
+  width: min(100%, var(--layout-max));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .home-button, .context-switch {
   width: 32px;
@@ -221,7 +227,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
   letter-spacing: .12em;
   text-transform: uppercase;
 }
-.page-head { padding: 36px 18px 24px; }
+.page-head { max-width: var(--reading-max); padding: 36px 18px 24px; }
 .page-head h1, .section-heading h2, .catalog-title h1, .info-popup h2, .theory-overlay h2 {
   margin: 0;
   font-weight: 750;
@@ -232,7 +238,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .page-head > p:last-child { max-width: 610px; margin: 14px 0 0; color: var(--text-soft); line-height: 1.65; }
 .task-head, .topic-head { padding-bottom: 28px; }
 
-.catalog-title { padding: 19px 16px 14px; display: flex; align-items: center; justify-content: space-between; }
+.catalog-title { max-width: 840px; margin: 0 auto; padding: 19px 16px 14px; display: flex; align-items: center; justify-content: space-between; }
 .catalog-title h1 { font-size: 26px; }
 .info-button {
   width: 30px;
@@ -246,7 +252,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
   font-weight: 800;
 }
 .info-button.compact { width: 25px; height: 25px; font-size: 10px; }
-.task-list, .set-list { padding: 0 12px 48px; display: grid; gap: 8px; }
+.task-list, .set-list { width: min(100%, 840px); margin: 0 auto; padding: 0 12px 48px; display: grid; gap: 8px; }
 .task-group { display: grid; grid-template-columns: 24px 1fr; gap: 6px; }
 .task-group.standalone { grid-template-columns: 24px 1fr; }
 .task-group.standalone .task-group-rows { grid-column: 2; }
@@ -300,7 +306,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .task-content small { color: var(--text-faint); font-size: 9px; }
 .row-arrow { color: var(--text-faint); }
 
-.section-block { padding: 22px 14px 48px; }
+.section-block { max-width: 920px; padding: 22px 14px 48px; }
 .section-heading { padding: 0 4px 15px; }
 .section-heading h2 { font-size: 27px; }
 .topic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
@@ -321,7 +327,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .topic-card strong { font-size: 11px; line-height: 1.35; }
 .topic-card i { color: var(--text-faint); }
 
-.theory-document { margin: 0 18px 36px; padding: 2px 0; }
+.theory-document { max-width: var(--reading-max); margin: 0 18px 36px; padding: 2px 0; }
 .theory-document h2 { margin: 32px 0 14px; font-size: 27px; line-height: 1.2; letter-spacing: -.03em; }
 .theory-document h2:first-child { margin-top: 0; }
 .theory-document h3 { margin: 26px 0 10px; font-size: 19px; line-height: 1.3; }
@@ -435,7 +441,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .set-card small { color: var(--text-faint); font-size: 10px; }
 .set-card i { position: absolute; right: 17px; bottom: 18px; color: var(--text-faint); }
 
-.trainer { padding: 24px 16px 48px; }
+.trainer { width: min(100%, var(--reading-max)); margin: 0 auto; padding: 24px 16px 48px; }
 .trainer-meta { display: flex; justify-content: space-between; color: var(--text-faint); font-size: 11px; font-weight: 700; }
 .progress-track { height: 4px; margin: 9px 0 20px; overflow: hidden; background: var(--surface-soft); border-radius: 99px; }
 .progress-track i { height: 100%; display: block; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
@@ -572,12 +578,44 @@ main { width: min(100%, 760px); margin: 0 auto; }
   .mode-card:hover { background: color-mix(in srgb, var(--surface) 93%, var(--accent) 7%); }
 }
 @media (min-width: 680px) {
-  .hero { padding-inline: 28px; }
-  .mode-grid { max-width: 600px; }
+  .hero { padding-inline: 32px; }
+  .mode-grid { max-width: 640px; }
   .task-list, .set-list { padding-inline: 22px; }
   .set-list { grid-template-columns: 1fr 1fr; }
-  .theory-document { margin-inline: 28px; }
+  .page-head, .theory-document { margin-inline: auto; }
+  .section-block { margin-inline: auto; padding-inline: 28px; }
   .topic-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .overlay-backdrop { align-items: center; padding: 32px; }
+  .theory-overlay { height: min(86vh, 860px); border-radius: 22px; }
+  .overlay-handle { display: none; }
+  .theory-overlay > header { padding-top: 18px; }
+  .app-footer { margin-inline: 32px; }
+}
+@media (min-width: 980px) {
+  .hero {
+    min-height: calc(100vh - 51px);
+    min-height: calc(100dvh - 51px);
+    padding: 64px 40px 52px;
+    display: grid;
+    grid-template-columns: minmax(360px, .92fr) minmax(500px, 1.08fr);
+    align-items: center;
+    gap: clamp(48px, 7vw, 90px);
+  }
+  .hero h1 { font-size: clamp(54px, 4.7vw, 66px); }
+  .hero h1 > span { white-space: nowrap; }
+  .mode-grid { width: 100%; max-width: none; margin-top: 0; }
+  .mode-card { min-height: 210px; padding: 20px; }
+  .mode-icon { width: 46px; height: 46px; }
+  .mode-copy strong { font-size: 23px; }
+  .mode-copy > span { font-size: 12px; }
+  .catalog-title { padding-top: 28px; }
+  .topic-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .set-list { width: min(100%, 980px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .app-footer { margin-inline: 40px; }
+}
+@media (min-width: 1280px) {
+  .hero { padding-inline: 0; }
+  .app-footer { margin-inline: 0; }
 }
 @media (max-width: 380px) {
   .hero { padding-inline: 14px; }

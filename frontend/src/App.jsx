@@ -136,39 +136,41 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
 
       {(breadcrumbs.length > 0 || contextAction) && (
         <div className="navigation-strip">
-          <button className="home-button" onClick={() => navigate("/")} aria-label="На главную">
-            <AppIcon type="home" />
-          </button>
-          <nav className="breadcrumbs" aria-label="Навигация">
-            {breadcrumbs.map((item, index) => (
-              <span className="breadcrumb-wrap" key={`${item.label}-${index}`}>
-                {index > 0 && <span className="breadcrumb-separator">/</span>}
-                <button
-                  className={
-                    !contextAction?.active && index === breadcrumbs.length - 1
-                      ? "breadcrumb active"
-                      : "breadcrumb"
-                  }
-                  onClick={() => item.path && navigate(item.path)}
-                  disabled={!item.path}
-                  aria-label={item.label}
-                >
-                  {item.icon && <AppIcon type={item.icon} />}
-                  {item.number && <span className="breadcrumb-number">{item.number}</span>}
-                  {!item.icon && !item.number && item.label}
-                </button>
-              </span>
-            ))}
-          </nav>
-          {contextAction && (
-            <button
-              className={contextAction.active ? "context-switch active" : "context-switch"}
-              onClick={contextAction.onClick}
-            >
-              <AppIcon type={contextAction.icon} />
-              <span className="visually-hidden">{contextAction.label}</span>
+          <div className="navigation-inner">
+            <button className="home-button" onClick={() => navigate("/")} aria-label="На главную">
+              <AppIcon type="home" />
             </button>
-          )}
+            <nav className="breadcrumbs" aria-label="Навигация">
+              {breadcrumbs.map((item, index) => (
+                <span className="breadcrumb-wrap" key={`${item.label}-${index}`}>
+                  {index > 0 && <span className="breadcrumb-separator">/</span>}
+                  <button
+                    className={
+                      !contextAction?.active && index === breadcrumbs.length - 1
+                        ? "breadcrumb active"
+                        : "breadcrumb"
+                    }
+                    onClick={() => item.path && navigate(item.path)}
+                    disabled={!item.path}
+                    aria-label={item.label}
+                  >
+                    {item.icon && <AppIcon type={item.icon} />}
+                    {item.number && <span className="breadcrumb-number">{item.number}</span>}
+                    {!item.icon && !item.number && item.label}
+                  </button>
+                </span>
+              ))}
+            </nav>
+            {contextAction && (
+              <button
+                className={contextAction.active ? "context-switch active" : "context-switch"}
+                onClick={contextAction.onClick}
+              >
+                <AppIcon type={contextAction.icon} />
+                <span className="visually-hidden">{contextAction.label}</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
       <main>{children}</main>
@@ -1072,23 +1074,38 @@ export default function App() {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
+    const browserTheme = window.matchMedia("(prefers-color-scheme: light)");
+    const isTelegram = Boolean(tg?.initData);
     const applyTheme = () => {
       const root = document.documentElement;
-      const theme = tg?.colorScheme === "light" ? "light" : "dark";
+      const theme = isTelegram
+        ? (tg.colorScheme === "light" ? "light" : "dark")
+        : (browserTheme.matches ? "light" : "dark");
       root.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute(
+        "content",
+        theme === "light" ? "#eceae6" : "#222129",
+      );
     };
 
     applyTheme();
-    tg?.ready?.();
-    tg?.expand?.();
-    tg?.disableVerticalSwipes?.();
-    try {
-      tg?.requestFullscreen?.();
-    } catch {
-      // Older Telegram clients keep the expanded, non-fullscreen mode.
+    if (isTelegram) {
+      tg.ready?.();
+      tg.expand?.();
+      tg.disableVerticalSwipes?.();
+      try {
+        tg.requestFullscreen?.();
+      } catch {
+        // Older Telegram clients keep the expanded, non-fullscreen mode.
+      }
+      tg.onEvent?.("themeChanged", applyTheme);
+    } else {
+      browserTheme.addEventListener?.("change", applyTheme);
     }
-    tg?.onEvent?.("themeChanged", applyTheme);
-    return () => tg?.offEvent?.("themeChanged", applyTheme);
+    return () => {
+      if (isTelegram) tg.offEvent?.("themeChanged", applyTheme);
+      else browserTheme.removeEventListener?.("change", applyTheme);
+    };
   }, []);
 
   useEffect(() => {
