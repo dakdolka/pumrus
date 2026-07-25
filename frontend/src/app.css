@@ -101,9 +101,7 @@ main { width: min(100%, 760px); margin: 0 auto; }
 .brand-logo { width: 104px; height: auto; overflow: visible; color: var(--text); }
 .brand-logo text { fill: currentColor; font-family: "Manrope", system-ui, sans-serif; }
 .brand-u { stroke: var(--accent); }
-.brand-u circle { fill: var(--accent); }
-.brand-cap { fill: var(--text); stroke: var(--text); }
-.brand-cap-line { stroke: var(--text); }
+.brand-cap { stroke: var(--text); }
 
 .navigation-strip {
   min-height: 46px;

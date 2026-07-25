@@ -94,12 +94,14 @@ function BrandLogo() {
     <svg className="brand-logo" viewBox="0 0 320 96" aria-label="UmRus" role="img">
       <g className="brand-u" fill="none" strokeLinecap="round" strokeLinejoin="round">
         <path d="M28 35v21c0 15 10 25 24 25s24-10 24-25V35" strokeWidth="10" />
-        <path className="brand-cap" d="m18 25 34-13 34 13-34 13-34-13Z" strokeWidth="3" />
-        <path className="brand-cap-line" d="M34 33v9c9 5 27 5 36 0v-9" strokeWidth="5" />
-        <path d="M85 26v18" strokeWidth="3" />
-        <circle cx="85" cy="48" r="3.5" stroke="none" />
       </g>
-      <text x="98" y="70" fontSize="55" fontWeight="800" letterSpacing="-2">mRus</text>
+      <g className="brand-cap" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 23 39 10l30 14-32 13L8 23Z" strokeWidth="3" />
+        <path d="M22 31v8c8 4 21 4 29 0v-8" strokeWidth="3" />
+        <path d="M9 24 5 43" strokeWidth="2.5" />
+        <path d="m5 43-3 8m3-8 3 8" strokeWidth="2.5" />
+      </g>
+      <text x="98" y="81" fontSize="55" fontWeight="800" letterSpacing="-2">mRus</text>
     </svg>
   );
 }
