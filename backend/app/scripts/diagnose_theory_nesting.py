@@ -71,8 +71,36 @@ LIMIT 30
 async def main() -> None:
     async with async_session_factory() as session:
         report = (await session.execute(text(REPORT_SQL))).mappings().one()
+        legacy_tree_count = (
+            await session.execute(
+                text(
+                    """
+                    WITH RECURSIVE legacy_tree AS (
+                        SELECT id FROM theory_block WHERE theory_id IS NOT NULL
+                        UNION ALL
+                        SELECT child.id
+                        FROM theory_block AS child
+                        JOIN legacy_tree AS parent ON child.parent_id = parent.id
+                    )
+                    SELECT
+                        COUNT(*) AS reachable_blocks,
+                        COUNT(*) FILTER (
+                            WHERE id NOT IN (
+                                SELECT source_legacy_block_id
+                                FROM theory_block_v2
+                                WHERE source_legacy_block_id IS NOT NULL
+                            )
+                        ) AS missing_in_v2
+                    FROM legacy_tree
+                    """
+                )
+            )
+        ).mappings().one()
+
         print("Theory nesting report:")
         for key, value in report.items():
+            print(f"  {key}: {value}")
+        for key, value in legacy_tree_count.items():
             print(f"  {key}: {value}")
 
         print("Nested block samples:")

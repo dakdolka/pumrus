@@ -337,9 +337,21 @@ async def _migrate_theory(
                 await session.execute(
                     text(
                         """
+                        WITH RECURSIVE block_tree AS (
+                            SELECT id, type, content, parent_id, "order"
+                            FROM "theory_block"
+                            WHERE theory_id = :theory_id
+
+                            UNION ALL
+
+                            SELECT child.id, child.type, child.content,
+                                   child.parent_id, child."order"
+                            FROM "theory_block" AS child
+                            JOIN block_tree AS parent
+                              ON child.parent_id = parent.id
+                        )
                         SELECT id, type, content, parent_id, "order"
-                        FROM "theory_block"
-                        WHERE theory_id = :theory_id
+                        FROM block_tree
                         ORDER BY id
                         """
                     ),
