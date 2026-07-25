@@ -89,6 +89,22 @@ function AppIcon({ type }) {
 }
 
 
+function BrandLogo() {
+  return (
+    <svg className="brand-logo" viewBox="0 0 320 96" aria-label="UmRus" role="img">
+      <g className="brand-u" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M28 35v21c0 15 10 25 24 25s24-10 24-25V35" strokeWidth="10" />
+        <path className="brand-cap" d="m18 25 34-13 34 13-34 13-34-13Z" strokeWidth="3" />
+        <path className="brand-cap-line" d="M34 33v9c9 5 27 5 36 0v-9" strokeWidth="5" />
+        <path d="M85 26v18" strokeWidth="3" />
+        <circle cx="85" cy="48" r="3.5" stroke="none" />
+      </g>
+      <text x="98" y="70" fontSize="55" fontWeight="800" letterSpacing="-2">mRus</text>
+    </svg>
+  );
+}
+
+
 function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
   const backPath = breadcrumbs.length > 1
     ? breadcrumbs[breadcrumbs.length - 2].path
@@ -112,7 +128,7 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => navigate("/")} aria-label="На главную">
-          <span>UmRus</span>
+          <BrandLogo />
         </button>
       </header>
 
