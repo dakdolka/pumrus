@@ -81,7 +81,59 @@ export default function FormApp() {
     return () => telegram?.offEvent?.("themeChanged", applyTheme);
   }, []);
   if (!access.allowed) return <AccessGate access={access} verify={verify} />;
-  return <PocketEditor />;
+  return <FormWorkspace />;
+}
+
+function FormWorkspace() {
+  const [mode, setMode] = useState("theory");
+  return <>
+    <nav className="form-mode-tabs">
+      <button className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
+      <button className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
+    </nav>
+    {mode === "theory" ? <PocketEditor /> : <PracticeSettings />}
+  </>;
+}
+
+function PracticeSettings() {
+  const [sets, setSets] = useState([]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    adminApi("/exercise-sets").then(setSets).catch((reason) => setError(reason.message));
+  }, []);
+  async function save(item) {
+    try {
+      await adminApi(`/exercise-sets/${item.id}/settings`, {
+        method: "PATCH",
+        body: JSON.stringify({ session_size: item.sessionSize, page_size: item.pageSize }),
+      });
+    } catch (reason) {
+      setError(reason.message);
+    }
+  }
+  function update(id, patch) {
+    setSets((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+  return <main className="practice-form">
+    <header><span className="overline">Карманная форма</span><h1>Настройки практики</h1>
+      <p>Набор определяет размер тренировки и количество слов на одном экране.</p></header>
+    {error && <p className="form-error">{error}</p>}
+    <section className="practice-form-list">
+      {sets.map((item) => <article key={item.id}>
+        <div><small>Задание {item.taskNumber}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</small>
+          <strong>{item.title}</strong><span>{item.exerciseCount} упражнений · {(item.interactionTypes || []).join(", ")}</span></div>
+        <label>Всего<input type="number" min="1" max="100" value={item.sessionSize}
+          onChange={(event) => update(item.id, { sessionSize: Number(event.target.value) })} /></label>
+        <label>В блоке<input type="number" min="1" max="20" value={item.pageSize}
+          onChange={(event) => update(item.id, { pageSize: Number(event.target.value) })} /></label>
+        <button className="button primary" onClick={() => save(item)}>Сохранить</button>
+      </article>)}
+    </section>
+    <aside className="practice-types"><strong>Поддерживаемые типы</strong>
+      <span>single_choice · stress_selection · vowel_fill · text_input</span>
+      <small>Обычный ввод слова сохранён как отдельный тип; словарные слова используют vowel_fill.</small>
+    </aside>
+  </main>;
 }
 
 function AccessGate({ access, verify }) {

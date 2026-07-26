@@ -155,7 +155,7 @@ def _convert_item(
 
     if trainer_type == "dictionary":
         return {
-            "interaction_type": "text_input",
+            "interaction_type": "vowel_fill",
             "prompt_data": prompt,
             "interaction_config": {
                 "variant": "masked_letters",

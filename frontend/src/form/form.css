@@ -177,3 +177,64 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
   .button.primary { padding-inline: 9px; font-size: 12px; }
   .block-row { margin-left: calc(var(--depth) * 8px); }
 }
+.form-mode-tabs {
+  position: fixed;
+  z-index: 50;
+  top: .65rem;
+  left: 50%;
+  display: flex;
+  gap: .25rem;
+  padding: .25rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+}
+.form-mode-tabs button {
+  padding: .5rem .8rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 700;
+}
+.form-mode-tabs button.active { background: var(--accent); color: var(--accent-text); }
+
+.practice-form { max-width: 980px; margin: 0 auto; padding: 5rem 1rem 2rem; }
+.practice-form header { max-width: 640px; margin-bottom: 1rem; }
+.practice-form header h1 { margin: .2rem 0; }
+.practice-form header p { color: var(--text-secondary); }
+.practice-form-list { display: grid; gap: .55rem; }
+.practice-form-list article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 6rem 6rem auto;
+  align-items: end;
+  gap: .65rem;
+  padding: .8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.practice-form-list article > div strong,
+.practice-form-list article > div span,
+.practice-form-list article > div small { display: block; }
+.practice-form-list article > div span,
+.practice-form-list article > div small { color: var(--text-secondary); font-size: .78rem; }
+.practice-form-list label { margin: 0; font-size: .72rem; }
+.practice-form-list input { min-width: 0; }
+.practice-types {
+  display: grid;
+  gap: .25rem;
+  margin-top: 1rem;
+  padding: .8rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text-secondary);
+}
+.practice-types strong { color: var(--text); }
+@media (max-width: 720px) {
+  .practice-form-list article { grid-template-columns: 1fr 1fr; }
+  .practice-form-list article > div { grid-column: 1 / -1; }
+}

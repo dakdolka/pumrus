@@ -260,6 +260,13 @@ function TaskCatalog({ mode, navigate }) {
       </section>
       {state.loading && <Loading />}
       {state.error && <ErrorState message={state.error} />}
+      {!isTheory && (
+        <button className="mistakes-entry" onClick={() => navigate("/practice/mistakes")}>
+          <span><AppIcon type="back" /></span>
+          <span><strong>Отработать ошибки</strong><small>Повторить задания, в которых были ошибки</small></span>
+          <i><AppIcon type="arrow" /></i>
+        </button>
+      )}
       {state.data && (
         <section className="task-list">
           {groupTasks(state.data).map((group) => (
@@ -631,6 +638,7 @@ function PracticeTask({ taskNumber, navigate }) {
   const search = new URLSearchParams(window.location.search);
   const topicId = search.get("topic");
   const theoryOrigin = search.get("origin") === "theory";
+  const mistakesMode = search.get("mistakes") === "1";
   const suffix = topicId ? `?topic_id=${topicId}` : "";
   const state = useRemote(
     () => api(`/v2/practice/tasks/${taskNumber}/sets${suffix}`),
@@ -687,7 +695,9 @@ function PracticeTask({ taskNumber, navigate }) {
                       body: JSON.stringify({
                         exercise_set_id: set.id,
                         user_id: window.__umrusUserId || null,
-                        limit: 20,
+                        mode: mistakesMode ? "mistakes" : "standard",
+                        limit: set.sessionSize,
+                        page_size: set.pageSize,
                       }),
                     });
                     const contextQuery = theoryOrigin
@@ -713,6 +723,49 @@ function PracticeTask({ taskNumber, navigate }) {
 }
 
 
+function MistakesPractice({ navigate }) {
+  const userId = window.__umrusUserId || null;
+  const state = useRemote(
+    () => userId ? api(`/v2/practice/mistakes?user_id=${userId}`) : Promise.resolve({ total: 0, tasks: [] }),
+    [userId],
+  );
+  return (
+    <Shell
+      navigate={navigate}
+      breadcrumbs={[
+        { label: "Практика", icon: "practice", path: "/practice" },
+        { label: "Ошибки" },
+      ]}
+    >
+      <section className="page-head task-head">
+        <p className="eyebrow">Практика</p>
+        <h1>Отработать ошибки</h1>
+        <p>Здесь собраны упражнения, в которых последний ответ был неверным.</p>
+      </section>
+      {!userId && <EmptyCard text="История ошибок появится после входа через Telegram." />}
+      {state.loading && <Loading />}
+      {state.error && <ErrorState message={state.error} />}
+      {state.data?.tasks?.length ? (
+        <section className="set-list">
+          {state.data.tasks.map((task) => (
+            <button
+              className="set-card"
+              key={task.number}
+              onClick={() => navigate(`/practice/tasks/${task.number}?mistakes=1`)}
+            >
+              <span className="task-number">{task.number}</span>
+              <strong>{task.title}</strong>
+              <small>{task.count} упражнений для повторения</small>
+              <i><AppIcon type="arrow" /></i>
+            </button>
+          ))}
+        </section>
+      ) : userId && !state.loading ? <EmptyCard text="Активных ошибок пока нет." /> : null}
+    </Shell>
+  );
+}
+
+
 function PracticeSession({ sessionId, navigate }) {
   const theoryOrigin = new URLSearchParams(window.location.search).get("origin") === "theory";
   const state = useRemote(
@@ -720,37 +773,33 @@ function PracticeSession({ sessionId, navigate }) {
     [sessionId],
   );
   const [session, setSession] = useState(null);
-  const [index, setIndex] = useState(0);
-  const [response, setResponse] = useState({});
-  const [result, setResult] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(0);
+  const [responses, setResponses] = useState({});
+  const [results, setResults] = useState({});
+  const [submittingId, setSubmittingId] = useState(null);
   const [theoryLink, setTheoryLink] = useState(null);
+  const [errorResult, setErrorResult] = useState(null);
 
   useEffect(() => {
     if (!state.data) return;
     setSession(state.data);
-    setIndex(Math.min(state.data.currentPosition, state.data.items.length - 1));
+    const size = state.data.configuration?.pageSize || 5;
+    setPage(Math.floor(Math.min(state.data.currentPosition, state.data.items.length - 1) / size));
   }, [state.data]);
 
   useEffect(() => {
     if (!session) return;
-    const currentItem = session.items[index];
-    if (!currentItem) return;
-    const key = `umrus:draft:${session.id}:${currentItem.sessionItemId}`;
     try {
-      setResponse(JSON.parse(localStorage.getItem(key) || "{}"));
+      setResponses(JSON.parse(localStorage.getItem(`umrus:drafts:${session.id}`) || "{}"));
     } catch {
-      setResponse({});
+      setResponses({});
     }
-  }, [session?.id, index]);
+  }, [session?.id]);
 
   useEffect(() => {
     if (!session) return;
-    const currentItem = session.items[index];
-    if (!currentItem || !Object.keys(response).length) return;
-    const key = `umrus:draft:${session.id}:${currentItem.sessionItemId}`;
-    localStorage.setItem(key, JSON.stringify(response));
-  }, [session?.id, index, response]);
+    localStorage.setItem(`umrus:drafts:${session.id}`, JSON.stringify(responses));
+  }, [session?.id, responses]);
 
   const navigateFromSession = useCallback((nextPath) => {
     if (!theoryOrigin && session?.status === "active") {
@@ -767,36 +816,41 @@ function PracticeSession({ sessionId, navigate }) {
   }
   if (!session) return null;
 
-  const item = session.items[index];
-  const answered = Boolean(result);
-  const progress = ((index + (answered ? 1 : 0)) / session.items.length) * 100;
+  const pageSize = session.configuration?.pageSize || 5;
+  const pageStart = page * pageSize;
+  const pageItems = session.items.slice(pageStart, pageStart + pageSize);
+  const answeredCount = session.items.filter((item) => item.state !== "pending").length
+    + Object.keys(results).length;
+  const progress = Math.min(100, (answeredCount / session.items.length) * 100);
+  const pageComplete = pageItems.every(
+    (item) => item.state !== "pending" || results[item.sessionItemId],
+  );
+  const finished = pageComplete && pageStart + pageSize >= session.items.length;
 
-  async function submit() {
-    if (!hasResponse(item, response) || submitting) return;
-    setSubmitting(true);
+  async function submit(item, response) {
+    if (!hasResponse(item, response) || submittingId || results[item.sessionItemId]) return;
+    setSubmittingId(item.sessionItemId);
     try {
       const answer = await api(
         `/v2/practice/sessions/${session.id}/items/${item.sessionItemId}/attempts`,
         { method: "POST", body: JSON.stringify({ response }) },
       );
-      localStorage.removeItem(`umrus:draft:${session.id}:${item.sessionItemId}`);
-      setResult(answer);
+      setResults((current) => ({ ...current, [item.sessionItemId]: answer }));
       setSession((current) => ({ ...current, status: answer.sessionStatus }));
+      if (answer.status === "incorrect") setErrorResult(answer);
     } catch (error) {
       window.alert(error.message);
     } finally {
-      setSubmitting(false);
+      setSubmittingId(null);
     }
   }
 
-  function next() {
-    if (index + 1 >= session.items.length) return;
-    setIndex((current) => current + 1);
-    setResponse({});
-    setResult(null);
+  function nextPage() {
+    setErrorResult(null);
+    setPage((current) => current + 1);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const finished = answered && index + 1 >= session.items.length;
   return (
     <Shell
       navigate={navigateFromSession}
@@ -837,42 +891,64 @@ function PracticeSession({ sessionId, navigate }) {
     >
       <section className="trainer">
         <div className="trainer-meta">
-          <span>{index + 1} / {session.items.length}</span>
+          <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
         </div>
         <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
 
-        <div className="question-card">
-          <p className="eyebrow">Выберите ответ</p>
-          <QuestionPrompt item={item} />
-          <Interaction
-            item={item}
-            response={response}
-            setResponse={setResponse}
-            disabled={answered}
-          />
+        <div className="question-batch">
+          {pageItems.map((item, itemIndex) => {
+            const result = results[item.sessionItemId];
+            const response = responses[item.sessionItemId] || {};
+            const setResponse = (next) => setResponses((current) => ({
+              ...current,
+              [item.sessionItemId]: next,
+            }));
+            return (
+              <article className={`batch-question ${result?.status || ""}`} key={item.sessionItemId}>
+                <span className="batch-number">{pageStart + itemIndex + 1}</span>
+                <div className="batch-content">
+                  <QuestionPrompt item={item} />
+                  <Interaction
+                    item={item}
+                    response={response}
+                    setResponse={setResponse}
+                    disabled={Boolean(result) || submittingId === item.sessionItemId}
+                    onAnswer={(next) => {
+                      setResponse(next);
+                      submit(item, next);
+                    }}
+                    onComplete={(next) => submit(item, next)}
+                  />
+                </div>
+                {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
+              </article>
+            );
+          })}
         </div>
 
-        {result && <ResultCard result={result} onTheory={setTheoryLink} />}
-
-        {!answered ? (
-          <button
-            className="primary-button"
-            disabled={!hasResponse(item, response) || submitting}
-            onClick={submit}
-          >
-            {submitting ? "Проверяем…" : "Проверить"}
-          </button>
-        ) : finished ? (
+        {finished ? (
           <button className="primary-button" onClick={() => navigate("/practice")}>
             Завершить тренировку
           </button>
-        ) : (
-          <button className="primary-button" onClick={next}>
-            Следующее упражнение
+        ) : pageComplete ? (
+          <button className="primary-button" onClick={nextPage}>
+            Продолжить
           </button>
-        )}
+        ) : <p className="batch-hint">Ответьте на пять заданий — подтверждать ответы не нужно.</p>}
       </section>
+      {errorResult && (
+        <div className="answer-sheet incorrect" role="alert">
+          <button className="answer-sheet-close" onClick={() => setErrorResult(null)} aria-label="Закрыть">×</button>
+          <strong>Нужно повторить</strong>
+          {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
+          {(errorResult.feedback?.theoryLinks || []).map((link) => (
+            <button key={link.route} onClick={() => setTheoryLink(link)}>
+              <AppIcon type="theory" /> Открыть теорию
+            </button>
+          ))}
+        </div>
+      )}
       {theoryLink && (
         <TheoryOverlay link={theoryLink} onClose={() => setTheoryLink(null)} />
       )}
@@ -888,7 +964,7 @@ function QuestionPrompt({ item }) {
 }
 
 
-function Interaction({ item, response, setResponse, disabled }) {
+function Interaction({ item, response, setResponse, disabled, onAnswer, onComplete }) {
   if (item.interactionType === "single_choice") {
     return (
       <div className="choice-list">
@@ -897,7 +973,7 @@ function Interaction({ item, response, setResponse, disabled }) {
             key={option.key}
             className={response.optionKey === option.key ? "choice active" : "choice"}
             disabled={disabled}
-            onClick={() => setResponse({ optionKey: option.key })}
+            onClick={() => onAnswer({ optionKey: option.key })}
           >
             <i>{response.optionKey === option.key ? "●" : "○"}</i>
             <span>{option.label}</span>
@@ -916,11 +992,50 @@ function Interaction({ item, response, setResponse, disabled }) {
             key={position}
             disabled={disabled}
             className={response.selectedCharacterIndex === position ? "selected" : ""}
-            onClick={() => setResponse({ selectedCharacterIndex: position })}
+            onClick={() => onAnswer({ selectedCharacterIndex: position })}
           >
             {character}
           </button>
         ) : <span key={position}>{character}</span>)}
+      </div>
+    );
+  }
+  if (item.interactionType === "vowel_fill") {
+    const mask = item.interaction?.mask || item.prompt?.content || "";
+    const blanks = [...mask].reduce(
+      (positions, character, index) => (
+        character === "_" || character === "…" ? [...positions, index] : positions
+      ),
+      [],
+    );
+    const values = response.vowels || [];
+    const rendered = [...mask].map((character, index) => {
+      const slot = blanks.indexOf(index);
+      return slot >= 0 ? (values[slot] || "•") : character;
+    }).join("");
+    const choose = (vowel) => {
+      if (values.length >= blanks.length) return;
+      const nextValues = [...values, vowel];
+      const text = [...mask].map((character, index) => {
+        const slot = blanks.indexOf(index);
+        return slot >= 0 ? (nextValues[slot] || "") : character;
+      }).join("");
+      const next = { text, vowels: nextValues };
+      setResponse(next);
+      if (nextValues.length === blanks.length) onComplete(next);
+    };
+    return (
+      <div className="vowel-fill">
+        <div className="vowel-word">{rendered}</div>
+        <div className="vowel-keyboard">
+          {["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"].map((vowel) => (
+            <button key={vowel} disabled={disabled} onClick={() => choose(vowel)}>{vowel}</button>
+          ))}
+          <button
+            disabled={disabled || !values.length}
+            onClick={() => setResponse({ vowels: values.slice(0, -1) })}
+          >⌫</button>
+        </div>
       </div>
     );
   }
@@ -934,6 +1049,7 @@ function Interaction({ item, response, setResponse, disabled }) {
         : "Введите ответ"}
       onChange={(event) => setResponse({ text: event.target.value })}
       onKeyDown={(event) => event.key === "Enter" && event.currentTarget.blur()}
+      onBlur={() => hasResponse(item, response) && onComplete(response)}
     />
   );
 }
@@ -944,6 +1060,7 @@ function hasResponse(item, response) {
   if (item.interactionType === "stress_selection") {
     return Number.isInteger(response.selectedCharacterIndex);
   }
+  if (item.interactionType === "vowel_fill") return Boolean(response.text);
   return Boolean(response.text?.trim());
 }
 
@@ -1040,6 +1157,7 @@ function resolveRoute(path) {
   if (path === "/") return { screen: "home" };
   if (path === "/theory") return { screen: "catalog", mode: "theory" };
   if (path === "/practice") return { screen: "catalog", mode: "practice" };
+  if (path === "/practice/mistakes") return { screen: "mistakesPractice" };
   match = path.match(/^\/theory\/tasks\/(\d+)\/topics\/(\d+)$/);
   if (match) return { screen: "topicTheory", taskNumber: +match[1], topicId: +match[2] };
   match = path.match(/^\/theory\/tasks\/(\d+)$/);
@@ -1122,6 +1240,9 @@ export default function App() {
   }
   if (route.screen === "practiceTask") {
     return <PracticeTask taskNumber={route.taskNumber} navigate={navigate} />;
+  }
+  if (route.screen === "mistakesPractice") {
+    return <MistakesPractice navigate={navigate} />;
   }
   if (route.screen === "session") {
     return <PracticeSession sessionId={route.sessionId} navigate={navigate} />;

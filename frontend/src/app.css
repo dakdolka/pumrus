@@ -531,3 +531,138 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+.question-batch {
+  display: grid;
+  gap: .55rem;
+  margin: .8rem 0;
+}
+
+.batch-question {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 1.75rem;
+  align-items: center;
+  gap: .6rem;
+  padding: .75rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.batch-question.correct {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--line));
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
+}
+
+.batch-question.incorrect {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+}
+
+.batch-number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text-soft);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.batch-content { min-width: 0; }
+.batch-content .question-text { margin: 0 0 .45rem; }
+.batch-content .choice-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.batch-content .choice { width: auto; min-height: 2.4rem; padding: .45rem .7rem; }
+.batch-status { color: var(--success); }
+.batch-status svg { width: 1.25rem; }
+.batch-hint { margin: .8rem 0 0; text-align: center; color: var(--text-soft); font-size: .86rem; }
+
+.mistakes-entry {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  margin: .7rem 0 1rem;
+  padding: .85rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
+  border-radius: 16px;
+  background: var(--danger-soft);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+}
+.mistakes-entry > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--danger);
+}
+.mistakes-entry strong, .mistakes-entry small { display: block; }
+.mistakes-entry small { margin-top: .15rem; color: var(--text-soft); }
+.mistakes-entry i { width: 1.1rem; }
+
+.vowel-word {
+  margin-bottom: .55rem;
+  font-size: clamp(1.25rem, 5vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.vowel-keyboard { display: flex; flex-wrap: wrap; gap: .35rem; }
+.vowel-keyboard button {
+  min-width: 2.35rem;
+  height: 2.35rem;
+  padding: 0 .6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+}
+
+.answer-sheet {
+  position: fixed;
+  z-index: 80;
+  right: max(1rem, calc((100vw - 680px) / 2));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(1rem, calc((100vw - 680px) / 2));
+  padding: 1rem 3rem 1rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface));
+  box-shadow: 0 18px 55px rgba(0, 0, 0, .3);
+  color: var(--text);
+}
+
+.answer-sheet p { margin: .35rem 0; }
+.answer-sheet > button:not(.answer-sheet-close) {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .45rem;
+  padding: .5rem .7rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.answer-sheet-close {
+  position: absolute;
+  top: .5rem;
+  right: .65rem;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+@media (min-width: 760px) {
+  .batch-question { padding: .9rem 1rem; }
+}

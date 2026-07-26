@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import random
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -43,7 +42,8 @@ class SessionCreateIn(BaseModel):
     exercise_set_id: int
     user_id: int | None = None
     mode: str = "standard"
-    limit: int = Field(default=20, ge=1, le=100)
+    limit: int | None = Field(default=None, ge=1, le=100)
+    page_size: int | None = Field(default=None, ge=1, le=20)
 
 
 class AnswerIn(BaseModel):
@@ -284,8 +284,64 @@ async def list_exercise_sets(
                 "topicTitle": topic_title,
                 "exerciseCount": exercise_count,
                 "selectionStrategy": exercise_set.selection_strategy,
+                "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
+                "pageSize": int(exercise_set.configuration.get("pageSize", 5)),
             }
             for exercise_set, topic_title, exercise_count in rows
+        ],
+    }
+
+
+def _latest_attempt_ids(user_id: int):
+    return (
+        select(func.max(AttemptV2BD.id).label("attempt_id"))
+        .join(
+            ExerciseVersionBD,
+            ExerciseVersionBD.id == AttemptV2BD.exercise_version_id,
+        )
+        .where(AttemptV2BD.user_id == user_id)
+        .group_by(ExerciseVersionBD.exercise_id)
+        .subquery()
+    )
+
+
+@router.get("/practice/mistakes")
+async def list_practice_mistakes(
+    user_id: int = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    latest = _latest_attempt_ids(user_id)
+    rows = (
+        await db.execute(
+            select(
+                ExamTaskBD.number,
+                ExamTaskBD.title,
+                func.count(func.distinct(ExerciseBD.id)),
+            )
+            .join(
+                ExerciseTaskLinkBD,
+                ExerciseTaskLinkBD.exam_task_id == ExamTaskBD.id,
+            )
+            .join(ExerciseBD, ExerciseBD.id == ExerciseTaskLinkBD.exercise_id)
+            .join(
+                ExerciseVersionBD,
+                ExerciseVersionBD.exercise_id == ExerciseBD.id,
+            )
+            .join(
+                AttemptV2BD,
+                AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
+            )
+            .join(latest, latest.c.attempt_id == AttemptV2BD.id)
+            .where(AttemptV2BD.result_status == "incorrect")
+            .group_by(ExamTaskBD.id)
+            .order_by(ExamTaskBD.number)
+        )
+    ).all()
+    return {
+        "total": sum(count for _, _, count in rows),
+        "tasks": [
+            {"number": number, "title": title, "count": count}
+            for number, title, count in rows
         ],
     }
 
@@ -340,6 +396,7 @@ async def _session_out(
         "status": session.status,
         "currentPosition": session.current_position,
         "exerciseSetId": session.exercise_set_id,
+        "configuration": session.configuration,
         "context": {
             "setTitle": context[0],
             "taskNumber": context[1],
@@ -364,27 +421,60 @@ async def create_practice_session(
     )
     if exercise_set is None:
         raise HTTPException(404, "Exercise set not found")
-    version_ids = list(
-        (
-            await db.scalars(
-                select(ExerciseBD.published_version_id)
-                .join(
-                    ExerciseSetItemBD,
-                    ExerciseSetItemBD.exercise_id == ExerciseBD.id,
-                )
-                .where(
-                    ExerciseSetItemBD.exercise_set_id == exercise_set.id,
-                    ExerciseBD.status == "published",
-                    ExerciseBD.published_version_id.is_not(None),
-                )
-                .order_by(ExerciseSetItemBD.sort_order)
-            )
-        ).all()
+    limit = body.limit or int(exercise_set.configuration.get("sessionSize", 50))
+    page_size = body.page_size or int(exercise_set.configuration.get("pageSize", 5))
+    page_size = min(page_size, limit)
+    query = (
+        select(ExerciseBD.published_version_id)
+        .join(ExerciseSetItemBD, ExerciseSetItemBD.exercise_id == ExerciseBD.id)
+        .where(
+            ExerciseSetItemBD.exercise_set_id == exercise_set.id,
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
     )
+    if body.mode == "mistakes":
+        if body.user_id is None:
+            raise HTTPException(400, "Mistake practice requires a user")
+        latest = _latest_attempt_ids(body.user_id)
+        mistake_exercises = (
+            select(ExerciseVersionBD.exercise_id)
+            .join(
+                AttemptV2BD,
+                AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
+            )
+            .join(latest, latest.c.attempt_id == AttemptV2BD.id)
+            .where(AttemptV2BD.result_status == "incorrect")
+        )
+        query = query.where(ExerciseBD.id.in_(mistake_exercises))
+    if body.user_id is not None:
+        seen = (
+            select(
+                ExerciseVersionBD.exercise_id.label("exercise_id"),
+                func.count(AttemptV2BD.id).label("seen_count"),
+                func.max(AttemptV2BD.submitted_at).label("last_seen_at"),
+            )
+            .join(
+                AttemptV2BD,
+                AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
+            )
+            .where(AttemptV2BD.user_id == body.user_id)
+            .group_by(ExerciseVersionBD.exercise_id)
+            .subquery()
+        )
+        query = (
+            query.outerjoin(seen, seen.c.exercise_id == ExerciseBD.id)
+            .order_by(
+                func.coalesce(seen.c.seen_count, 0),
+                seen.c.last_seen_at.asc().nullsfirst(),
+                func.random(),
+            )
+        )
+    else:
+        query = query.order_by(func.random())
+    version_ids = list((await db.scalars(query.limit(limit))).all())
     if not version_ids:
         raise HTTPException(409, "Exercise set is empty")
-    random.SystemRandom().shuffle(version_ids)
-    version_ids = version_ids[: body.limit]
     now = datetime.now(timezone.utc)
     session = PracticeSessionBD(
         user_id=body.user_id,
@@ -392,7 +482,7 @@ async def create_practice_session(
         mode=body.mode,
         status="active",
         current_position=0,
-        configuration={"requestedLimit": body.limit},
+        configuration={"sessionSize": limit, "pageSize": page_size},
         last_activity_at=now,
     )
     db.add(session)

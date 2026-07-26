@@ -23,6 +23,12 @@ from app.infra.content.models import (
     TheoryDocumentBD,
     TheoryDocumentVersionBD,
 )
+from app.infra.exercises.models import (
+    ExerciseBD,
+    ExerciseSetBD,
+    ExerciseSetItemBD,
+    ExerciseVersionBD,
+)
 
 
 router = APIRouter(prefix="/v2/admin", tags=["v2-admin"])
@@ -73,6 +79,11 @@ class LivePublishIn(BaseModel):
     owner_title: str = Field(min_length=1, max_length=256)
     owner_description: str | None = Field(default=None, max_length=1024)
     blocks: list[LiveBlockIn]
+
+
+class ExerciseSetSettingsIn(BaseModel):
+    session_size: int = Field(ge=1, le=100)
+    page_size: int = Field(ge=1, le=20)
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -622,3 +633,58 @@ async def publish_document(
     document.status = "published"
     await db.commit()
     return await _document_out(db, document)
+
+
+@router.get("/exercise-sets", dependencies=[Depends(require_admin)])
+async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
+    rows = (
+        await db.execute(
+            select(
+                ExerciseSetBD,
+                ExamTaskBD.number,
+                TopicBD.title,
+                func.count(func.distinct(ExerciseSetItemBD.exercise_id)),
+                func.array_agg(func.distinct(ExerciseVersionBD.interaction_type)),
+            )
+            .join(ExamTaskBD, ExamTaskBD.id == ExerciseSetBD.exam_task_id)
+            .outerjoin(TopicBD, TopicBD.id == ExerciseSetBD.topic_id)
+            .outerjoin(ExerciseSetItemBD, ExerciseSetItemBD.exercise_set_id == ExerciseSetBD.id)
+            .outerjoin(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+            .outerjoin(ExerciseVersionBD, ExerciseVersionBD.id == ExerciseBD.published_version_id)
+            .group_by(ExerciseSetBD.id, ExamTaskBD.number, TopicBD.title)
+            .order_by(ExamTaskBD.number, ExerciseSetBD.title)
+        )
+    ).all()
+    return [
+        {
+            "id": item.id,
+            "title": item.title,
+            "taskNumber": task_number,
+            "topicTitle": topic_title,
+            "exerciseCount": count,
+            "interactionTypes": [value for value in interaction_types if value],
+            "sessionSize": int(item.configuration.get("sessionSize", 50)),
+            "pageSize": int(item.configuration.get("pageSize", 5)),
+        }
+        for item, task_number, topic_title, count, interaction_types in rows
+    ]
+
+
+@router.patch("/exercise-sets/{exercise_set_id}/settings", dependencies=[Depends(require_admin)])
+async def update_exercise_set_settings(
+    exercise_set_id: int,
+    body: ExerciseSetSettingsIn,
+    db: AsyncSession = Depends(get_db),
+):
+    item = await db.get(ExerciseSetBD, exercise_set_id)
+    if item is None:
+        raise HTTPException(404, "Exercise set not found")
+    if body.page_size > body.session_size:
+        raise HTTPException(422, "Page size cannot exceed session size")
+    item.configuration = {
+        **(item.configuration or {}),
+        "sessionSize": body.session_size,
+        "pageSize": body.page_size,
+    }
+    await db.commit()
+    return {"sessionSize": body.session_size, "pageSize": body.page_size}
