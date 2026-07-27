@@ -934,7 +934,7 @@ function PracticeSession({ sessionId, navigate }) {
               <article
                 className={`batch-question ${result?.status || ""} ${activeItemId === item.sessionItemId ? "active" : ""}`}
                 key={item.sessionItemId}
-                onClick={() => !result && setActiveItemId(item.sessionItemId)}
+                onClick={() => !result && !errorResult && setActiveItemId(item.sessionItemId)}
               >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
                 <div className="batch-content">
@@ -946,7 +946,7 @@ function PracticeSession({ sessionId, navigate }) {
                       item={item}
                       response={response}
                       setResponse={setResponse}
-                      disabled={Boolean(result) || submittingId === item.sessionItemId}
+                      disabled={Boolean(result) || Boolean(errorResult) || submittingId === item.sessionItemId}
                       onAnswer={(next) => {
                         setResponse(next);
                         submit(item, next);
@@ -974,7 +974,7 @@ function PracticeSession({ sessionId, navigate }) {
               response={response}
               setResponse={setResponse}
               vowelKeys={session.configuration?.vowelKeys}
-              disabled={submittingId === item.sessionItemId}
+              disabled={Boolean(errorResult) || submittingId === item.sessionItemId}
               onAnswer={(next) => {
                 setResponse(next);
                 submit(item, next);

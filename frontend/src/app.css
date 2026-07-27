@@ -629,6 +629,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   font-size: 1.12rem;
   font-weight: 750;
 }
+.shared-keyboard button:disabled { opacity: .42; }
 .vowel-keyboard button {
   min-width: 3rem;
   height: 3rem;
