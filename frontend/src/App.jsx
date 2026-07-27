@@ -973,6 +973,7 @@ function PracticeSession({ sessionId, navigate }) {
               item={item}
               response={response}
               setResponse={setResponse}
+              vowelKeys={session.configuration?.vowelKeys}
               disabled={submittingId === item.sessionItemId}
               onAnswer={(next) => {
                 setResponse(next);
@@ -1037,7 +1038,7 @@ function VowelWord({ item, response }) {
 }
 
 
-function SharedKeyboard({ item, response, setResponse, disabled, onAnswer }) {
+function SharedKeyboard({ item, response, setResponse, vowelKeys, disabled, onAnswer }) {
   if (item.interactionType === "single_choice") {
     return (
       <div className="shared-keyboard choice-list" aria-label="Варианты ответа">
@@ -1063,7 +1064,7 @@ function SharedKeyboard({ item, response, setResponse, disabled, onAnswer }) {
   };
   return (
     <div className="shared-keyboard vowel-keyboard" aria-label="Клавиатура гласных">
-      {["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"].map((vowel) => (
+      {(vowelKeys?.length ? vowelKeys : ["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"]).map((vowel) => (
         <button key={vowel} disabled={disabled} onClick={() => choose(vowel)}>{vowel}</button>
       ))}
       <button

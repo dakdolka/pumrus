@@ -408,6 +408,41 @@ async def _session_out(
     }
 
 
+async def _vowel_keys_for_set(
+    db: AsyncSession,
+    exercise_set_id: int,
+) -> list[str]:
+    versions = (
+        await db.scalars(
+            select(ExerciseVersionBD)
+            .join(
+                ExerciseBD,
+                ExerciseBD.published_version_id == ExerciseVersionBD.id,
+            )
+            .join(
+                ExerciseSetItemBD,
+                ExerciseSetItemBD.exercise_id == ExerciseBD.id,
+            )
+            .where(
+                ExerciseSetItemBD.exercise_set_id == exercise_set_id,
+                ExerciseVersionBD.interaction_type == "vowel_fill",
+            )
+        )
+    ).all()
+    letters: set[str] = set()
+    for version in versions:
+        mask = str(version.interaction_config.get("mask") or "")
+        accepted = version.answer_config.get("acceptedAnswers") or []
+        if not accepted:
+            continue
+        answer = str(accepted[0])
+        for position, character in enumerate(mask):
+            if character in {"_", "…"} and position < len(answer):
+                letters.add(answer[position].casefold())
+    preferred_order = "аоеёиыуюяэ"
+    return [letter for letter in preferred_order if letter in letters]
+
+
 @router.post("/practice/sessions", status_code=201)
 async def create_practice_session(
     body: SessionCreateIn,
@@ -476,13 +511,17 @@ async def create_practice_session(
     if not version_ids:
         raise HTTPException(409, "Exercise set is empty")
     now = datetime.now(timezone.utc)
+    session_configuration = {"sessionSize": limit, "pageSize": page_size}
+    vowel_keys = await _vowel_keys_for_set(db, exercise_set.id)
+    if vowel_keys:
+        session_configuration["vowelKeys"] = vowel_keys
     session = PracticeSessionBD(
         user_id=body.user_id,
         exercise_set_id=exercise_set.id,
         mode=body.mode,
         status="active",
         current_position=0,
-        configuration={"sessionSize": limit, "pageSize": page_size},
+        configuration=session_configuration,
         last_activity_at=now,
     )
     db.add(session)
