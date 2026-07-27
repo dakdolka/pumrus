@@ -98,9 +98,31 @@ function FormWorkspace() {
 function PracticeSettings() {
   const [sets, setSets] = useState([]);
   const [error, setError] = useState("");
+  const [selectedSetId, setSelectedSetId] = useState(null);
+  const [parserType, setParserType] = useState("vowel_fill");
+  const [rawText, setRawText] = useState("");
+  const [preview, setPreview] = useState({ rows: [], errors: [] });
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState("");
   useEffect(() => {
-    adminApi("/exercise-sets").then(setSets).catch((reason) => setError(reason.message));
+    adminApi("/exercise-sets").then((items) => {
+      setSets(items);
+      setSelectedSetId(items[0]?.id || null);
+    }).catch((reason) => setError(reason.message));
   }, []);
+  useEffect(() => {
+    if (!rawText.trim()) {
+      setPreview({ rows: [], errors: [] });
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => {
+      adminApi("/exercise-import/preview", {
+        method: "POST",
+        body: JSON.stringify({ parser_type: parserType, raw_text: rawText }),
+      }).then(setPreview).catch((reason) => setError(reason.message));
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [parserType, rawText]);
   async function save(item) {
     try {
       await adminApi(`/exercise-sets/${item.id}/settings`, {
@@ -114,12 +136,38 @@ function PracticeSettings() {
   function update(id, patch) {
     setSets((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
+  async function importExercises() {
+    if (!selectedSetId || !preview.rows.length || preview.errors.length) return;
+    setImporting(true); setError(""); setNotice("");
+    try {
+      const result = await adminApi(`/exercise-sets/${selectedSetId}/bulk-import`, {
+        method: "POST",
+        body: JSON.stringify({ parser_type: parserType, raw_text: rawText }),
+      });
+      setNotice(`Добавлено: ${result.created}. Дубликатов пропущено: ${result.skippedDuplicates}.`);
+      setRawText("");
+      const items = await adminApi("/exercise-sets");
+      setSets(items);
+    } catch (reason) {
+      setError(reason.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+  const selectedSet = sets.find((item) => item.id === selectedSetId);
+  const hints = {
+    vowel_fill: "кОмпОнент — заглавные гласные станут пропусками; либо к_мп_нент | компонент",
+    stress_selection: "звонИт — ровно одна ударная гласная заглавная",
+    single_choice: "пр_красный | е — третий столбец необязателен: е,и",
+    text_input: "Поставьте во множественное число: директор | директора",
+  };
   return <main className="practice-form">
-    <header><span className="overline">Карманная форма</span><h1>Настройки практики</h1>
-      <p>Набор определяет размер тренировки и количество слов на одном экране.</p></header>
+    <header><span className="overline">Карманная форма</span><h1>Практика</h1>
+      <p>Выберите подборку, настройте сессию или опубликуйте сразу несколько упражнений.</p></header>
     {error && <p className="form-error">{error}</p>}
+    {notice && <p className="form-notice">{notice}</p>}
     <section className="practice-form-list">
-      {sets.map((item) => <article key={item.id}>
+      {sets.map((item) => <article className={selectedSetId === item.id ? "active" : ""} key={item.id} onClick={() => setSelectedSetId(item.id)}>
         <div><small>Задание {item.taskNumber}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</small>
           <strong>{item.title}</strong><span>{item.exerciseCount} упражнений · {(item.interactionTypes || []).join(", ")}</span></div>
         <label>Всего<input type="number" min="1" max="100" value={item.sessionSize}
@@ -129,10 +177,40 @@ function PracticeSettings() {
         <button className="button primary" onClick={() => save(item)}>Сохранить</button>
       </article>)}
     </section>
-    <aside className="practice-types"><strong>Поддерживаемые типы</strong>
-      <span>single_choice · stress_selection · vowel_fill · text_input</span>
-      <small>Обычный ввод слова сохранён как отдельный тип; словарные слова используют vowel_fill.</small>
-    </aside>
+    <section className="bulk-import">
+      <div className="bulk-import-head">
+        <div><span className="overline">Массовое добавление</span>
+          <h2>{selectedSet ? selectedSet.title : "Выберите подборку"}</h2></div>
+        <label>Формат<select value={parserType} onChange={(event) => setParserType(event.target.value)}>
+          <option value="vowel_fill">Пропущенные гласные</option>
+          <option value="stress_selection">Постановка ударения</option>
+          <option value="single_choice">Выбор варианта</option>
+          <option value="text_input">Полный ввод</option>
+        </select></label>
+      </div>
+      <p className="import-hint">{hints[parserType]}. Одна строка — одно упражнение; пустые строки и строки с # игнорируются.</p>
+      <div className="import-source">
+        <textarea value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder={`${hints[parserType]}\n${hints[parserType]}`} />
+        <label className="file-picker">Загрузить TXT<input type="file" accept=".txt,text/plain" onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (file) setRawText(await file.text());
+          event.target.value = "";
+        }} /></label>
+      </div>
+      {(preview.rows.length > 0 || preview.errors.length > 0) && <div className="import-preview">
+        <header><strong>Предпросмотр</strong><span>{preview.rows.length} готово · {preview.errors.length} с ошибками</span></header>
+        {preview.errors.map((item) => <p className="import-error" key={`error-${item.line}`}><b>Строка {item.line}:</b> {item.message}</p>)}
+        <div className="import-preview-rows">
+          {preview.rows.slice(0, 100).map((item) => <div key={`row-${item.line}`}>
+            <small>{item.line}</small><span>{item.prompt}</span><b>{item.answer}</b>
+          </div>)}
+        </div>
+        {preview.rows.length > 100 && <small>Показаны первые 100 строк из {preview.rows.length}.</small>}
+      </div>}
+      <button className="button primary import-button" disabled={importing || !selectedSetId || !preview.rows.length || preview.errors.length > 0} onClick={importExercises}>
+        {importing ? "Публикуем…" : `Опубликовать ${preview.rows.length || ""} упражнений`}
+      </button>
+    </section>
   </main>;
 }
 

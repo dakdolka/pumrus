@@ -216,7 +216,9 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--surface);
+  cursor: pointer;
 }
+.practice-form-list article.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
 .practice-form-list article > div strong,
 .practice-form-list article > div span,
 .practice-form-list article > div small { display: block; }
@@ -224,17 +226,69 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list article > div small { color: var(--text-secondary); font-size: .78rem; }
 .practice-form-list label { margin: 0; font-size: .72rem; }
 .practice-form-list input { min-width: 0; }
-.practice-types {
-  display: grid;
-  gap: .25rem;
+.form-notice { padding: .7rem .85rem; border-radius: 10px; background: var(--success-soft); color: var(--success); }
+.bulk-import {
   margin-top: 1rem;
-  padding: .8rem;
+  padding: 1rem;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  color: var(--text-secondary);
+  border-radius: 16px;
+  background: var(--surface);
 }
-.practice-types strong { color: var(--text); }
+.bulk-import-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
+.bulk-import-head h2 { margin: .25rem 0 0; font-size: 1.25rem; }
+.bulk-import-head label { min-width: 220px; color: var(--text-secondary); font-size: .72rem; }
+.import-hint {
+  margin: .7rem 0;
+  padding: .65rem .75rem;
+  border-radius: 10px;
+  background: var(--info-soft);
+  color: var(--text-secondary);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+.import-source { position: relative; }
+.import-source textarea {
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  line-height: 1.55;
+}
+.file-picker {
+  position: absolute;
+  top: .55rem;
+  right: .55rem;
+  padding: .45rem .65rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.file-picker input { display: none; }
+.import-preview { margin-top: .75rem; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.import-preview > header { display: flex; justify-content: space-between; padding: .65rem .75rem; background: var(--surface-soft); }
+.import-preview > header span { color: var(--text-secondary); font-size: .78rem; }
+.import-preview-rows { max-height: 310px; overflow: auto; }
+.import-preview-rows > div {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr) minmax(100px, .7fr);
+  gap: .6rem;
+  padding: .5rem .75rem;
+  border-top: 1px solid var(--line);
+  font-size: .8rem;
+}
+.import-preview-rows small { color: var(--text-secondary); }
+.import-preview-rows b { color: var(--success); }
+.import-error { margin: 0; padding: .55rem .75rem; border-top: 1px solid var(--line); color: var(--danger); font-size: .8rem; }
+.import-button { margin-top: .75rem; }
 @media (max-width: 720px) {
   .practice-form-list article { grid-template-columns: 1fr 1fr; }
   .practice-form-list article > div { grid-column: 1 / -1; }
+  .bulk-import-head { display: grid; }
+  .bulk-import-head label { min-width: 0; }
+  .import-preview-rows > div { grid-template-columns: 2rem 1fr; }
+  .import-preview-rows b { grid-column: 2; }
 }

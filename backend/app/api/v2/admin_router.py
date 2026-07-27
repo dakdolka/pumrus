@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+import json
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -27,8 +28,11 @@ from app.infra.exercises.models import (
     ExerciseBD,
     ExerciseSetBD,
     ExerciseSetItemBD,
+    ExerciseTaskLinkBD,
+    ExerciseTopicLinkBD,
     ExerciseVersionBD,
 )
+from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
 
 
 router = APIRouter(prefix="/v2/admin", tags=["v2-admin"])
@@ -84,6 +88,11 @@ class LivePublishIn(BaseModel):
 class ExerciseSetSettingsIn(BaseModel):
     session_size: int = Field(ge=1, le=100)
     page_size: int = Field(ge=1, le=20)
+
+
+class BulkExerciseImportIn(BaseModel):
+    parser_type: str
+    raw_text: str = Field(min_length=1, max_length=500_000)
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -688,3 +697,157 @@ async def update_exercise_set_settings(
     }
     await db.commit()
     return {"sessionSize": body.session_size, "pageSize": body.page_size}
+
+
+@router.post("/exercise-import/preview", dependencies=[Depends(require_admin)])
+async def preview_exercise_import(body: BulkExerciseImportIn):
+    return parse_exercises(body.raw_text, body.parser_type)
+
+
+def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
+    feedback = {"correctAnswer": row["answer"]}
+    if parser_type == "single_choice":
+        options = [
+            {"key": f"option-{index}", "label": label}
+            for index, label in enumerate(row["options"])
+        ]
+        correct = next(option["key"] for option in options if option["label"] == row["answer"])
+        return {
+            "prompt": {"content": row["prompt"], "format": "plain_text"},
+            "interaction": {"options": options},
+            "answer": {"correctOptionKey": correct},
+            "checker": "exact_option",
+            "checkerConfig": {},
+            "feedback": feedback,
+        }
+    if parser_type == "stress_selection":
+        word = row["prompt"]
+        return {
+            "prompt": {"content": word, "format": "plain_text", "word": word},
+            "interaction": {
+                "selectablePositions": [
+                    index for index, character in enumerate(word.casefold())
+                    if character in "аеёиоуыэюя"
+                ]
+            },
+            "answer": {"correctCharacterIndex": row["correctPosition"]},
+            "checker": "exact_position",
+            "checkerConfig": {},
+            "feedback": feedback,
+        }
+    if parser_type == "vowel_fill":
+        return {
+            "prompt": {"content": row["mask"], "format": "plain_text"},
+            "interaction": {"variant": "masked_letters", "mask": row["mask"]},
+            "answer": {"acceptedAnswers": [row["answer"]]},
+            "checker": "normalized_text",
+            "checkerConfig": {"trim": True, "caseInsensitive": True, "yoPolicy": "distinct"},
+            "feedback": feedback,
+        }
+    return {
+        "prompt": {"content": row["prompt"], "format": "plain_text"},
+        "interaction": {},
+        "answer": {"acceptedAnswers": [row["answer"]]},
+        "checker": "normalized_text",
+        "checkerConfig": {"trim": True, "caseInsensitive": True, "yoPolicy": "distinct"},
+        "feedback": feedback,
+    }
+
+
+@router.post(
+    "/exercise-sets/{exercise_set_id}/bulk-import",
+    dependencies=[Depends(require_admin)],
+)
+async def bulk_import_exercises(
+    exercise_set_id: int,
+    body: BulkExerciseImportIn,
+    db: AsyncSession = Depends(get_db),
+):
+    if body.parser_type not in PARSER_TYPES:
+        raise HTTPException(422, "Unsupported exercise format")
+    exercise_set = await db.get(ExerciseSetBD, exercise_set_id)
+    if exercise_set is None:
+        raise HTTPException(404, "Exercise set not found")
+    parsed = parse_exercises(body.raw_text, body.parser_type)
+    if parsed["errors"]:
+        raise HTTPException(422, {"message": "Fix import errors first", **parsed})
+    if not parsed["rows"]:
+        raise HTTPException(422, "No exercises found")
+
+    existing_rows = (
+        await db.execute(
+            select(ExerciseVersionBD.prompt_data, ExerciseVersionBD.answer_config)
+            .join(ExerciseBD, ExerciseBD.published_version_id == ExerciseVersionBD.id)
+            .join(ExerciseSetItemBD, ExerciseSetItemBD.exercise_id == ExerciseBD.id)
+            .where(ExerciseSetItemBD.exercise_set_id == exercise_set.id)
+        )
+    ).all()
+    signatures = {
+        json.dumps([prompt, answer], ensure_ascii=False, sort_keys=True)
+        for prompt, answer in existing_rows
+    }
+    sort_order = await db.scalar(
+        select(func.max(ExerciseSetItemBD.sort_order)).where(
+            ExerciseSetItemBD.exercise_set_id == exercise_set.id
+        )
+    )
+    next_order = (sort_order if sort_order is not None else -1) + 1
+    now = datetime.now(timezone.utc)
+    created = 0
+    skipped = 0
+    for row in parsed["rows"]:
+        payload = _exercise_payload(body.parser_type, row)
+        signature = json.dumps(
+            [payload["prompt"], payload["answer"]],
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        if signature in signatures:
+            skipped += 1
+            continue
+        signatures.add(signature)
+        exercise = ExerciseBD(
+            course_version_id=exercise_set.course_version_id,
+            status="published",
+            source="form_bulk_import",
+        )
+        db.add(exercise)
+        await db.flush()
+        version = ExerciseVersionBD(
+            exercise_id=exercise.id,
+            version_number=1,
+            status="published",
+            interaction_type=body.parser_type,
+            response_schema_version=1,
+            prompt_data=payload["prompt"],
+            interaction_config=payload["interaction"],
+            answer_config=payload["answer"],
+            checker_type=payload["checker"],
+            checker_config=payload["checkerConfig"],
+            feedback_data=payload["feedback"],
+            published_at=now,
+        )
+        db.add(version)
+        await db.flush()
+        exercise.published_version_id = version.id
+        if exercise_set.exam_task_id is not None:
+            db.add(ExerciseTaskLinkBD(
+                exercise_id=exercise.id,
+                exam_task_id=exercise_set.exam_task_id,
+                is_primary=True,
+            ))
+        if exercise_set.topic_id is not None:
+            db.add(ExerciseTopicLinkBD(
+                exercise_id=exercise.id,
+                topic_id=exercise_set.topic_id,
+                is_primary=True,
+            ))
+        db.add(ExerciseSetItemBD(
+            exercise_set_id=exercise_set.id,
+            exercise_id=exercise.id,
+            sort_order=next_order,
+        ))
+        next_order += 1
+        created += 1
+    await db.commit()
+    return {"created": created, "skippedDuplicates": skipped}
