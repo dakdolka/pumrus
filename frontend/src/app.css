@@ -240,6 +240,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 
 .catalog-title { max-width: 840px; margin: 0 auto; padding: 19px 16px 14px; display: flex; align-items: center; justify-content: space-between; }
 .catalog-title h1 { font-size: 26px; }
+.catalog-actions { display: flex; align-items: center; gap: 8px; }
 .info-button {
   width: 30px;
   height: 30px;
@@ -557,6 +558,10 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .batch-question.incorrect {
   border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
 }
+.batch-question.active:not(.correct):not(.incorrect) {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: var(--accent-soft);
+}
 
 .batch-number {
   display: grid;
@@ -583,9 +588,9 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   grid-template-columns: 2.5rem 1fr auto;
   align-items: center;
   gap: .75rem;
-  width: 100%;
-  margin: .7rem 0 1rem;
-  padding: .85rem;
+  width: auto;
+  margin: 0;
+  padding: .45rem .6rem;
   border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
   border-radius: 16px;
   background: var(--danger-soft);
@@ -596,14 +601,15 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .mistakes-entry > span:first-child {
   display: grid;
   place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 12px;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9px;
   background: var(--surface);
   color: var(--danger);
 }
 .mistakes-entry strong, .mistakes-entry small { display: block; }
-.mistakes-entry small { margin-top: .15rem; color: var(--text-soft); }
+.mistakes-entry strong { font-size: .78rem; }
+.mistakes-entry small { margin-top: .08rem; color: var(--text-soft); font-size: .66rem; }
 .mistakes-entry i { width: 1.1rem; }
 
 .vowel-word {
@@ -614,6 +620,31 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 }
 
 .vowel-keyboard { display: flex; flex-wrap: wrap; gap: .35rem; }
+.shared-keyboard {
+  display: flex;
+  flex-wrap: wrap;
+  position: sticky;
+  z-index: 5;
+  bottom: max(.6rem, env(safe-area-inset-bottom));
+  justify-content: center;
+  margin: .7rem 0;
+  padding: .65rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+}
+.shared-keyboard.choice-list button {
+  min-width: 3rem;
+  padding: .65rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 750;
+}
 .vowel-keyboard button {
   min-width: 2.35rem;
   height: 2.35rem;
@@ -665,4 +696,11 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 
 @media (min-width: 760px) {
   .batch-question { padding: .9rem 1rem; }
+}
+
+@media (max-width: 620px) {
+  .catalog-title { align-items: flex-start; }
+  .catalog-actions { align-items: flex-start; }
+  .mistakes-entry { grid-template-columns: 2rem auto; }
+  .mistakes-entry small, .mistakes-entry i { display: none; }
 }

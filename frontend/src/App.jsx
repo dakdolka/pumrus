@@ -251,22 +251,24 @@ function TaskCatalog({ mode, navigate }) {
     >
       <section className="catalog-title">
         <h1>{title}</h1>
-        <InfoButton
-          title={title}
-          text={isTheory
-            ? "Выберите номер задания, чтобы открыть связанные темы и правила."
-            : "Выберите задание, затем доступную подборку упражнений. Ошибки появятся здесь отдельным режимом."}
-        />
+        <div className="catalog-actions">
+          {!isTheory && (
+            <button className="mistakes-entry" onClick={() => navigate("/practice/mistakes")}>
+              <span><AppIcon type="back" /></span>
+              <span><strong>Отработать ошибки</strong><small>Повторить сложные задания</small></span>
+              <i><AppIcon type="arrow" /></i>
+            </button>
+          )}
+          <InfoButton
+            title={title}
+            text={isTheory
+              ? "Выберите номер задания, чтобы открыть связанные темы и правила."
+              : "Выберите задание, затем доступную подборку упражнений. Ошибки доступны отдельным режимом."}
+          />
+        </div>
       </section>
       {state.loading && <Loading />}
       {state.error && <ErrorState message={state.error} />}
-      {!isTheory && (
-        <button className="mistakes-entry" onClick={() => navigate("/practice/mistakes")}>
-          <span><AppIcon type="back" /></span>
-          <span><strong>Отработать ошибки</strong><small>Повторить задания, в которых были ошибки</small></span>
-          <i><AppIcon type="arrow" /></i>
-        </button>
-      )}
       {state.data && (
         <section className="task-list">
           {groupTasks(state.data).map((group) => (
@@ -779,6 +781,7 @@ function PracticeSession({ sessionId, navigate }) {
   const [submittingId, setSubmittingId] = useState(null);
   const [theoryLink, setTheoryLink] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
+  const [activeItemId, setActiveItemId] = useState(null);
 
   useEffect(() => {
     if (!state.data) return;
@@ -800,6 +803,15 @@ function PracticeSession({ sessionId, navigate }) {
     if (!session) return;
     localStorage.setItem(`umrus:drafts:${session.id}`, JSON.stringify(responses));
   }, [session?.id, responses]);
+
+  useEffect(() => {
+    if (!session) return;
+    const size = session.configuration?.pageSize || 5;
+    const first = session.items
+      .slice(page * size, page * size + size)
+      .find((item) => item.state === "pending");
+    setActiveItemId(first?.sessionItemId || null);
+  }, [session?.id, page]);
 
   const navigateFromSession = useCallback((nextPath) => {
     if (!theoryOrigin && session?.status === "active") {
@@ -838,17 +850,24 @@ function PracticeSession({ sessionId, navigate }) {
       setResults((current) => ({ ...current, [item.sessionItemId]: answer }));
       setSession((current) => ({ ...current, status: answer.sessionStatus }));
       if (answer.status === "incorrect") setErrorResult(answer);
+      const next = pageItems.find(
+        (candidate) => candidate.sessionItemId !== item.sessionItemId
+          && candidate.state === "pending"
+          && !results[candidate.sessionItemId],
+      );
+      if (next) {
+        setActiveItemId(next.sessionItemId);
+      } else if (pageStart + pageSize < session.items.length) {
+        window.setTimeout(() => {
+          setPage((current) => current + 1);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 450);
+      }
     } catch (error) {
       window.alert(error.message);
     } finally {
       setSubmittingId(null);
     }
-  }
-
-  function nextPage() {
-    setErrorResult(null);
-    setPage((current) => current + 1);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -905,37 +924,62 @@ function PracticeSession({ sessionId, navigate }) {
               [item.sessionItemId]: next,
             }));
             return (
-              <article className={`batch-question ${result?.status || ""}`} key={item.sessionItemId}>
+              <article
+                className={`batch-question ${result?.status || ""} ${activeItemId === item.sessionItemId ? "active" : ""}`}
+                key={item.sessionItemId}
+                onClick={() => !result && setActiveItemId(item.sessionItemId)}
+              >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
                 <div className="batch-content">
                   <QuestionPrompt item={item} />
-                  <Interaction
-                    item={item}
-                    response={response}
-                    setResponse={setResponse}
-                    disabled={Boolean(result) || submittingId === item.sessionItemId}
-                    onAnswer={(next) => {
-                      setResponse(next);
-                      submit(item, next);
-                    }}
-                    onComplete={(next) => submit(item, next)}
-                  />
+                  {item.interactionType === "vowel_fill" ? (
+                    <VowelWord item={item} response={response} />
+                  ) : item.interactionType !== "single_choice" ? (
+                    <Interaction
+                      item={item}
+                      response={response}
+                      setResponse={setResponse}
+                      disabled={Boolean(result) || submittingId === item.sessionItemId}
+                      onAnswer={(next) => {
+                        setResponse(next);
+                        submit(item, next);
+                      }}
+                      onComplete={(next) => submit(item, next)}
+                    />
+                  ) : null}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
               </article>
             );
           })}
         </div>
+        {(() => {
+          const item = pageItems.find((candidate) => candidate.sessionItemId === activeItemId);
+          if (!item || !["single_choice", "vowel_fill"].includes(item.interactionType)) return null;
+          const response = responses[item.sessionItemId] || {};
+          const setResponse = (next) => setResponses((current) => ({
+            ...current,
+            [item.sessionItemId]: next,
+          }));
+          return (
+            <SharedKeyboard
+              item={item}
+              response={response}
+              setResponse={setResponse}
+              disabled={submittingId === item.sessionItemId}
+              onAnswer={(next) => {
+                setResponse(next);
+                submit(item, next);
+              }}
+            />
+          );
+        })()}
 
         {finished ? (
           <button className="primary-button" onClick={() => navigate("/practice")}>
             Завершить тренировку
           </button>
-        ) : pageComplete ? (
-          <button className="primary-button" onClick={nextPage}>
-            Продолжить
-          </button>
-        ) : <p className="batch-hint">Ответьте на пять заданий — подтверждать ответы не нужно.</p>}
+        ) : <p className="batch-hint">Ответьте на пять заданий — следующий блок откроется автоматически.</p>}
       </section>
       {errorResult && (
         <div className="answer-sheet incorrect" role="alert">
@@ -959,8 +1003,68 @@ function PracticeSession({ sessionId, navigate }) {
 
 function QuestionPrompt({ item }) {
   const content = item.prompt?.word || item.prompt?.content || "";
-  if (item.interactionType === "stress_selection") return null;
+  if (["stress_selection", "vowel_fill"].includes(item.interactionType)) return null;
   return <div className="question-text">{content}</div>;
+}
+
+
+function vowelFillState(item, response) {
+  const mask = item.interaction?.mask || item.prompt?.content || "";
+  const blanks = [...mask].reduce(
+    (positions, character, index) => (
+      character === "_" || character === "…" ? [...positions, index] : positions
+    ),
+    [],
+  );
+  const values = response.vowels || [];
+  const word = [...mask].map((character, index) => {
+    const slot = blanks.indexOf(index);
+    return slot >= 0 ? (values[slot] || "•") : character;
+  }).join("");
+  return { mask, blanks, values, word };
+}
+
+
+function VowelWord({ item, response }) {
+  return <div className="vowel-word">{vowelFillState(item, response).word}</div>;
+}
+
+
+function SharedKeyboard({ item, response, setResponse, disabled, onAnswer }) {
+  if (item.interactionType === "single_choice") {
+    return (
+      <div className="shared-keyboard choice-list" aria-label="Варианты ответа">
+        {(item.interaction?.options || []).map((option) => (
+          <button key={option.key} disabled={disabled} onClick={() => onAnswer({ optionKey: option.key })}>
+            {option.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  const { mask, blanks, values } = vowelFillState(item, response);
+  const choose = (vowel) => {
+    if (values.length >= blanks.length) return;
+    const nextValues = [...values, vowel];
+    const text = [...mask].map((character, index) => {
+      const slot = blanks.indexOf(index);
+      return slot >= 0 ? (nextValues[slot] || "") : character;
+    }).join("");
+    const next = { text, vowels: nextValues };
+    setResponse(next);
+    if (nextValues.length === blanks.length) onAnswer(next);
+  };
+  return (
+    <div className="shared-keyboard vowel-keyboard" aria-label="Клавиатура гласных">
+      {["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"].map((vowel) => (
+        <button key={vowel} disabled={disabled} onClick={() => choose(vowel)}>{vowel}</button>
+      ))}
+      <button
+        disabled={disabled || !values.length}
+        onClick={() => setResponse({ vowels: values.slice(0, -1) })}
+      >⌫</button>
+    </div>
+  );
 }
 
 
@@ -997,45 +1101,6 @@ function Interaction({ item, response, setResponse, disabled, onAnswer, onComple
             {character}
           </button>
         ) : <span key={position}>{character}</span>)}
-      </div>
-    );
-  }
-  if (item.interactionType === "vowel_fill") {
-    const mask = item.interaction?.mask || item.prompt?.content || "";
-    const blanks = [...mask].reduce(
-      (positions, character, index) => (
-        character === "_" || character === "…" ? [...positions, index] : positions
-      ),
-      [],
-    );
-    const values = response.vowels || [];
-    const rendered = [...mask].map((character, index) => {
-      const slot = blanks.indexOf(index);
-      return slot >= 0 ? (values[slot] || "•") : character;
-    }).join("");
-    const choose = (vowel) => {
-      if (values.length >= blanks.length) return;
-      const nextValues = [...values, vowel];
-      const text = [...mask].map((character, index) => {
-        const slot = blanks.indexOf(index);
-        return slot >= 0 ? (nextValues[slot] || "") : character;
-      }).join("");
-      const next = { text, vowels: nextValues };
-      setResponse(next);
-      if (nextValues.length === blanks.length) onComplete(next);
-    };
-    return (
-      <div className="vowel-fill">
-        <div className="vowel-word">{rendered}</div>
-        <div className="vowel-keyboard">
-          {["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"].map((vowel) => (
-            <button key={vowel} disabled={disabled} onClick={() => choose(vowel)}>{vowel}</button>
-          ))}
-          <button
-            disabled={disabled || !values.length}
-            onClick={() => setResponse({ vowels: values.slice(0, -1) })}
-          >⌫</button>
-        </div>
       </div>
     );
   }
