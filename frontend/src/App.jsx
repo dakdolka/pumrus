@@ -252,13 +252,6 @@ function TaskCatalog({ mode, navigate }) {
       <section className="catalog-title">
         <h1>{title}</h1>
         <div className="catalog-actions">
-          {!isTheory && (
-            <button className="mistakes-entry" onClick={() => navigate("/practice/mistakes")}>
-              <span><AppIcon type="back" /></span>
-              <span><strong>Отработать ошибки</strong><small>Повторить сложные задания</small></span>
-              <i><AppIcon type="arrow" /></i>
-            </button>
-          )}
           <InfoButton
             title={title}
             text={isTheory
@@ -271,6 +264,20 @@ function TaskCatalog({ mode, navigate }) {
       {state.error && <ErrorState message={state.error} />}
       {state.data && (
         <section className="task-list">
+          {!isTheory && (
+            <div className="task-group standalone mistakes-task-group">
+              <div className="task-group-rows">
+                <button className="task-row mistakes-task-row" onClick={() => navigate("/practice/mistakes")}>
+                  <span className="task-number">!</span>
+                  <span className="task-content">
+                    <strong>Отработать ошибки</strong>
+                    <small>Повторить задания, в которых были ошибки</small>
+                  </span>
+                  <span className="row-arrow"><AppIcon type="arrow" /></span>
+                </button>
+              </div>
+            </div>
+          )}
           {groupTasks(state.data).map((group) => (
             <div className={group.label ? "task-group" : "task-group standalone"} key={group.key}>
               {group.label && <div className="group-rail"><span>{group.label}</span></div>}
@@ -979,7 +986,7 @@ function PracticeSession({ sessionId, navigate }) {
           <button className="primary-button" onClick={() => navigate("/practice")}>
             Завершить тренировку
           </button>
-        ) : <p className="batch-hint">Ответьте на пять заданий — следующий блок откроется автоматически.</p>}
+        ) : null}
       </section>
       {errorResult && (
         <div className="answer-sheet incorrect" role="alert">
