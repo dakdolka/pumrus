@@ -789,6 +789,7 @@ function PracticeSession({ sessionId, navigate }) {
   const [theoryLink, setTheoryLink] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
+  const trainerRef = useRef(null);
 
   useEffect(() => {
     if (!state.data) return;
@@ -819,6 +820,45 @@ function PracticeSession({ sessionId, navigate }) {
       .find((item) => item.state === "pending");
     setActiveItemId(first?.sessionItemId || null);
   }, [session?.id, page]);
+
+  useEffect(() => {
+    const container = trainerRef.current;
+    if (!container || !activeItemId || errorResult) return undefined;
+    const line = container.querySelector(
+      `[data-session-item-id="${activeItemId}"] .question-text, `
+      + `[data-session-item-id="${activeItemId}"] .vowel-word, `
+      + `[data-session-item-id="${activeItemId}"] .stress-word`,
+    );
+    if (!line) return undefined;
+    line.scrollLeft = 0;
+    const overflow = line.scrollWidth - line.clientWidth;
+    if (overflow <= 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return undefined;
+    }
+    let frame = 0;
+    let startedAt = null;
+    const delay = 500;
+    const duration = Math.max(1800, overflow * 28);
+    const animate = (timestamp) => {
+      if (startedAt === null) startedAt = timestamp;
+      const elapsed = timestamp - startedAt;
+      if (elapsed < delay) {
+        frame = window.requestAnimationFrame(animate);
+        return;
+      }
+      const progress = Math.min(1, (elapsed - delay) / duration);
+      const eased = progress < .5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      line.scrollLeft = overflow * eased;
+      if (progress < 1) frame = window.requestAnimationFrame(animate);
+    };
+    frame = window.requestAnimationFrame(animate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      line.scrollLeft = 0;
+    };
+  }, [activeItemId, page, errorResult]);
 
   const navigateFromSession = useCallback((nextPath) => {
     if (!theoryOrigin && session?.status === "active") {
@@ -915,7 +955,7 @@ function PracticeSession({ sessionId, navigate }) {
         }),
       }}
     >
-      <section className="trainer">
+      <section className="trainer" ref={trainerRef}>
         <div className="trainer-meta">
           <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
@@ -934,6 +974,7 @@ function PracticeSession({ sessionId, navigate }) {
               <article
                 className={`batch-question ${result?.status || ""} ${activeItemId === item.sessionItemId ? "active" : ""}`}
                 key={item.sessionItemId}
+                data-session-item-id={item.sessionItemId}
                 onClick={() => !result && !errorResult && setActiveItemId(item.sessionItemId)}
               >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
