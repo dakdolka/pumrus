@@ -155,26 +155,55 @@ async def _published_document(
 
 
 @router.get("/catalog/tasks")
-async def list_exam_tasks(db: AsyncSession = Depends(get_db)):
+async def list_exam_tasks(
+    mode: Literal["theory", "practice"] | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    topic_count = (
+        select(func.count(ExamTaskTopicBD.topic_id))
+        .join(TopicBD, TopicBD.id == ExamTaskTopicBD.topic_id)
+        .where(
+            ExamTaskTopicBD.exam_task_id == ExamTaskBD.id,
+            TopicBD.status == "published",
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
+    exercise_count = (
+        select(func.count(ExerciseSetItemBD.id))
+        .join(
+            ExerciseSetBD,
+            ExerciseSetBD.id == ExerciseSetItemBD.exercise_set_id,
+        )
+        .join(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+        .where(
+            ExerciseSetBD.exam_task_id == ExamTaskBD.id,
+            ExerciseSetBD.status == "published",
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
+    conditions = [
+        ExamTaskBD.status == "published",
+        CourseVersionBD.is_active.is_(True),
+    ]
+    if mode == "theory":
+        conditions.append(topic_count > 0)
+    elif mode == "practice":
+        conditions.append(exercise_count > 0)
     rows = (
         await db.execute(
             select(
                 ExamTaskBD,
-                func.count(ExamTaskTopicBD.topic_id).label("topic_count"),
-            )
-            .outerjoin(
-                ExamTaskTopicBD,
-                ExamTaskTopicBD.exam_task_id == ExamTaskBD.id,
+                topic_count.label("topic_count"),
             )
             .join(
                 CourseVersionBD,
                 CourseVersionBD.id == ExamTaskBD.course_version_id,
             )
-            .where(
-                ExamTaskBD.status == "published",
-                CourseVersionBD.is_active.is_(True),
-            )
-            .group_by(ExamTaskBD.id)
+            .where(*conditions)
             .order_by(ExamTaskBD.sort_order, ExamTaskBD.number)
         )
     ).all()

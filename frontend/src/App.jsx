@@ -241,7 +241,7 @@ function AppFooter() {
 
 
 function TaskCatalog({ mode, navigate }) {
-  const state = useRemote(() => api("/v2/catalog/tasks"), []);
+  const state = useRemote(() => api(`/v2/catalog/tasks?mode=${mode}`), [mode]);
   const isTheory = mode === "theory";
   const title = isTheory ? "Теория" : "Практика";
   return (
