@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./app.css";
 import { TheoryDocument } from "./theory/TheoryRenderer";
 import BrandLogo from "./BrandLogo";
@@ -789,7 +789,6 @@ function PracticeSession({ sessionId, navigate }) {
   const [theoryLink, setTheoryLink] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
-  const trainerRef = useRef(null);
 
   useEffect(() => {
     if (!state.data) return;
@@ -820,45 +819,6 @@ function PracticeSession({ sessionId, navigate }) {
       .find((item) => item.state === "pending");
     setActiveItemId(first?.sessionItemId || null);
   }, [session?.id, page]);
-
-  useEffect(() => {
-    const container = trainerRef.current;
-    if (!container || !activeItemId || errorResult) return undefined;
-    const line = container.querySelector(
-      `[data-session-item-id="${activeItemId}"] .question-text, `
-      + `[data-session-item-id="${activeItemId}"] .vowel-word, `
-      + `[data-session-item-id="${activeItemId}"] .stress-word`,
-    );
-    if (!line) return undefined;
-    line.scrollLeft = 0;
-    const overflow = line.scrollWidth - line.clientWidth;
-    if (overflow <= 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      return undefined;
-    }
-    let frame = 0;
-    let startedAt = null;
-    const delay = 500;
-    const duration = Math.max(1800, overflow * 28);
-    const animate = (timestamp) => {
-      if (startedAt === null) startedAt = timestamp;
-      const elapsed = timestamp - startedAt;
-      if (elapsed < delay) {
-        frame = window.requestAnimationFrame(animate);
-        return;
-      }
-      const progress = Math.min(1, (elapsed - delay) / duration);
-      const eased = progress < .5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      line.scrollLeft = overflow * eased;
-      if (progress < 1) frame = window.requestAnimationFrame(animate);
-    };
-    frame = window.requestAnimationFrame(animate);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      line.scrollLeft = 0;
-    };
-  }, [activeItemId, page, errorResult]);
 
   const navigateFromSession = useCallback((nextPath) => {
     if (!theoryOrigin && session?.status === "active") {
@@ -955,7 +915,7 @@ function PracticeSession({ sessionId, navigate }) {
         }),
       }}
     >
-      <section className="trainer" ref={trainerRef}>
+      <section className="trainer">
         <div className="trainer-meta">
           <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
@@ -1053,7 +1013,23 @@ function PracticeSession({ sessionId, navigate }) {
 function QuestionPrompt({ item }) {
   const content = item.prompt?.word || item.prompt?.content || "";
   if (["stress_selection", "vowel_fill"].includes(item.interactionType)) return null;
-  return <div className="question-text">{content}</div>;
+  const isSingleToken = Boolean(content) && !/\s/.test(content.trim());
+  const longestToken = Math.max(
+    0,
+    ...content.split(/\s+/).map((token) => token.length),
+  );
+  const fitSize = longestToken > 18
+    ? `${Math.max(.78, Math.min(1.45, 24 / longestToken)).toFixed(2)}rem`
+    : undefined;
+  return (
+    <div
+      className={`question-text ${isSingleToken ? "single-token" : ""} ${fitSize ? "fit-text" : ""}`}
+      style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
+      title={content}
+    >
+      {content}
+    </div>
+  );
 }
 
 
@@ -1075,7 +1051,19 @@ function vowelFillState(item, response) {
 
 
 function VowelWord({ item, response }) {
-  return <div className="vowel-word">{vowelFillState(item, response).word}</div>;
+  const word = vowelFillState(item, response).word;
+  const fitSize = word.length > 18
+    ? `${Math.max(.82, Math.min(1.45, 24 / word.length)).toFixed(2)}rem`
+    : undefined;
+  return (
+    <div
+      className={`vowel-word ${fitSize ? "fit-text" : ""}`}
+      style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
+      title={word}
+    >
+      {word}
+    </div>
+  );
 }
 
 
