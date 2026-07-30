@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./app.css";
 import { TheoryDocument } from "./theory/TheoryRenderer";
 import BrandLogo from "./BrandLogo";
