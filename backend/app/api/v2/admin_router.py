@@ -706,6 +706,9 @@ async def preview_exercise_import(body: BulkExerciseImportIn):
 
 def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
     feedback = {"correctAnswer": row["answer"]}
+    if row.get("explanation"):
+        feedback["correct"] = row["explanation"]
+        feedback["incorrect"] = row["explanation"]
     if parser_type == "single_choice":
         options = [
             {"key": f"option-{index}", "label": label}

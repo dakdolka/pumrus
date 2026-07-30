@@ -95,6 +95,7 @@ def parse_exercises(raw_text: str, parser_type: str) -> dict[str, Any]:
                         if len(parts) > 2
                         else []
                     )
+                    row["explanation"] = parts[3] if len(parts) > 3 else ""
                 rows.append(row)
         except ValueError as error:
             errors.append({"line": line_number, "source": source, "message": str(error)})
