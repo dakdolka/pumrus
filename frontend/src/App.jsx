@@ -29,6 +29,34 @@ function practiceClientId() {
 }
 
 
+async function openRelatedPractice(taskNumber, navigate) {
+  try {
+    const data = await api(`/v2/practice/tasks/${taskNumber}/sets`);
+    const taskSets = data.sets.filter((item) => !item.topicId);
+    const set = taskSets.length === 1
+      ? taskSets[0]
+      : data.sets.length === 1
+        ? data.sets[0]
+        : null;
+    if (!set) throw new Error("Для задания не настроена единственная общая подборка");
+    const session = await api("/v2/practice/sessions", {
+      method: "POST",
+      body: JSON.stringify({
+        exercise_set_id: set.id,
+        user_id: window.__umrusUserId || null,
+        client_session_id: practiceClientId(),
+        mode: "standard",
+        limit: set.sessionSize,
+        page_size: set.pageSize,
+      }),
+    });
+    navigate(`/practice/sessions/${session.id}?origin=theory`);
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+
 function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
 
@@ -423,7 +451,7 @@ function TaskTheory({ taskNumber, navigate }) {
         label: "Практика",
         icon: "bookmark",
         active: false,
-        onClick: () => navigate(`/practice/tasks/${taskNumber}?origin=theory`),
+        onClick: () => openRelatedPractice(taskNumber, navigate),
       }}
     >
       {state.loading && <Loading />}
@@ -483,9 +511,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
         label: "Практика",
         icon: "bookmark",
         active: false,
-        onClick: () => navigate(
-          `/practice/tasks/${taskNumber}?topic=${topicId}&origin=theory`,
-        ),
+        onClick: () => openRelatedPractice(taskNumber, navigate),
       }}
     >
       {state.loading && <Loading />}
@@ -839,7 +865,6 @@ function PracticeSession({ sessionId, navigate }) {
   const [responses, setResponses] = useState({});
   const [results, setResults] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
-  const [theoryLink, setTheoryLink] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
   const [pendingAdvance, setPendingAdvance] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
@@ -1048,20 +1073,12 @@ function PracticeSession({ sessionId, navigate }) {
         label: "Вернуться к теории",
         icon: "bookmark",
         active: true,
-        onClick: () => navigateFromSession(
-          session.context.topicId
-            ? `/theory/tasks/${session.context.taskNumber}/topics/${session.context.topicId}`
-            : `/theory/tasks/${session.context.taskNumber}`,
-        ),
+        onClick: () => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`),
       } : {
         label: "Открыть теорию",
         icon: "bookmark",
-        active: Boolean(theoryLink),
-        onClick: () => setTheoryLink({
-          label: session.context.topicTitle || `Теория задания ${session.context.taskNumber}`,
-          taskNumber: session.context.taskNumber,
-          topicId: session.context.topicId,
-        }),
+        active: false,
+        onClick: () => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`),
       }}
     >
       <section className="trainer">
@@ -1159,14 +1176,14 @@ function PracticeSession({ sessionId, navigate }) {
           <strong>Нужно повторить</strong>
           {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
-            <button key={link.route} onClick={() => setTheoryLink(link)}>
+            <button
+              key={link.route}
+              onClick={() => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`)}
+            >
               <AppIcon type="theory" /> Открыть теорию
             </button>
           ))}
         </div>
-      )}
-      {theoryLink && (
-        <TheoryOverlay link={theoryLink} onClose={() => setTheoryLink(null)} />
       )}
     </Shell>
   );
