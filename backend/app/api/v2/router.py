@@ -209,6 +209,38 @@ async def list_exam_tasks(
         .correlate(ExamTaskBD)
         .scalar_subquery()
     )
+    exercise_set_count = (
+        select(func.count(func.distinct(ExerciseSetBD.id)))
+        .join(
+            ExerciseSetItemBD,
+            ExerciseSetItemBD.exercise_set_id == ExerciseSetBD.id,
+        )
+        .join(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+        .where(
+            ExerciseSetBD.exam_task_id == ExamTaskBD.id,
+            ExerciseSetBD.status == "published",
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
+    direct_exercise_set_id = (
+        select(func.min(ExerciseSetBD.id))
+        .join(
+            ExerciseSetItemBD,
+            ExerciseSetItemBD.exercise_set_id == ExerciseSetBD.id,
+        )
+        .join(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+        .where(
+            ExerciseSetBD.exam_task_id == ExamTaskBD.id,
+            ExerciseSetBD.status == "published",
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
     conditions = [
         ExamTaskBD.status == "published",
         CourseVersionBD.is_active.is_(True),
@@ -222,6 +254,8 @@ async def list_exam_tasks(
             select(
                 ExamTaskBD,
                 topic_count.label("topic_count"),
+                exercise_set_count.label("exercise_set_count"),
+                direct_exercise_set_id.label("direct_exercise_set_id"),
             )
             .join(
                 CourseVersionBD,
@@ -231,7 +265,14 @@ async def list_exam_tasks(
             .order_by(ExamTaskBD.sort_order, ExamTaskBD.number)
         )
     ).all()
-    return [_task_out(task, topic_count) for task, topic_count in rows]
+    return [
+        {
+            **_task_out(task, topic_count),
+            "exerciseSetCount": set_count,
+            "directExerciseSetId": direct_set_id if set_count == 1 else None,
+        }
+        for task, topic_count, set_count, direct_set_id in rows
+    ]
 
 
 @router.get("/catalog/tasks/{task_number}")

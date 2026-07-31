@@ -257,7 +257,32 @@ function AppFooter() {
 function TaskCatalog({ mode, navigate }) {
   const state = useRemote(() => api(`/v2/catalog/tasks?mode=${mode}`), [mode]);
   const isTheory = mode === "theory";
+  const [startingTaskId, setStartingTaskId] = useState(null);
   const title = isTheory ? "Теория" : "Практика";
+
+  async function openTask(task) {
+    if (isTheory || !task.directExerciseSetId) {
+      navigate(`/${mode}/tasks/${task.number}`);
+      return;
+    }
+    setStartingTaskId(task.id);
+    try {
+      const session = await api("/v2/practice/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          exercise_set_id: task.directExerciseSetId,
+          user_id: window.__umrusUserId || null,
+          client_session_id: practiceClientId(),
+          mode: "standard",
+        }),
+      });
+      navigate(`/practice/sessions/${session.id}`);
+    } catch (error) {
+      setStartingTaskId(null);
+      window.alert(error.message);
+    }
+  }
+
   return (
     <Shell
       navigate={navigate}
@@ -298,9 +323,10 @@ function TaskCatalog({ mode, navigate }) {
               <div className="task-group-rows">
                 {group.tasks.map((task) => (
                   <button
-                    className="task-row"
+                    className={startingTaskId === task.id ? "task-row loading-row" : "task-row"}
                     key={task.id}
-                    onClick={() => navigate(`/${mode}/tasks/${task.number}`)}
+                    onClick={() => openTask(task)}
+                    disabled={startingTaskId !== null}
                   >
                     <span className="task-number">{task.number}</span>
                     <span className="task-content">
