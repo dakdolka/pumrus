@@ -963,6 +963,7 @@ function PracticeSession({ sessionId, navigate }) {
   }
 
   const pageSize = session.configuration?.pageSize || 5;
+  const promptDisplay = session.configuration?.promptDisplay || "normal";
   const pageStart = page * pageSize;
   const pageItems = session.items.slice(pageStart, pageStart + pageSize);
   const answeredCount = session.items.filter(
@@ -1090,9 +1091,9 @@ function PracticeSession({ sessionId, navigate }) {
               >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
                 <div className="batch-content">
-                  <QuestionPrompt item={item} result={result} />
+                  <QuestionPrompt item={item} result={result} displayMode={promptDisplay} />
                   {item.interactionType === "vowel_fill" ? (
-                    <VowelWord item={item} response={response} result={result} />
+                    <VowelWord item={item} response={response} result={result} displayMode={promptDisplay} />
                   ) : item.interactionType !== "single_choice" ? (
                     <Interaction
                       item={item}
@@ -1185,25 +1186,18 @@ function revealCorrectChoice(content, correctAnswer) {
 }
 
 
-function QuestionPrompt({ item, result }) {
+function QuestionPrompt({ item, result, displayMode = "normal" }) {
   const rawContent = item.prompt?.word || item.prompt?.content || "";
   const content = result
     ? revealCorrectChoice(rawContent, result.correctAnswer)
     : rawContent;
   if (["stress_selection", "vowel_fill"].includes(item.interactionType)) return null;
   const isSingleToken = Boolean(content) && !/\s/.test(content.trim());
-  const longestToken = Math.max(
-    0,
-    ...content.split(/\s+/).map((token) => token.length),
-  );
-  const fitSize = longestToken > 18
-    ? `${Math.max(.78, Math.min(1.45, 24 / longestToken)).toFixed(2)}rem`
-    : undefined;
+  const effectiveDisplay = item.prompt?.displayMode || displayMode;
   const contentParts = content.split(/(\s+)/);
   return (
     <div
-      className={`question-text ${isSingleToken ? "single-token" : "sentence-prompt"} ${fitSize ? "fit-text" : ""}`}
-      style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
+      className={`question-text ${isSingleToken ? "single-token" : "sentence-prompt"} ${effectiveDisplay === "compact" ? "compact-text" : ""}`}
       title={content}
     >
       {contentParts.map((part, index) => (
@@ -1233,15 +1227,12 @@ function vowelFillState(item, response) {
 }
 
 
-function VowelWord({ item, response, result }) {
+function VowelWord({ item, response, result, displayMode = "normal" }) {
   const word = vowelFillState(item, response).word;
-  const fitSize = word.length > 18
-    ? `${Math.max(.82, Math.min(1.45, 24 / word.length)).toFixed(2)}rem`
-    : undefined;
+  const effectiveDisplay = item.prompt?.displayMode || displayMode;
   return (
     <div
-      className={`vowel-word ${result ? result.status : ""} ${fitSize ? "fit-text" : ""}`}
-      style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
+      className={`vowel-word ${result ? result.status : ""} ${effectiveDisplay === "compact" ? "compact-text" : ""}`}
       title={word}
     >
       {word}

@@ -102,6 +102,7 @@ function PracticeSettings() {
   const [parserType, setParserType] = useState("vowel_fill");
   const [rawText, setRawText] = useState("");
   const [preview, setPreview] = useState({ rows: [], errors: [] });
+  const [compactLines, setCompactLines] = useState([]);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState("");
   useEffect(() => {
@@ -111,6 +112,7 @@ function PracticeSettings() {
     }).catch((reason) => setError(reason.message));
   }, []);
   useEffect(() => {
+    setCompactLines([]);
     if (!rawText.trim()) {
       setPreview({ rows: [], errors: [] });
       return undefined;
@@ -127,7 +129,11 @@ function PracticeSettings() {
     try {
       await adminApi(`/exercise-sets/${item.id}/settings`, {
         method: "PATCH",
-        body: JSON.stringify({ session_size: item.sessionSize, page_size: item.pageSize }),
+        body: JSON.stringify({
+          session_size: item.sessionSize,
+          page_size: item.pageSize,
+          prompt_display: item.promptDisplay || "normal",
+        }),
       });
     } catch (reason) {
       setError(reason.message);
@@ -142,7 +148,11 @@ function PracticeSettings() {
     try {
       const result = await adminApi(`/exercise-sets/${selectedSetId}/bulk-import`, {
         method: "POST",
-        body: JSON.stringify({ parser_type: parserType, raw_text: rawText }),
+        body: JSON.stringify({
+          parser_type: parserType,
+          raw_text: rawText,
+          compact_lines: compactLines,
+        }),
       });
       setNotice(`Добавлено: ${result.created}. Дубликатов пропущено: ${result.skippedDuplicates}.`);
       setRawText("");
@@ -174,6 +184,11 @@ function PracticeSettings() {
           onChange={(event) => update(item.id, { sessionSize: Number(event.target.value) })} /></label>
         <label>В блоке<input type="number" min="1" max="20" value={item.pageSize}
           onChange={(event) => update(item.id, { pageSize: Number(event.target.value) })} /></label>
+        <label>Текст<select value={item.promptDisplay || "normal"}
+          onChange={(event) => update(item.id, { promptDisplay: event.target.value })}>
+          <option value="normal">Обычный</option>
+          <option value="compact">Компактный</option>
+        </select></label>
         <button className="button primary" onClick={() => save(item)}>Сохранить</button>
       </article>)}
     </section>
@@ -203,6 +218,18 @@ function PracticeSettings() {
         <div className="import-preview-rows">
           {preview.rows.slice(0, 100).map((item) => <div key={`row-${item.line}`}>
             <small>{item.line}</small><span>{item.prompt}</span><b>{item.answer}</b>
+            <label className="compact-prompt-toggle">
+              <input
+                type="checkbox"
+                checked={compactLines.includes(item.line)}
+                onChange={(event) => setCompactLines((lines) => (
+                  event.target.checked
+                    ? [...lines, item.line]
+                    : lines.filter((line) => line !== item.line)
+                ))}
+              />
+              Компактный
+            </label>
           </div>)}
         </div>
         {preview.rows.length > 100 && <small>Показаны первые 100 строк из {preview.rows.length}.</small>}

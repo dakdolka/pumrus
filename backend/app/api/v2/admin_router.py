@@ -88,11 +88,13 @@ class LivePublishIn(BaseModel):
 class ExerciseSetSettingsIn(BaseModel):
     session_size: int = Field(ge=1, le=100)
     page_size: int = Field(ge=1, le=20)
+    prompt_display: Literal["normal", "compact"] = "normal"
 
 
 class BulkExerciseImportIn(BaseModel):
     parser_type: str
     raw_text: str = Field(min_length=1, max_length=500_000)
+    compact_lines: list[int] = Field(default_factory=list)
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -674,6 +676,7 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
             "interactionTypes": [value for value in interaction_types if value],
             "sessionSize": int(item.configuration.get("sessionSize", 50)),
             "pageSize": int(item.configuration.get("pageSize", 5)),
+            "promptDisplay": item.configuration.get("promptDisplay", "normal"),
         }
         for item, task_number, topic_title, count, interaction_types in rows
     ]
@@ -694,9 +697,14 @@ async def update_exercise_set_settings(
         **(item.configuration or {}),
         "sessionSize": body.session_size,
         "pageSize": body.page_size,
+        "promptDisplay": body.prompt_display,
     }
     await db.commit()
-    return {"sessionSize": body.session_size, "pageSize": body.page_size}
+    return {
+        "sessionSize": body.session_size,
+        "pageSize": body.page_size,
+        "promptDisplay": body.prompt_display,
+    }
 
 
 @router.post("/exercise-import/preview", dependencies=[Depends(require_admin)])
@@ -704,8 +712,14 @@ async def preview_exercise_import(body: BulkExerciseImportIn):
     return parse_exercises(body.raw_text, body.parser_type)
 
 
-def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
+def _exercise_payload(
+    parser_type: str,
+    row: dict[str, Any],
+    *,
+    compact: bool = False,
+) -> dict[str, Any]:
     feedback = {"correctAnswer": row["answer"]}
+    prompt_display = {"displayMode": "compact"} if compact else {}
     if row.get("explanation"):
         feedback["correct"] = row["explanation"]
         feedback["incorrect"] = row["explanation"]
@@ -716,7 +730,7 @@ def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
         ]
         correct = next(option["key"] for option in options if option["label"] == row["answer"])
         return {
-            "prompt": {"content": row["prompt"], "format": "plain_text"},
+            "prompt": {"content": row["prompt"], "format": "plain_text", **prompt_display},
             "interaction": {"options": options},
             "answer": {"correctOptionKey": correct},
             "checker": "exact_option",
@@ -726,7 +740,7 @@ def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
     if parser_type == "stress_selection":
         word = row["prompt"]
         return {
-            "prompt": {"content": word, "format": "plain_text", "word": word},
+            "prompt": {"content": word, "format": "plain_text", "word": word, **prompt_display},
             "interaction": {
                 "selectablePositions": [
                     index for index, character in enumerate(word.casefold())
@@ -740,7 +754,7 @@ def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
         }
     if parser_type == "vowel_fill":
         return {
-            "prompt": {"content": row["mask"], "format": "plain_text"},
+            "prompt": {"content": row["mask"], "format": "plain_text", **prompt_display},
             "interaction": {"variant": "masked_letters", "mask": row["mask"]},
             "answer": {"acceptedAnswers": [row["answer"]]},
             "checker": "normalized_text",
@@ -748,7 +762,7 @@ def _exercise_payload(parser_type: str, row: dict[str, Any]) -> dict[str, Any]:
             "feedback": feedback,
         }
     return {
-        "prompt": {"content": row["prompt"], "format": "plain_text"},
+        "prompt": {"content": row["prompt"], "format": "plain_text", **prompt_display},
         "interaction": {},
         "answer": {"acceptedAnswers": [row["answer"]]},
         "checker": "normalized_text",
@@ -799,7 +813,11 @@ async def bulk_import_exercises(
     created = 0
     skipped = 0
     for row in parsed["rows"]:
-        payload = _exercise_payload(body.parser_type, row)
+        payload = _exercise_payload(
+            body.parser_type,
+            row,
+            compact=row["line"] in body.compact_lines,
+        )
         signature = json.dumps(
             [payload["prompt"], payload["answer"]],
             ensure_ascii=False,

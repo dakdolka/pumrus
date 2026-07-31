@@ -209,7 +209,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list { display: grid; gap: .55rem; }
 .practice-form-list article {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 6rem 6rem auto;
+  grid-template-columns: minmax(220px, 1fr) 6rem 6rem 8rem auto;
   align-items: end;
   gap: .65rem;
   padding: .8rem;
@@ -274,7 +274,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .import-preview-rows { max-height: 310px; overflow: auto; }
 .import-preview-rows > div {
   display: grid;
-  grid-template-columns: 2.5rem minmax(0, 1fr) minmax(100px, .7fr);
+  grid-template-columns: 2.5rem minmax(0, 1fr) minmax(100px, .7fr) auto;
   gap: .6rem;
   padding: .5rem .75rem;
   border-top: 1px solid var(--line);
@@ -282,6 +282,8 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 }
 .import-preview-rows small { color: var(--text-secondary); }
 .import-preview-rows b { color: var(--success); }
+.compact-prompt-toggle { margin: 0; display: flex; align-items: center; gap: .35rem; white-space: nowrap; font-size: .7rem; }
+.compact-prompt-toggle input { width: auto; }
 .import-error { margin: 0; padding: .55rem .75rem; border-top: 1px solid var(--line); color: var(--danger); font-size: .8rem; }
 .import-button { margin-top: .75rem; }
 @media (max-width: 720px) {

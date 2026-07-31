@@ -709,6 +709,7 @@ async def create_practice_session(
     session_configuration = {
         "sessionSize": limit,
         "pageSize": page_size,
+        "promptDisplay": exercise_set.configuration.get("promptDisplay", "normal"),
         "clientSessionId": body.client_session_id,
         "pausedAt": None,
     }

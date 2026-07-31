@@ -656,9 +656,14 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   line-height: 1.35;
 }
 .batch-content .question-text.sentence-prompt {
-  font-size: clamp(.8rem, 2.8vw, 1rem);
+  font-size: clamp(.92rem, 3.4vw, 1.08rem);
   line-height: 1.48;
   letter-spacing: -.01em;
+}
+.batch-content .question-text.compact-text,
+.batch-content .vowel-word.compact-text {
+  font-size: clamp(.76rem, 2.65vw, .9rem);
+  line-height: 1.48;
 }
 .question-token { display: inline-block; white-space: nowrap; }
 .batch-content .fit-text {
