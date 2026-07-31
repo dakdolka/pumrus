@@ -458,8 +458,18 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   border-radius: var(--radius-lg);
   text-align: center;
 }
+.home-page {
+  min-height: calc(100vh - 50px - var(--safe-top));
+  min-height: calc(100dvh - 50px - var(--safe-top));
+  display: flex;
+  flex-direction: column;
+}
+.home-page .hero {
+  min-height: 0;
+  flex: 1 0 auto;
+}
 .app-footer {
-  margin: 8px 18px 0;
+  margin: auto 18px 0;
   padding: 20px 0 max(24px, env(safe-area-inset-bottom));
   display: flex;
   align-items: center;

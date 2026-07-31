@@ -189,6 +189,7 @@ function ErrorState({ message }) {
 function Home({ navigate }) {
   return (
     <Shell navigate={navigate}>
+      <div className="home-page">
       <section className="hero">
         <div className="hero-orbit orbit-one" />
         <div className="hero-orbit orbit-two" />
@@ -216,6 +217,7 @@ function Home({ navigate }) {
         </div>
       </section>
       <AppFooter />
+      </div>
     </Shell>
   );
 }
