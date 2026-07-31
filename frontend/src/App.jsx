@@ -847,18 +847,27 @@ function PracticeSession({ sessionId, navigate }) {
   useEffect(() => {
     if (!state.data) return;
     setSession(state.data);
+    const savedResults = Object.fromEntries(
+      state.data.items
+        .filter((item) => item.result)
+        .map((item) => [item.sessionItemId, item.result]),
+    );
+    const savedResponses = Object.fromEntries(
+      state.data.items
+        .filter((item) => item.result?.response)
+        .map((item) => [item.sessionItemId, item.result.response]),
+    );
+    let drafts = {};
+    try {
+      drafts = JSON.parse(localStorage.getItem(`umrus:drafts:${state.data.id}`) || "{}");
+    } catch {
+      drafts = {};
+    }
+    setResults(savedResults);
+    setResponses({ ...drafts, ...savedResponses });
     const size = state.data.configuration?.pageSize || 5;
     setPage(Math.floor(Math.min(state.data.currentPosition, state.data.items.length - 1) / size));
   }, [state.data]);
-
-  useEffect(() => {
-    if (!session) return;
-    try {
-      setResponses(JSON.parse(localStorage.getItem(`umrus:drafts:${session.id}`) || "{}"));
-    } catch {
-      setResponses({});
-    }
-  }, [session?.id]);
 
   useEffect(() => {
     if (!session) return;
@@ -956,8 +965,9 @@ function PracticeSession({ sessionId, navigate }) {
   const pageSize = session.configuration?.pageSize || 5;
   const pageStart = page * pageSize;
   const pageItems = session.items.slice(pageStart, pageStart + pageSize);
-  const answeredCount = session.items.filter((item) => item.state !== "pending").length
-    + Object.keys(results).length;
+  const answeredCount = session.items.filter(
+    (item) => item.state !== "pending" || results[item.sessionItemId],
+  ).length;
   const progress = Math.min(100, (answeredCount / session.items.length) * 100);
   const pageComplete = pageItems.every(
     (item) => item.state !== "pending" || results[item.sessionItemId],
@@ -1082,11 +1092,12 @@ function PracticeSession({ sessionId, navigate }) {
                 <div className="batch-content">
                   <QuestionPrompt item={item} result={result} />
                   {item.interactionType === "vowel_fill" ? (
-                    <VowelWord item={item} response={response} />
+                    <VowelWord item={item} response={response} result={result} />
                   ) : item.interactionType !== "single_choice" ? (
                     <Interaction
                       item={item}
                       response={response}
+                      result={result}
                       setResponse={setResponse}
                       disabled={Boolean(result) || Boolean(errorResult) || submittingId === item.sessionItemId}
                       onAnswer={(next) => {
@@ -1096,6 +1107,12 @@ function PracticeSession({ sessionId, navigate }) {
                       onComplete={(next) => submit(item, next)}
                     />
                   ) : null}
+                  {result && (
+                    item.interactionType === "single_choice"
+                    || (item.interactionType === "vowel_fill" && result.status === "incorrect")
+                  ) && (
+                    <AnswerReview item={item} result={result} />
+                  )}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
               </article>
@@ -1211,18 +1228,45 @@ function vowelFillState(item, response) {
 }
 
 
-function VowelWord({ item, response }) {
+function VowelWord({ item, response, result }) {
   const word = vowelFillState(item, response).word;
   const fitSize = word.length > 18
     ? `${Math.max(.82, Math.min(1.45, 24 / word.length)).toFixed(2)}rem`
     : undefined;
   return (
     <div
-      className={`vowel-word ${fitSize ? "fit-text" : ""}`}
+      className={`vowel-word ${result ? result.status : ""} ${fitSize ? "fit-text" : ""}`}
       style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
       title={word}
     >
       {word}
+    </div>
+  );
+}
+
+
+function answerText(item, response, fallback = "") {
+  if (item.interactionType === "vowel_fill") return response?.text || fallback;
+  if (item.interactionType === "single_choice") {
+    const option = (item.interaction?.options || []).find(
+      (candidate) => candidate.key === response?.optionKey,
+    );
+    return option?.label || fallback;
+  }
+  return fallback;
+}
+
+
+function AnswerReview({ item, result }) {
+  const correct = answerText(item, result.correctResponse, result.correctAnswer);
+  const selected = answerText(item, result.response);
+  if (result.status === "correct") {
+    return <div className="answer-review correct"><span>Верно</span><b>{correct}</b></div>;
+  }
+  return (
+    <div className="answer-review comparison">
+      <span className="answer-review-wrong"><small>Ваш вариант</small><s>{selected}</s></span>
+      <span className="answer-review-correct"><small>Правильно</small><b>{correct}</b></span>
     </div>
   );
 }
@@ -1266,7 +1310,7 @@ function SharedKeyboard({ item, response, setResponse, vowelKeys, disabled, onAn
 }
 
 
-function Interaction({ item, response, setResponse, disabled, onAnswer, onComplete }) {
+function Interaction({ item, response, result, setResponse, disabled, onAnswer, onComplete }) {
   if (item.interactionType === "single_choice") {
     return (
       <div className="choice-list">
@@ -1293,7 +1337,13 @@ function Interaction({ item, response, setResponse, disabled, onAnswer, onComple
           <button
             key={position}
             disabled={disabled}
-            className={response.selectedCharacterIndex === position ? "selected" : ""}
+            className={[
+              result?.correctResponse?.selectedCharacterIndex === position ? "correct" : "",
+              result?.status === "incorrect" && response.selectedCharacterIndex === position
+                ? "wrong"
+                : "",
+              !result && response.selectedCharacterIndex === position ? "selected" : "",
+            ].filter(Boolean).join(" ")}
             onClick={() => onAnswer({ selectedCharacterIndex: position })}
           >
             {character}

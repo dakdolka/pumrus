@@ -388,7 +388,47 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .stress-word { margin: auto; display: flex; justify-content: center; flex-wrap: wrap; font-size: clamp(40px, 14vw, 67px); font-weight: 600; letter-spacing: .01em; }
 .stress-word button, .stress-word span { padding: 2px 0; }
 .stress-word button { color: var(--accent); border-bottom: 2px solid color-mix(in srgb, var(--accent) 38%, transparent); }
-.stress-word button.selected { color: var(--danger); border-color: var(--danger); transform: translateY(-4px); }
+.stress-word button.selected { color: var(--accent); border-color: var(--accent); transform: translateY(-4px); }
+.stress-word button.correct {
+  color: var(--success);
+  border-color: var(--success);
+  transform: translateY(-4px);
+}
+.stress-word button.wrong {
+  color: var(--danger);
+  border-color: var(--danger);
+  text-decoration: line-through;
+  transform: translateY(-4px);
+}
+.answer-review {
+  margin-top: 9px;
+  padding: 9px 11px;
+  display: flex;
+  gap: 10px;
+  border-radius: var(--radius-sm);
+  font-size: clamp(.75rem, 2.7vw, .9rem);
+  line-height: 1.4;
+}
+.answer-review.correct {
+  align-items: baseline;
+  color: var(--success);
+  background: var(--success-soft);
+}
+.answer-review.correct span { font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.answer-review.comparison { padding: 0; background: transparent; }
+.answer-review.comparison > span {
+  min-width: 0;
+  padding: 8px 10px;
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  border-radius: var(--radius-sm);
+}
+.answer-review small { opacity: .72; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.answer-review-wrong { color: var(--danger); background: var(--danger-soft); }
+.answer-review-correct { color: var(--success); background: var(--success-soft); }
+.vowel-word.correct { color: var(--success); }
+.vowel-word.incorrect { color: var(--danger); }
 .answer-input {
   width: 100%;
   margin-top: auto;

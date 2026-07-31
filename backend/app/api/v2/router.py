@@ -443,7 +443,31 @@ async def list_practice_mistakes(
 def _public_question(
     item: PracticeSessionItemBD,
     version: ExerciseVersionBD,
+    attempt: AttemptV2BD | None = None,
 ) -> dict[str, Any]:
+    result = None
+    if attempt is not None:
+        if version.checker_type == "exact_option":
+            correct_response = {
+                "optionKey": version.answer_config.get("correctOptionKey")
+            }
+        elif version.checker_type == "exact_position":
+            correct_response = {
+                "selectedCharacterIndex": version.answer_config.get(
+                    "correctCharacterIndex"
+                )
+            }
+        else:
+            accepted = version.answer_config.get("acceptedAnswers", [])
+            correct_response = {"text": accepted[0] if accepted else None}
+        result = {
+            "attemptId": attempt.id,
+            "status": attempt.result_status,
+            "score": attempt.score,
+            "response": attempt.response_data,
+            "correctResponse": correct_response,
+            "correctAnswer": version.feedback_data.get("correctAnswer"),
+        }
     return {
         "sessionItemId": item.id,
         "position": item.position,
@@ -452,6 +476,7 @@ def _public_question(
         "responseSchemaVersion": version.response_schema_version,
         "prompt": version.prompt_data,
         "interaction": version.interaction_config,
+        "result": result,
     }
 
 
@@ -484,6 +509,18 @@ async def _session_out(
             .order_by(PracticeSessionItemBD.position)
         )
     ).all()
+    attempts = (
+        await db.scalars(
+            select(AttemptV2BD)
+            .join(
+                PracticeSessionItemBD,
+                PracticeSessionItemBD.id == AttemptV2BD.session_item_id,
+            )
+            .where(PracticeSessionItemBD.session_id == session.id)
+            .order_by(AttemptV2BD.id)
+        )
+    ).all()
+    latest_attempts = {attempt.session_item_id: attempt for attempt in attempts}
     return {
         "id": session.id,
         "mode": session.mode,
@@ -498,7 +535,10 @@ async def _session_out(
             "topicId": context[3],
             "topicTitle": context[4],
         },
-        "items": [_public_question(item, version) for item, version in rows],
+        "items": [
+            _public_question(item, version, latest_attempts.get(item.id))
+            for item, version in rows
+        ],
     }
 
 
@@ -877,6 +917,20 @@ async def submit_attempt(
         "status": status,
         "score": score,
         "correctAnswer": version.feedback_data.get("correctAnswer"),
+        "response": body.response,
+        "correctResponse": (
+            {"optionKey": version.answer_config.get("correctOptionKey")}
+            if version.checker_type == "exact_option"
+            else {
+                "selectedCharacterIndex": version.answer_config.get(
+                    "correctCharacterIndex"
+                )
+            }
+            if version.checker_type == "exact_position"
+            else {
+                "text": (version.answer_config.get("acceptedAnswers") or [None])[0]
+            }
+        ),
         "feedback": {
             "message": version.feedback_data.get(
                 "correct" if status == "correct" else "incorrect"
