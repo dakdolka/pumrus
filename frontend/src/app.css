@@ -660,6 +660,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   line-height: 1.48;
   letter-spacing: -.01em;
 }
+.question-token { display: inline-block; white-space: nowrap; }
 .batch-content .fit-text {
   font-size: var(--practice-fit-size);
 }

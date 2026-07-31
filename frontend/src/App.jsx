@@ -1199,13 +1199,18 @@ function QuestionPrompt({ item, result }) {
   const fitSize = longestToken > 18
     ? `${Math.max(.78, Math.min(1.45, 24 / longestToken)).toFixed(2)}rem`
     : undefined;
+  const contentParts = content.split(/(\s+)/);
   return (
     <div
       className={`question-text ${isSingleToken ? "single-token" : "sentence-prompt"} ${fitSize ? "fit-text" : ""}`}
       style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
       title={content}
     >
-      {content}
+      {contentParts.map((part, index) => (
+        /^\s+$/.test(part)
+          ? part
+          : <span className="question-token" key={`${index}-${part}`}>{part}</span>
+      ))}
     </div>
   );
 }
