@@ -133,6 +133,7 @@ function PracticeSettings() {
           session_size: item.sessionSize,
           page_size: item.pageSize,
           prompt_display: item.promptDisplay || "normal",
+          show_single_letter_success: Boolean(item.showSingleLetterSuccess),
         }),
       });
     } catch (reason) {
@@ -189,6 +190,11 @@ function PracticeSettings() {
           <option value="normal">Обычный</option>
           <option value="compact">Компактный</option>
         </select></label>
+        <label className="set-checkbox">
+          <input type="checkbox" checked={Boolean(item.showSingleLetterSuccess)}
+            onChange={(event) => update(item.id, { showSingleLetterSuccess: event.target.checked })} />
+          «Верно: И/Е»
+        </label>
         <button className="button primary" onClick={() => save(item)}>Сохранить</button>
       </article>)}
     </section>

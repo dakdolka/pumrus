@@ -710,6 +710,9 @@ async def create_practice_session(
         "sessionSize": limit,
         "pageSize": page_size,
         "promptDisplay": exercise_set.configuration.get("promptDisplay", "normal"),
+        "showSingleLetterSuccess": bool(
+            exercise_set.configuration.get("showSingleLetterSuccess", False)
+        ),
         "clientSessionId": body.client_session_id,
         "pausedAt": None,
     }

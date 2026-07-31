@@ -89,6 +89,7 @@ class ExerciseSetSettingsIn(BaseModel):
     session_size: int = Field(ge=1, le=100)
     page_size: int = Field(ge=1, le=20)
     prompt_display: Literal["normal", "compact"] = "normal"
+    show_single_letter_success: bool = False
 
 
 class BulkExerciseImportIn(BaseModel):
@@ -677,6 +678,9 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
             "sessionSize": int(item.configuration.get("sessionSize", 50)),
             "pageSize": int(item.configuration.get("pageSize", 5)),
             "promptDisplay": item.configuration.get("promptDisplay", "normal"),
+            "showSingleLetterSuccess": bool(
+                item.configuration.get("showSingleLetterSuccess", False)
+            ),
         }
         for item, task_number, topic_title, count, interaction_types in rows
     ]
@@ -698,12 +702,14 @@ async def update_exercise_set_settings(
         "sessionSize": body.session_size,
         "pageSize": body.page_size,
         "promptDisplay": body.prompt_display,
+        "showSingleLetterSuccess": body.show_single_letter_success,
     }
     await db.commit()
     return {
         "sessionSize": body.session_size,
         "pageSize": body.page_size,
         "promptDisplay": body.prompt_display,
+        "showSingleLetterSuccess": body.show_single_letter_success,
     }
 
 

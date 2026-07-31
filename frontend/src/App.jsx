@@ -1112,7 +1112,11 @@ function PracticeSession({ sessionId, navigate }) {
                     item.interactionType === "single_choice"
                     || (item.interactionType === "vowel_fill" && result.status === "incorrect")
                   ) && (
-                    <AnswerReview item={item} result={result} />
+                    <AnswerReview
+                      item={item}
+                      result={result}
+                      showSingleLetterSuccess={Boolean(session.configuration?.showSingleLetterSuccess)}
+                    />
                   )}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
@@ -1172,6 +1176,9 @@ function PracticeSession({ sessionId, navigate }) {
 function revealCorrectChoice(content, correctAnswer) {
   const answer = String(correctAnswer || "").trim();
   if (!answer) return content;
+  if (/^[а-яё]$/i.test(answer) && /_/.test(content)) {
+    return content.replace(/_+/g, answer.toLocaleLowerCase("ru"));
+  }
   if (/^НН?$/i.test(answer)) {
     return content.replace(/\(Н\/НН\)/gi, answer.toLocaleLowerCase("ru"));
   }
@@ -1253,10 +1260,15 @@ function answerText(item, response, fallback = "") {
 }
 
 
-function AnswerReview({ item, result }) {
+function AnswerReview({ item, result, showSingleLetterSuccess = false }) {
   const correct = answerText(item, result.correctResponse, result.correctAnswer);
   const selected = answerText(item, result.response);
+  const prompt = item.prompt?.content || item.prompt?.word || "";
+  const isSingleLetterGap = item.interactionType === "single_choice"
+    && /_/.test(prompt)
+    && /^[а-яё]$/i.test(String(result.correctAnswer || "").trim());
   if (result.status === "correct") {
+    if (isSingleLetterGap && !showSingleLetterSuccess) return null;
     return <div className="answer-review correct"><span>Верно</span><b>{correct}</b></div>;
   }
   return (

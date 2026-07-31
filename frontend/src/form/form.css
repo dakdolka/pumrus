@@ -209,7 +209,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list { display: grid; gap: .55rem; }
 .practice-form-list article {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 6rem 6rem 8rem auto;
+  grid-template-columns: minmax(220px, 1fr) 6rem 6rem 8rem 7rem auto;
   align-items: end;
   gap: .65rem;
   padding: .8rem;
@@ -226,6 +226,8 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list article > div small { color: var(--text-secondary); font-size: .78rem; }
 .practice-form-list label { margin: 0; font-size: .72rem; }
 .practice-form-list input { min-width: 0; }
+.practice-form-list .set-checkbox { display: flex; align-items: center; gap: .35rem; padding-bottom: .65rem; }
+.practice-form-list .set-checkbox input { width: auto; }
 .form-notice { padding: .7rem .85rem; border-radius: 10px; background: var(--success-soft); color: var(--success); }
 .bulk-import {
   margin-top: 1rem;
