@@ -17,6 +17,18 @@ async function api(path, options = {}) {
 }
 
 
+function practiceClientId() {
+  const key = "umrus:practice-client";
+  let value = localStorage.getItem(key);
+  if (!value) {
+    value = window.crypto?.randomUUID?.()
+      || `web-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(key, value);
+  }
+  return value;
+}
+
+
 function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
 
@@ -655,6 +667,37 @@ function PracticeTask({ taskNumber, navigate }) {
     () => api(`/v2/practice/tasks/${taskNumber}/sets${suffix}`),
     [taskNumber, topicId],
   );
+  const [autoStartingSetId, setAutoStartingSetId] = useState(null);
+  const startSet = useCallback(async (set) => {
+    try {
+      const session = await api("/v2/practice/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          exercise_set_id: set.id,
+          user_id: window.__umrusUserId || null,
+          client_session_id: practiceClientId(),
+          mode: mistakesMode ? "mistakes" : "standard",
+          limit: set.sessionSize,
+          page_size: set.pageSize,
+        }),
+      });
+      const contextQuery = theoryOrigin ? "?origin=theory" : "";
+      navigate(`/practice/sessions/${session.id}${contextQuery}`);
+    } catch (error) {
+      setAutoStartingSetId(-1);
+      window.alert(error.message);
+    }
+  }, [mistakesMode, navigate, theoryOrigin]);
+
+  useEffect(() => {
+    const onlySet = state.data?.sets?.length === 1
+      ? state.data.sets[0]
+      : null;
+    if (!onlySet || autoStartingSetId !== null) return;
+    setAutoStartingSetId(onlySet.id);
+    startSet(onlySet);
+  }, [autoStartingSetId, startSet, state.data]);
+
   return (
     <Shell
       navigate={navigate}
@@ -687,7 +730,8 @@ function PracticeTask({ taskNumber, navigate }) {
     >
       {state.loading && <Loading />}
       {state.error && <ErrorState message={state.error} />}
-      {state.data && (
+      {autoStartingSetId > 0 && <Loading />}
+      {state.data && autoStartingSetId !== state.data.sets?.[0]?.id && (
         <>
           <section className="page-head task-head">
             <p className="eyebrow">Практика · задание {taskNumber}</p>
@@ -699,26 +743,7 @@ function PracticeTask({ taskNumber, navigate }) {
               <button
                 className="set-card"
                 key={set.id}
-                onClick={async () => {
-                  try {
-                    const session = await api("/v2/practice/sessions", {
-                      method: "POST",
-                      body: JSON.stringify({
-                        exercise_set_id: set.id,
-                        user_id: window.__umrusUserId || null,
-                        mode: mistakesMode ? "mistakes" : "standard",
-                        limit: set.sessionSize,
-                        page_size: set.pageSize,
-                      }),
-                    });
-                    const contextQuery = theoryOrigin
-                      ? `?origin=theory`
-                      : "";
-                    navigate(`/practice/sessions/${session.id}${contextQuery}`);
-                  } catch (error) {
-                    window.alert(error.message);
-                  }
-                }}
+                onClick={() => startSet(set)}
               >
                 <span className="set-label">{set.topicTitle ? "Тема" : "Задание"}</span>
                 <strong>{set.title}</strong>
@@ -790,6 +815,7 @@ function PracticeSession({ sessionId, navigate }) {
   const [submittingId, setSubmittingId] = useState(null);
   const [theoryLink, setTheoryLink] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
+  const [pendingAdvance, setPendingAdvance] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
 
   useEffect(() => {
@@ -822,12 +848,60 @@ function PracticeSession({ sessionId, navigate }) {
     setActiveItemId(first?.sessionItemId || null);
   }, [session?.id, page]);
 
+  const dismissError = useCallback(() => {
+    setErrorResult(null);
+    setPendingAdvance((pending) => {
+      if (pending?.itemId) {
+        setActiveItemId(pending.itemId);
+      } else if (pending?.nextPage) {
+        window.setTimeout(() => {
+          setPage((current) => current + 1);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 180);
+      }
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!errorResult) return undefined;
+    const dismiss = (event) => {
+      if (event.target.closest?.(".answer-sheet button")) return;
+      dismissError();
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [dismissError, errorResult]);
+
+  const pauseSession = useCallback(() => {
+    if (session?.status !== "active") return;
+    fetch(`/api/v2/practice/sessions/${session.id}/pause`, {
+      method: "POST",
+      keepalive: true,
+    }).catch(() => {});
+  }, [session?.id, session?.status]);
+
+  useEffect(() => {
+    const pauseOnExit = () => pauseSession();
+    window.addEventListener("pagehide", pauseOnExit);
+    return () => window.removeEventListener("pagehide", pauseOnExit);
+  }, [pauseSession]);
+
+  useEffect(() => {
+    if (!session?.id) return undefined;
+    const sessionId = session.id;
+    return () => {
+      fetch(`/api/v2/practice/sessions/${sessionId}/pause`, {
+        method: "POST",
+        keepalive: true,
+      }).catch(() => {});
+    };
+  }, [session?.id]);
+
   const navigateFromSession = useCallback((nextPath) => {
-    if (!theoryOrigin && session?.status === "active") {
-      api(`/v2/practice/sessions/${session.id}/close`, { method: "POST" }).catch(() => {});
-    }
+    pauseSession();
     navigate(nextPath);
-  }, [navigate, session?.id, session?.status, theoryOrigin]);
+  }, [navigate, pauseSession]);
 
   if (state.loading) {
     return <Shell navigate={navigate}><Loading /></Shell>;
@@ -836,6 +910,22 @@ function PracticeSession({ sessionId, navigate }) {
     return <Shell navigate={navigate}><ErrorState message={state.error} /></Shell>;
   }
   if (!session) return null;
+  if (session.status === "expired") {
+    return (
+      <Shell navigate={navigate}>
+        <div className="state-card">
+          <strong>Сессия завершена</strong>
+          <p>После выхода прошло больше 10 минут.</p>
+          <button
+            className="primary-button"
+            onClick={() => navigate(`/practice/tasks/${session.context.taskNumber}`)}
+          >
+            Начать новую
+          </button>
+        </div>
+      </Shell>
+    );
+  }
 
   const pageSize = session.configuration?.pageSize || 5;
   const pageStart = page * pageSize;
@@ -858,12 +948,21 @@ function PracticeSession({ sessionId, navigate }) {
       );
       setResults((current) => ({ ...current, [item.sessionItemId]: answer }));
       setSession((current) => ({ ...current, status: answer.sessionStatus }));
-      if (answer.status === "incorrect") setErrorResult(answer);
       const next = pageItems.find(
         (candidate) => candidate.sessionItemId !== item.sessionItemId
           && candidate.state === "pending"
           && !results[candidate.sessionItemId],
       );
+      if (answer.status === "incorrect") {
+        setErrorResult(answer);
+        setPendingAdvance(
+          next
+            ? { itemId: next.sessionItemId }
+            : { nextPage: pageStart + pageSize < session.items.length },
+        );
+        setActiveItemId(item.sessionItemId);
+        return;
+      }
       if (next) {
         setActiveItemId(next.sessionItemId);
       } else if (pageStart + pageSize < session.items.length) {
@@ -876,6 +975,17 @@ function PracticeSession({ sessionId, navigate }) {
       window.alert(error.message);
     } finally {
       setSubmittingId(null);
+    }
+  }
+
+  async function resetSession() {
+    if (!window.confirm("Сбросить текущую сессию и начать заново?")) return;
+    try {
+      await api(`/v2/practice/sessions/${session.id}/reset`, { method: "POST" });
+      localStorage.removeItem(`umrus:drafts:${session.id}`);
+      navigate(`/practice/tasks/${session.context.taskNumber}`);
+    } catch (error) {
+      window.alert(error.message);
     }
   }
 
@@ -921,6 +1031,9 @@ function PracticeSession({ sessionId, navigate }) {
         <div className="trainer-meta">
           <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
+          {session.status === "active" && (
+            <button className="session-reset" onClick={resetSession}>Сбросить</button>
+          )}
         </div>
         <div className="progress-track"><i style={{ width: `${progress}%` }} /></div>
 
@@ -941,7 +1054,7 @@ function PracticeSession({ sessionId, navigate }) {
               >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
                 <div className="batch-content">
-                  <QuestionPrompt item={item} />
+                  <QuestionPrompt item={item} result={result} />
                   {item.interactionType === "vowel_fill" ? (
                     <VowelWord item={item} response={response} />
                   ) : item.interactionType !== "single_choice" ? (
@@ -994,7 +1107,7 @@ function PracticeSession({ sessionId, navigate }) {
       </section>
       {errorResult && (
         <div className="answer-sheet incorrect" role="alert">
-          <button className="answer-sheet-close" onClick={() => setErrorResult(null)} aria-label="Закрыть">×</button>
+          <button className="answer-sheet-close" onClick={dismissError} aria-label="Закрыть">×</button>
           <strong>Нужно повторить</strong>
           {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
@@ -1012,8 +1125,28 @@ function PracticeSession({ sessionId, navigate }) {
 }
 
 
-function QuestionPrompt({ item }) {
-  const content = item.prompt?.word || item.prompt?.content || "";
+function revealCorrectChoice(content, correctAnswer) {
+  const answer = String(correctAnswer || "").trim();
+  if (!answer) return content;
+  if (/^НН?$/i.test(answer)) {
+    return content.replace(/\(Н\/НН\)/gi, answer.toLocaleLowerCase("ru"));
+  }
+  if (/^(слитно|раздельно)$/i.test(answer)) {
+    const separated = answer.toLocaleLowerCase("ru") === "раздельно";
+    return content.replace(
+      /\((НЕ|НИ)\)\s*/gi,
+      (_, particle) => `${particle}${separated ? " " : ""}`,
+    );
+  }
+  return content;
+}
+
+
+function QuestionPrompt({ item, result }) {
+  const rawContent = item.prompt?.word || item.prompt?.content || "";
+  const content = result
+    ? revealCorrectChoice(rawContent, result.correctAnswer)
+    : rawContent;
   if (["stress_selection", "vowel_fill"].includes(item.interactionType)) return null;
   const isSingleToken = Boolean(content) && !/\s/.test(content.trim());
   const longestToken = Math.max(
@@ -1025,7 +1158,7 @@ function QuestionPrompt({ item }) {
     : undefined;
   return (
     <div
-      className={`question-text ${isSingleToken ? "single-token" : ""} ${fitSize ? "fit-text" : ""}`}
+      className={`question-text ${isSingleToken ? "single-token" : "sentence-prompt"} ${fitSize ? "fit-text" : ""}`}
       style={fitSize ? { "--practice-fit-size": fitSize } : undefined}
       title={content}
     >

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -41,6 +41,7 @@ router = APIRouter(prefix="/v2", tags=["v2"])
 class SessionCreateIn(BaseModel):
     exercise_set_id: int
     user_id: int | None = None
+    client_session_id: str | None = Field(default=None, min_length=8, max_length=128)
     mode: str = "standard"
     limit: int | None = Field(default=None, ge=1, le=100)
     page_size: int | None = Field(default=None, ge=1, le=20)
@@ -511,6 +512,48 @@ async def create_practice_session(
     limit = body.limit or int(exercise_set.configuration.get("sessionSize", 50))
     page_size = body.page_size or int(exercise_set.configuration.get("pageSize", 5))
     page_size = min(page_size, limit)
+    now = datetime.now(timezone.utc)
+    owner_condition = (
+        PracticeSessionBD.user_id == body.user_id
+        if body.user_id is not None
+        else PracticeSessionBD.configuration["clientSessionId"].astext
+        == body.client_session_id
+    )
+    if body.user_id is not None or body.client_session_id:
+        previous_sessions = list(
+            (
+                await db.scalars(
+                    select(PracticeSessionBD)
+                    .where(
+                        PracticeSessionBD.exercise_set_id == exercise_set.id,
+                        PracticeSessionBD.mode == body.mode,
+                        PracticeSessionBD.status == "active",
+                        owner_condition,
+                    )
+                    .order_by(PracticeSessionBD.last_activity_at.desc())
+                )
+            ).all()
+        )
+        for previous in previous_sessions:
+            paused_at_raw = (previous.configuration or {}).get("pausedAt")
+            reference_time = previous.last_activity_at
+            if paused_at_raw:
+                try:
+                    reference_time = datetime.fromisoformat(paused_at_raw)
+                except ValueError:
+                    reference_time = previous.last_activity_at
+            if now - reference_time <= timedelta(minutes=10):
+                previous.configuration = {
+                    **(previous.configuration or {}),
+                    "pausedAt": None,
+                }
+                previous.last_activity_at = now
+                await db.commit()
+                return await _session_out(db, previous)
+            previous.status = "expired"
+            previous.completed_at = now
+        if previous_sessions:
+            await db.flush()
     query = (
         select(ExerciseBD.published_version_id)
         .join(ExerciseSetItemBD, ExerciseSetItemBD.exercise_id == ExerciseBD.id)
@@ -534,8 +577,8 @@ async def create_practice_session(
             .where(AttemptV2BD.result_status == "incorrect")
         )
         query = query.where(ExerciseBD.id.in_(mistake_exercises))
-    if body.user_id is not None:
-        seen = (
+    if body.user_id is not None or body.client_session_id:
+        seen_query = (
             select(
                 ExerciseVersionBD.exercise_id.label("exercise_id"),
                 func.count(AttemptV2BD.id).label("seen_count"),
@@ -545,7 +588,27 @@ async def create_practice_session(
                 AttemptV2BD,
                 AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
             )
-            .where(AttemptV2BD.user_id == body.user_id)
+        )
+        if body.user_id is not None:
+            seen_query = seen_query.where(AttemptV2BD.user_id == body.user_id)
+        else:
+            seen_query = (
+                seen_query
+                .join(
+                    PracticeSessionItemBD,
+                    PracticeSessionItemBD.id == AttemptV2BD.session_item_id,
+                )
+                .join(
+                    PracticeSessionBD,
+                    PracticeSessionBD.id == PracticeSessionItemBD.session_id,
+                )
+                .where(
+                    PracticeSessionBD.configuration["clientSessionId"].astext
+                    == body.client_session_id
+                )
+            )
+        seen = (
+            seen_query
             .group_by(ExerciseVersionBD.exercise_id)
             .subquery()
         )
@@ -562,8 +625,12 @@ async def create_practice_session(
     version_ids = list((await db.scalars(query.limit(limit))).all())
     if not version_ids:
         raise HTTPException(409, "Exercise set is empty")
-    now = datetime.now(timezone.utc)
-    session_configuration = {"sessionSize": limit, "pageSize": page_size}
+    session_configuration = {
+        "sessionSize": limit,
+        "pageSize": page_size,
+        "clientSessionId": body.client_session_id,
+        "pausedAt": None,
+    }
     vowel_keys = await _vowel_keys_for_set(db, exercise_set.id)
     if vowel_keys:
         session_configuration["vowelKeys"] = vowel_keys
@@ -599,6 +666,23 @@ async def get_practice_session(
     session = await db.get(PracticeSessionBD, session_id)
     if session is None:
         raise HTTPException(404, "Practice session not found")
+    paused_at_raw = (session.configuration or {}).get("pausedAt")
+    if session.status == "active" and paused_at_raw:
+        now = datetime.now(timezone.utc)
+        try:
+            paused_at = datetime.fromisoformat(paused_at_raw)
+        except ValueError:
+            paused_at = session.last_activity_at
+        if now - paused_at > timedelta(minutes=10):
+            session.status = "expired"
+            session.completed_at = now
+        else:
+            session.configuration = {
+                **(session.configuration or {}),
+                "pausedAt": None,
+            }
+            session.last_activity_at = now
+        await db.commit()
     return await _session_out(db, session)
 
 
@@ -732,6 +816,10 @@ async def submit_attempt(
     item.state = status
     session.current_position = max(session.current_position, item.position + 1)
     session.last_activity_at = now
+    session.configuration = {
+        **(session.configuration or {}),
+        "pausedAt": None,
+    }
     pending_count = await db.scalar(
         select(func.count(PracticeSessionItemBD.id)).where(
             PracticeSessionItemBD.session_id == session.id,
@@ -771,5 +859,45 @@ async def close_practice_session(
         session.status = "closed"
         session.completed_at = now
         session.last_activity_at = now
+        await db.commit()
+    return {"id": session.id, "status": session.status}
+
+
+@router.post("/practice/sessions/{session_id}/pause")
+async def pause_practice_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    session = await db.get(PracticeSessionBD, session_id)
+    if session is None:
+        raise HTTPException(404, "Practice session not found")
+    if session.status == "active":
+        now = datetime.now(timezone.utc)
+        session.configuration = {
+            **(session.configuration or {}),
+            "pausedAt": now.isoformat(),
+        }
+        session.last_activity_at = now
+        await db.commit()
+    return {"id": session.id, "status": session.status}
+
+
+@router.post("/practice/sessions/{session_id}/reset")
+async def reset_practice_session(
+    session_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    session = await db.get(PracticeSessionBD, session_id)
+    if session is None:
+        raise HTTPException(404, "Practice session not found")
+    if session.status == "active":
+        now = datetime.now(timezone.utc)
+        session.status = "reset"
+        session.completed_at = now
+        session.last_activity_at = now
+        session.configuration = {
+            **(session.configuration or {}),
+            "pausedAt": None,
+        }
         await db.commit()
     return {"id": session.id, "status": session.status}

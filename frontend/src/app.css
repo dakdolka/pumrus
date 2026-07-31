@@ -347,7 +347,15 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .set-card i { position: absolute; right: 17px; bottom: 18px; color: var(--text-faint); }
 
 .trainer { width: min(100%, var(--reading-max)); margin: 0 auto; padding: 24px 16px 48px; }
-.trainer-meta { display: flex; justify-content: space-between; color: var(--text-faint); font-size: 11px; font-weight: 700; }
+.trainer-meta { display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 11px; font-weight: 700; }
+.trainer-meta > span:nth-child(2) { margin-left: auto; }
+.session-reset {
+  padding: 4px 8px;
+  color: var(--text-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 10px;
+}
 .progress-track { height: 4px; margin: 9px 0 20px; overflow: hidden; background: var(--surface-soft); border-radius: 99px; }
 .progress-track i { height: 100%; display: block; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
 .question-card {
@@ -606,6 +614,11 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .batch-content .vowel-word {
   font-size: clamp(.98rem, 4.7vw, 1.45rem);
   line-height: 1.35;
+}
+.batch-content .question-text.sentence-prompt {
+  font-size: clamp(.8rem, 2.8vw, 1rem);
+  line-height: 1.48;
+  letter-spacing: -.01em;
 }
 .batch-content .fit-text {
   font-size: var(--practice-fit-size);
