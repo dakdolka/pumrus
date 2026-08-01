@@ -868,6 +868,8 @@ function PracticeSession({ sessionId, navigate }) {
   const [errorResult, setErrorResult] = useState(null);
   const [pendingAdvance, setPendingAdvance] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
+  const [relatedTheoryOpen, setRelatedTheoryOpen] = useState(false);
+  const [relatedTheoryTopicId, setRelatedTheoryTopicId] = useState(null);
 
   useEffect(() => {
     if (!state.data) return;
@@ -1077,11 +1079,20 @@ function PracticeSession({ sessionId, navigate }) {
       } : {
         label: "Открыть теорию",
         icon: "bookmark",
-        active: false,
-        onClick: () => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`),
+        active: relatedTheoryOpen,
+        onClick: () => {
+          setRelatedTheoryOpen((open) => !open);
+          setRelatedTheoryTopicId(null);
+        },
       }}
     >
-      <section className="trainer">
+      {relatedTheoryOpen ? (
+        <RelatedTheory
+          taskNumber={session.context.taskNumber}
+          topicId={relatedTheoryTopicId}
+          onSelectTopic={setRelatedTheoryTopicId}
+        />
+      ) : <section className="trainer">
         <div className="trainer-meta">
           <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
@@ -1169,8 +1180,8 @@ function PracticeSession({ sessionId, navigate }) {
             Завершить тренировку
           </button>
         ) : null}
-      </section>
-      {errorResult && (
+      </section>}
+      {!relatedTheoryOpen && errorResult && (
         <div className="answer-sheet incorrect" role="alert">
           <button className="answer-sheet-close" onClick={dismissError} aria-label="Закрыть">×</button>
           <strong>Нужно повторить</strong>
@@ -1178,7 +1189,11 @@ function PracticeSession({ sessionId, navigate }) {
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
             <button
               key={link.route}
-              onClick={() => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`)}
+              onClick={() => {
+                setErrorResult(null);
+                setRelatedTheoryTopicId(null);
+                setRelatedTheoryOpen(true);
+              }}
             >
               <AppIcon type="theory" /> Открыть теорию
             </button>
@@ -1186,6 +1201,62 @@ function PracticeSession({ sessionId, navigate }) {
         </div>
       )}
     </Shell>
+  );
+}
+
+
+function RelatedTheory({ taskNumber, topicId, onSelectTopic }) {
+  const taskState = useRemote(
+    () => api(`/v2/catalog/tasks/${taskNumber}`),
+    [taskNumber],
+  );
+  const topicState = useRemote(
+    () => topicId ? api(`/v2/theory/topics/${topicId}`) : Promise.resolve(null),
+    [topicId],
+  );
+  if (taskState.loading || (topicId && topicState.loading)) return <Loading />;
+  if (taskState.error) return <ErrorState message={taskState.error} />;
+  if (topicId && topicState.error) return <ErrorState message={topicState.error} />;
+  if (topicId && topicState.data) {
+    return (
+      <div className="related-theory">
+        <button className="related-theory-back" onClick={() => onSelectTopic(null)}>
+          <AppIcon type="back" /> Все темы задания {taskNumber}
+        </button>
+        <section className="page-head topic-head">
+          <p className="eyebrow">Задание {taskNumber} · тема</p>
+          <h1>{topicState.data.title}</h1>
+        </section>
+        {topicState.data.theory
+          ? <TheoryDocument document={topicState.data.theory} />
+          : <EmptyCard text="Материал этой темы пока готовится." />}
+      </div>
+    );
+  }
+  if (!taskState.data) return null;
+  return (
+    <div className="related-theory">
+      <section className="page-head task-head">
+        <p className="eyebrow">Теория · задание {taskNumber}</p>
+        <h1>{taskState.data.title}</h1>
+        {taskState.data.shortDescription && <p>{taskState.data.shortDescription}</p>}
+      </section>
+      {taskState.data.theory && <TheoryDocument document={taskState.data.theory} />}
+      <section className="section-block">
+        <div className="section-heading"><p className="eyebrow">По частям</p><h2>Темы задания</h2></div>
+        {taskState.data.topics.length ? (
+          <div className="topic-grid">
+            {taskState.data.topics.map((topic, index) => (
+              <button className="topic-card" key={topic.id} onClick={() => onSelectTopic(topic.id)}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{topic.title}</strong>
+                <i><AppIcon type="arrow" /></i>
+              </button>
+            ))}
+          </div>
+        ) : <EmptyCard text="Темы для этого задания пока готовятся." />}
+      </section>
+    </div>
   );
 }
 
