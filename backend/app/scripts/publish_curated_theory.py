@@ -36,20 +36,49 @@ from app.scripts.curated_theory_data import (
 from app.scripts.curated_theory_remaining import BUNDLES
 
 
+OBSOLETE_BASELINE_TASKS = {2, 4, 5, 6}
+OBSOLETE_BASELINE_TOPIC_CODES = {
+    "task-2-context",
+    "task-4-stress",
+    "task-5-paronyms",
+    "task-6-lexical",
+}
+
+
 async def _course_version(
     session: AsyncSession,
     code: str | None,
 ) -> CourseVersionBD:
-    query = select(CourseVersionBD)
     if code:
-        query = query.where(CourseVersionBD.code == code)
-    else:
-        query = query.where(CourseVersionBD.is_active.is_(True))
-    versions = list((await session.scalars(query)).all())
-    if len(versions) != 1:
-        target = f"code={code!r}" if code else "the active course version"
-        raise RuntimeError(f"Expected exactly one course version for {target}, found {len(versions)}")
-    return versions[0]
+        versions = list(
+            (await session.scalars(select(CourseVersionBD).where(CourseVersionBD.code == code))).all()
+        )
+        if len(versions) != 1:
+            raise RuntimeError(f"Expected exactly one course version for code={code!r}, found {len(versions)}")
+        return versions[0]
+
+    ranked = list(
+        (
+            await session.execute(
+                select(CourseVersionBD, func.count(ExamTaskBD.id).label("task_count"))
+                .outerjoin(ExamTaskBD, ExamTaskBD.course_version_id == CourseVersionBD.id)
+                .group_by(CourseVersionBD.id)
+                .order_by(func.count(ExamTaskBD.id).desc(), CourseVersionBD.is_active.desc())
+            )
+        ).all()
+    )
+    if not ranked:
+        raise RuntimeError("No course versions exist")
+    best_count = ranked[0].task_count
+    best = [row for row in ranked if row.task_count == best_count]
+    if len(best) > 1 and not any(row.CourseVersionBD.is_active for row in best):
+        raise RuntimeError(
+            "Several equally complete course versions exist; pass --course-version explicitly"
+        )
+    return next(
+        (row.CourseVersionBD for row in best if row.CourseVersionBD.is_active),
+        best[0].CourseVersionBD,
+    )
 
 
 async def _has_revision(
@@ -134,6 +163,89 @@ async def _publish_document(
     document.status = "published"
     document.published_version_id = version.id
     return "published"
+
+
+async def _version_revision(
+    session: AsyncSession,
+    version_id: int | None,
+) -> str | None:
+    if version_id is None:
+        return None
+    return await session.scalar(
+        select(TheoryBlockV2BD.settings["curatedRevision"].astext)
+        .where(TheoryBlockV2BD.document_version_id == version_id)
+        .limit(1)
+    )
+
+
+async def _restore_before_baseline(
+    session: AsyncSession,
+    document: TheoryDocumentBD | None,
+) -> bool:
+    if document is None or not (await _version_revision(session, document.published_version_id) or "").startswith(
+        "ege-2026-baseline-v1-"
+    ):
+        return False
+    previous_versions = list(
+        (
+            await session.scalars(
+                select(TheoryDocumentVersionBD)
+                .where(
+                    TheoryDocumentVersionBD.document_id == document.id,
+                    TheoryDocumentVersionBD.id != document.published_version_id,
+                    TheoryDocumentVersionBD.status == "published",
+                )
+                .order_by(TheoryDocumentVersionBD.version_number.desc())
+            )
+        ).all()
+    )
+    previous = None
+    for candidate in previous_versions:
+        candidate_revision = await _version_revision(session, candidate.id)
+        if not (candidate_revision or "").startswith("ege-2026-baseline-v1-"):
+            previous = candidate
+            break
+    document.published_version_id = previous.id if previous else None
+    document.status = "published" if previous else "draft"
+    return True
+
+
+async def remove_obsolete_baseline(
+    session: AsyncSession,
+    course_version: CourseVersionBD,
+) -> int:
+    restored = 0
+    for number in OBSOLETE_BASELINE_TASKS:
+        task = await session.scalar(
+            select(ExamTaskBD).where(
+                ExamTaskBD.course_version_id == course_version.id,
+                ExamTaskBD.number == number,
+            )
+        )
+        if task is None:
+            continue
+        document = await session.scalar(
+            select(TheoryDocumentBD).where(TheoryDocumentBD.exam_task_id == task.id)
+        )
+        restored += int(await _restore_before_baseline(session, document))
+
+    for code in OBSOLETE_BASELINE_TOPIC_CODES:
+        topic = await session.scalar(
+            select(TopicBD).where(
+                TopicBD.course_version_id == course_version.id,
+                TopicBD.code == code,
+            )
+        )
+        if topic is None:
+            continue
+        document = await session.scalar(
+            select(TheoryDocumentBD).where(TheoryDocumentBD.topic_id == topic.id)
+        )
+        was_restored = await _restore_before_baseline(session, document)
+        restored += int(was_restored)
+        if was_restored and document is not None and document.published_version_id is None:
+            topic.status = "draft"
+    return restored
 
 
 async def publish_task8(
@@ -305,6 +417,7 @@ async def publish_bundle(
 async def run(course_version_code: str | None, execute: bool) -> None:
     async with async_session_factory() as session:
         version = await _course_version(session, course_version_code)
+        obsolete_restored = await remove_obsolete_baseline(session, version)
         results = [await publish_task8(session, version)]
         for bundle in BUNDLES:
             results.append(await publish_bundle(session, version, bundle))
@@ -315,6 +428,7 @@ async def run(course_version_code: str | None, execute: bool) -> None:
         print("Curated theory publication plan:")
         print(f"  course version: {version.code}")
         print(f"  bundles: {len(BUNDLES) + 1}")
+        print(f"  obsolete baseline documents restored/hidden: {obsolete_restored}")
         print(f"  tasks skipped because absent: {counters['tasks_skipped']}")
         print(f"  topics to create: {counters['topics_created']}")
         print(f"  documents to publish: {counters['documents_published']}")
