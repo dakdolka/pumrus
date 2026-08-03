@@ -33,6 +33,7 @@ from app.scripts.curated_theory_data import (
     TASK8_SOURCES,
     TASK8_TOPICS,
 )
+from app.scripts.curated_theory_remaining import BUNDLES
 
 
 async def _course_version(
@@ -51,20 +52,24 @@ async def _course_version(
     return versions[0]
 
 
-async def _current_revision(
+async def _has_revision(
     session: AsyncSession,
     document: TheoryDocumentBD,
-) -> str | None:
-    if document.published_version_id is None:
-        return None
-    return await session.scalar(
+    revision: str,
+) -> bool:
+    found_revision = await session.scalar(
         select(TheoryBlockV2BD.settings["curatedRevision"].astext)
+        .join(
+            TheoryDocumentVersionBD,
+            TheoryDocumentVersionBD.id == TheoryBlockV2BD.document_version_id,
+        )
         .where(
-            TheoryBlockV2BD.document_version_id == document.published_version_id,
-            TheoryBlockV2BD.settings["curatedRevision"].astext.is_not(None),
+            TheoryDocumentVersionBD.document_id == document.id,
+            TheoryBlockV2BD.settings["curatedRevision"].astext == revision,
         )
         .limit(1)
     )
+    return found_revision is not None
 
 
 async def _publish_document(
@@ -73,6 +78,7 @@ async def _publish_document(
     title: str,
     blocks: list[dict[str, Any]],
     revision: str,
+    sources: list[str],
     exam_task_id: int | None = None,
     topic_id: int | None = None,
 ) -> str:
@@ -93,7 +99,7 @@ async def _publish_document(
         await session.flush()
     else:
         document.title = title
-    if await _current_revision(session, document) == revision:
+    if await _has_revision(session, document, revision):
         return "unchanged"
 
     current_number = await session.scalar(
@@ -120,7 +126,7 @@ async def _publish_document(
                 settings={
                     **block.get("settings", {}),
                     "curatedRevision": revision,
-                    "sources": TASK8_SOURCES,
+                    "sources": sources,
                 },
                 sort_order=order,
             )
@@ -141,17 +147,28 @@ async def publish_task8(
         )
     )
     if task is None:
-        raise RuntimeError("Task 8 does not exist in the selected course version")
+        return {
+            "tasks_skipped": 1,
+            "topics_created": 0,
+            "documents_published": 0,
+            "documents_unchanged": 0,
+        }
     task.title = TASK8_INTRO["title"]
     task.short_description = TASK8_INTRO["short_description"]
     task.status = "published"
 
-    counters = {"topics_created": 0, "documents_published": 0, "documents_unchanged": 0}
+    counters = {
+        "tasks_skipped": 0,
+        "topics_created": 0,
+        "documents_published": 0,
+        "documents_unchanged": 0,
+    }
     result = await _publish_document(
         session,
         title=TASK8_INTRO["document_title"],
         blocks=TASK8_INTRO["blocks"],
         revision=TASK8_REVISION,
+        sources=TASK8_SOURCES,
         exam_task_id=task.id,
     )
     counters[f"documents_{result}"] += 1
@@ -197,7 +214,89 @@ async def publish_task8(
             title=definition["title"],
             blocks=definition["blocks"],
             revision=TASK8_REVISION,
+            sources=TASK8_SOURCES,
             topic_id=topic.id,
+        )
+        counters[f"documents_{result}"] += 1
+    return counters
+
+
+async def publish_bundle(
+    session: AsyncSession,
+    course_version: CourseVersionBD,
+    definition: dict[str, Any],
+) -> dict[str, int]:
+    task = await session.scalar(
+        select(ExamTaskBD).where(
+            ExamTaskBD.course_version_id == course_version.id,
+            ExamTaskBD.number == definition["number"],
+        )
+    )
+    counters = {
+        "tasks_skipped": 0,
+        "topics_created": 0,
+        "documents_published": 0,
+        "documents_unchanged": 0,
+    }
+    if task is None:
+        counters["tasks_skipped"] = 1
+        return counters
+
+    task.title = definition["title"]
+    task.short_description = definition["short_description"]
+    task.status = "published"
+    result = await _publish_document(
+        session,
+        title=definition["document_title"],
+        blocks=definition["blocks"],
+        revision=definition["revision"],
+        sources=definition["sources"],
+        exam_task_id=task.id,
+    )
+    counters[f"documents_{result}"] += 1
+
+    for order, topic_definition in enumerate(definition["topics"]):
+        topic_record = await session.scalar(
+            select(TopicBD).where(
+                TopicBD.course_version_id == course_version.id,
+                TopicBD.code == topic_definition["code"],
+            )
+        )
+        if topic_record is None:
+            topic_record = TopicBD(
+                course_version_id=course_version.id,
+                code=topic_definition["code"],
+                title=topic_definition["title"],
+                short_description=topic_definition["description"],
+                status="published",
+            )
+            session.add(topic_record)
+            await session.flush()
+            counters["topics_created"] += 1
+        else:
+            topic_record.title = topic_definition["title"]
+            topic_record.short_description = topic_definition["description"]
+            topic_record.status = "published"
+
+        link = await session.get(ExamTaskTopicBD, (task.id, topic_record.id))
+        if link is None:
+            session.add(ExamTaskTopicBD(
+                exam_task_id=task.id,
+                topic_id=topic_record.id,
+                sort_order=order,
+                is_primary=True,
+            ))
+        else:
+            link.sort_order = order
+            link.is_primary = True
+
+        result = await _publish_document(
+            session,
+            title=topic_definition["title"],
+            blocks=topic_definition["blocks"],
+            revision=definition["revision"],
+            sources=definition["sources"],
+            topic_id=topic_record.id,
         )
         counters[f"documents_{result}"] += 1
     return counters
@@ -206,16 +305,23 @@ async def publish_task8(
 async def run(course_version_code: str | None, execute: bool) -> None:
     async with async_session_factory() as session:
         version = await _course_version(session, course_version_code)
-        counters = await publish_task8(session, version)
+        results = [await publish_task8(session, version)]
+        for bundle in BUNDLES:
+            results.append(await publish_bundle(session, version, bundle))
+        counters = {
+            key: sum(result.get(key, 0) for result in results)
+            for key in ("tasks_skipped", "topics_created", "documents_published", "documents_unchanged")
+        }
         print("Curated theory publication plan:")
         print(f"  course version: {version.code}")
-        print(f"  revision: {TASK8_REVISION}")
+        print(f"  bundles: {len(BUNDLES) + 1}")
+        print(f"  tasks skipped because absent: {counters['tasks_skipped']}")
         print(f"  topics to create: {counters['topics_created']}")
         print(f"  documents to publish: {counters['documents_published']}")
         print(f"  documents already current: {counters['documents_unchanged']}")
         if execute:
             await session.commit()
-            print("Task 8 theory published successfully.")
+            print("Curated theory published successfully.")
         else:
             await session.rollback()
             print("Dry run completed. No records were written. Use --execute to publish.")
@@ -231,4 +337,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

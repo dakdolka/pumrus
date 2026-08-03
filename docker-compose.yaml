@@ -31,7 +31,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-pumrus}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-pumrus}
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
     working_dir: /app
-    command: ["sh", "-c", "alembic upgrade head && python -m app"]
+    command: ["sh", "-c", "alembic upgrade head && python -m app.scripts.publish_curated_theory --execute && python -m app"]
     ports:
     - "8000:8000"
     mem_limit: 512m
