@@ -37,6 +37,14 @@ def items(*values: str, ordered: bool = False) -> dict[str, Any]:
     }
 
 
+def table(*rows: list[str]) -> dict[str, Any]:
+    return {
+        "type": "table",
+        "data": {"rows": [{"cells": list(row)} for row in rows]},
+        "settings": {},
+    }
+
+
 TASK8_INTRO = {
     "title": "Задание 8. Грамматические нормы",
     "short_description": "Синтаксические нормы и типичные грамматические ошибки",
