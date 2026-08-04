@@ -360,7 +360,7 @@ function PocketEditor() {
   }
 
   return <div className="form-app">
-    <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap">{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
+    <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap"><a className="deprecated-form-link" href="/theory/deprecated" target="_blank" rel="noreferrer">Deprecated</a>{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
     <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
       <Catalog catalog={catalog} selected={selected} choose={choose} />
       <main className="workspace">

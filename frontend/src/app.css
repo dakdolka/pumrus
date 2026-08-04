@@ -241,6 +241,17 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .catalog-title { max-width: 840px; margin: 0 auto; padding: 19px 16px 14px; display: flex; align-items: center; justify-content: space-between; }
 .catalog-title h1 { font-size: 26px; }
 .catalog-actions { display: flex; align-items: center; gap: 8px; }
+.deprecated-button, .deprecated-back { border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 12px; padding: 9px 12px; font: inherit; cursor: pointer; }
+.deprecated-button:hover, .deprecated-back:hover { color: var(--text); border-color: var(--accent); }
+.deprecated-list, .deprecated-document { width: min(920px, 100%); margin: 0 auto; padding: 0 14px 48px; }
+.deprecated-group { margin-bottom: 18px; }
+.deprecated-group > strong { display: block; margin: 0 0 7px; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; }
+.deprecated-group > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.deprecated-group button { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); color: var(--text); text-align: left; cursor: pointer; }
+.deprecated-group button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deprecated-group svg, .deprecated-back svg { width: 17px; height: 17px; flex: none; }
+.deprecated-document > h2 { margin: 18px 0 12px; }
+.deprecated-back { display: inline-flex; align-items: center; gap: 6px; }
 .info-button {
   width: 30px;
   height: 30px;
@@ -820,4 +831,5 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 @media (max-width: 620px) {
   .catalog-title { align-items: flex-start; }
   .catalog-actions { align-items: flex-start; }
+  .deprecated-group > div { grid-template-columns: 1fr; }
 }

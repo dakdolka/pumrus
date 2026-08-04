@@ -319,6 +319,9 @@ function TaskCatalog({ mode, navigate }) {
       <section className="catalog-title">
         <h1>{title}</h1>
         <div className="catalog-actions">
+          {isTheory && (
+            <button className="deprecated-button" onClick={() => navigate("/theory/deprecated")}>Deprecated</button>
+          )}
           <InfoButton
             title={title}
             text={isTheory
@@ -369,6 +372,60 @@ function TaskCatalog({ mode, navigate }) {
               </div>
             </div>
           ))}
+        </section>
+      )}
+    </Shell>
+  );
+}
+
+
+function DeprecatedTheory({ navigate }) {
+  const catalog = useRemote(() => api("/v2/theory/deprecated"), []);
+  const [selectedId, setSelectedId] = useState(null);
+  const document = useRemote(
+    () => selectedId ? api(`/v2/theory/deprecated/${selectedId}`) : Promise.resolve(null),
+    [selectedId],
+  );
+  const grouped = useMemo(() => {
+    const groups = new Map();
+    (catalog.data || []).forEach((item) => {
+      const key = item.taskNumber ?? "other";
+      groups.set(key, [...(groups.get(key) || []), item]);
+    });
+    return [...groups.entries()].sort(([a], [b]) => Number(a) - Number(b));
+  }, [catalog.data]);
+  return (
+    <Shell navigate={navigate} breadcrumbs={[
+      { label: "Теория", icon: "theory", path: "/theory" },
+      { label: "Deprecated" },
+    ]}>
+      <section className="page-head compact-head">
+        <p className="eyebrow">Архив без редактирования</p>
+        <h1>Старая теория</h1>
+        <p>Материалы из прежней версии UmRus. Они сохранены для сравнения и не заменяют актуальную теорию.</p>
+      </section>
+      {catalog.loading && <Loading />}
+      {catalog.error && <ErrorState message={catalog.error} />}
+      {!selectedId && catalog.data && (
+        <section className="deprecated-list">
+          {grouped.map(([number, items]) => (
+            <div className="deprecated-group" key={number}>
+              <strong>{number === "other" ? "Без задания" : `Задание ${number}`}</strong>
+              <div>{items.map((item) => (
+                <button key={item.versionId} onClick={() => setSelectedId(item.versionId)}>
+                  <span>{item.topicTitle || item.title}</span><AppIcon type="arrow" />
+                </button>
+              ))}</div>
+            </div>
+          ))}
+        </section>
+      )}
+      {selectedId && (
+        <section className="deprecated-document">
+          <button className="deprecated-back" onClick={() => setSelectedId(null)}><AppIcon type="back" /> К списку</button>
+          {document.loading && <Loading />}
+          {document.error && <ErrorState message={document.error} />}
+          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} /></>}
         </section>
       )}
     </Shell>
@@ -1565,6 +1622,7 @@ function resolveRoute(path) {
   let match;
   if (path === "/") return { screen: "home" };
   if (path === "/theory") return { screen: "catalog", mode: "theory" };
+  if (path === "/theory/deprecated") return { screen: "deprecatedTheory" };
   if (path === "/practice") return { screen: "catalog", mode: "practice" };
   if (path === "/practice/mistakes") return { screen: "mistakesPractice" };
   match = path.match(/^\/theory\/tasks\/(\d+)\/topics\/(\d+)$/);
@@ -1643,6 +1701,9 @@ export default function App() {
   }
   if (route.screen === "taskTheory") {
     return <TaskTheory taskNumber={route.taskNumber} navigate={navigate} />;
+  }
+  if (route.screen === "deprecatedTheory") {
+    return <DeprecatedTheory navigate={navigate} />;
   }
   if (route.screen === "topicTheory") {
     return <TopicTheory {...route} navigate={navigate} />;

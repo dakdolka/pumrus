@@ -11,17 +11,15 @@ from typing import Any
 from app.scripts.curated_theory_data import callout, example, items, text
 
 
-REVISION = "ege-2026-full-v1"
+REVISION = "ege-2026-practical-v1"
 
 
 def topic(code: str, title: str, rule: str, checks: list[str], *examples: str) -> dict[str, Any]:
     blocks: list[dict[str, Any]] = [
         callout(rule, "rule"),
-        text("Алгоритм", variant="heading_2"),
         items(*checks, ordered=True),
     ]
     blocks.extend(example(value) for value in examples)
-    blocks.append(callout("После решения сформулируйте правило своими словами и проверьте каждый элемент ответа отдельно.", "tip"))
     return {
         "code": code,
         "title": title,
@@ -39,9 +37,8 @@ def bundle(number: int, title: str, description: str, *topics: dict[str, Any]) -
         "short_description": description,
         "document_title": f"Как решать задание {number}",
         "blocks": [
-            text(f"Задание проверяет тему **{title.lower()}**. Материал разбит на короткие правила: сначала выберите нужную тему, затем закрепите её в практике."),
-            callout("Читайте условие до конца: формулировка определяет, что именно нужно записать в ответ.", "important"),
-            items("Определите проверяемое явление.", "Примените правило, не полагаясь только на звучание.", "Проверьте формат и порядок ответа.", ordered=True),
+            callout(description, "important"),
+            items("Определите проверяемое правило.", "Проверьте каждый вариант по его признакам.", "Запишите ответ в требуемом порядке.", ordered=True),
         ],
         "topics": list(topics),
     }
@@ -264,7 +261,7 @@ _append(27,
 SUPPORTED_TASKS = {1, 3, 7, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27}
 BUNDLES = [definition for definition in BUNDLES if definition["number"] in SUPPORTED_TASKS]
 for definition in BUNDLES:
-    definition["revision"] = f"ege-2026-full-v1-task-{definition['number']}"
+    definition["revision"] = f"{REVISION}-task-{definition['number']}"
 
 SOURCE_FILES = {
     1: ["umrus_theory_stuff/3/Анализ текста 2023 (2).pdf"],

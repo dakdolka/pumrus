@@ -328,6 +328,64 @@ async def get_topic_theory(topic_id: int, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/theory/deprecated")
+async def list_deprecated_theory(db: AsyncSession = Depends(get_db)):
+    """Read-only catalog of theory imported from the legacy application."""
+    versions = list((await db.scalars(
+        select(TheoryDocumentVersionBD)
+        .join(TheoryDocumentBD, TheoryDocumentBD.id == TheoryDocumentVersionBD.document_id)
+        .where(TheoryDocumentVersionBD.source_legacy_theory_id.is_not(None))
+        .order_by(TheoryDocumentVersionBD.source_legacy_theory_id)
+    )).all())
+    result = []
+    for version in versions:
+        document = await db.get(TheoryDocumentBD, version.document_id)
+        task = None
+        topic = None
+        if document.exam_task_id is not None:
+            task = await db.get(ExamTaskBD, document.exam_task_id)
+        elif document.topic_id is not None:
+            topic = await db.get(TopicBD, document.topic_id)
+            task = await db.scalar(
+                select(ExamTaskBD)
+                .join(ExamTaskTopicBD, ExamTaskTopicBD.exam_task_id == ExamTaskBD.id)
+                .where(ExamTaskTopicBD.topic_id == topic.id)
+                .order_by(ExamTaskTopicBD.is_primary.desc(), ExamTaskBD.number)
+                .limit(1)
+            )
+        result.append({
+            "versionId": version.id,
+            "legacyTheoryId": version.source_legacy_theory_id,
+            "title": document.title,
+            "taskNumber": task.number if task else None,
+            "topicTitle": topic.title if topic else None,
+        })
+    return result
+
+
+@router.get("/theory/deprecated/{version_id}")
+async def get_deprecated_theory(version_id: int, db: AsyncSession = Depends(get_db)):
+    version = await db.scalar(select(TheoryDocumentVersionBD).where(
+        TheoryDocumentVersionBD.id == version_id,
+        TheoryDocumentVersionBD.source_legacy_theory_id.is_not(None),
+    ))
+    if version is None:
+        raise HTTPException(404, "Deprecated theory version not found")
+    document = await db.get(TheoryDocumentBD, version.document_id)
+    blocks = list((await db.scalars(
+        select(TheoryBlockV2BD)
+        .where(TheoryBlockV2BD.document_version_id == version.id)
+        .order_by(TheoryBlockV2BD.sort_order, TheoryBlockV2BD.id)
+    )).all())
+    return {
+        "id": document.id,
+        "title": document.title,
+        "version": version.version_number,
+        "legacyTheoryId": version.source_legacy_theory_id,
+        "blocks": _block_tree(blocks),
+    }
+
+
 @router.get("/practice/tasks/{task_number}/sets")
 async def list_exercise_sets(
     task_number: int,

@@ -414,6 +414,48 @@ async def publish_bundle(
     return counters
 
 
+async def hide_superseded_topics(
+    session: AsyncSession,
+    course_version: CourseVersionBD,
+) -> int:
+    """Keep legacy versions readable in Deprecated, but remove old topic shells from the live catalog."""
+    desired_by_task = {8: {item["code"] for item in TASK8_TOPICS}}
+    desired_by_task.update({
+        item["number"]: {topic["code"] for topic in item["topics"]}
+        for item in BUNDLES
+    })
+    hidden = 0
+    for number, desired_codes in desired_by_task.items():
+        task = await session.scalar(select(ExamTaskBD).where(
+            ExamTaskBD.course_version_id == course_version.id,
+            ExamTaskBD.number == number,
+        ))
+        if task is None:
+            continue
+        topics = list((await session.scalars(
+            select(TopicBD)
+            .join(ExamTaskTopicBD, ExamTaskTopicBD.topic_id == TopicBD.id)
+            .where(ExamTaskTopicBD.exam_task_id == task.id)
+        )).all())
+        for topic in topics:
+            if topic.code in desired_codes:
+                continue
+            has_legacy_version = await session.scalar(
+                select(TheoryDocumentVersionBD.id)
+                .join(TheoryDocumentBD, TheoryDocumentBD.id == TheoryDocumentVersionBD.document_id)
+                .where(
+                    TheoryDocumentBD.topic_id == topic.id,
+                    TheoryDocumentVersionBD.source_legacy_theory_id.is_not(None),
+                )
+                .limit(1)
+            )
+            if has_legacy_version is not None or topic.code.startswith(f"task-{number}-"):
+                if topic.status != "deprecated":
+                    topic.status = "deprecated"
+                    hidden += 1
+    return hidden
+
+
 async def run(course_version_code: str | None, execute: bool) -> None:
     async with async_session_factory() as session:
         version = await _course_version(session, course_version_code)
@@ -421,6 +463,7 @@ async def run(course_version_code: str | None, execute: bool) -> None:
         results = [await publish_task8(session, version)]
         for bundle in BUNDLES:
             results.append(await publish_bundle(session, version, bundle))
+        superseded_hidden = await hide_superseded_topics(session, version)
         counters = {
             key: sum(result.get(key, 0) for result in results)
             for key in ("tasks_skipped", "topics_created", "documents_published", "documents_unchanged")
@@ -429,6 +472,7 @@ async def run(course_version_code: str | None, execute: bool) -> None:
         print(f"  course version: {version.code}")
         print(f"  bundles: {len(BUNDLES) + 1}")
         print(f"  obsolete baseline documents restored/hidden: {obsolete_restored}")
+        print(f"  superseded topics hidden from live catalog: {superseded_hidden}")
         print(f"  tasks skipped because absent: {counters['tasks_skipped']}")
         print(f"  topics to create: {counters['topics_created']}")
         print(f"  documents to publish: {counters['documents_published']}")
