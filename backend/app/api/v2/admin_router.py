@@ -277,7 +277,7 @@ async def create_topic(
         code=f"topic-{uuid.uuid4().hex[:12]}",
         title=body.title.strip(),
         short_description=body.short_description,
-        status="published",
+        status="hidden",
     )
     db.add(topic)
     await db.flush()
@@ -424,6 +424,7 @@ async def publish_live_document(
     if owner is None:
         raise HTTPException(409, "Владелец документа не найден")
 
+    is_first_publication = document.published_version_id is None
     latest_number = await db.scalar(
         select(func.max(TheoryDocumentVersionBD.version_number)).where(
             TheoryDocumentVersionBD.document_id == document.id
@@ -478,6 +479,8 @@ async def publish_live_document(
     document.status = "published"
     owner.title = body.owner_title.strip()
     owner.short_description = body.owner_description
+    if isinstance(owner, TopicBD) and is_first_publication and owner.status == "hidden":
+        owner.status = "published_manual"
     await db.commit()
     return await _document_out(db, document)
 

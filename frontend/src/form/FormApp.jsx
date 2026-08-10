@@ -291,8 +291,8 @@ function PocketEditor() {
     return () => window.removeEventListener("beforeunload", stop);
   }, [dirty]);
 
-  async function choose(owner) {
-    if (dirty && !window.confirm("Отменить неопубликованные изменения?")) return;
+  async function choose(owner, skipDirtyCheck = false) {
+    if (!skipDirtyCheck && dirty && !window.confirm("Отменить неопубликованные изменения?")) return;
     setSelected(owner); setSelectedId(null); setError(""); setPanel("edit");
     let doc = await adminApi(`/theory-documents?owner_type=${owner.type}&owner_id=${owner.id}`);
     if (!doc) {
@@ -301,6 +301,24 @@ function PocketEditor() {
     const next = { blocks: normalizeBlocks(doc.blocks), ownerTitle: owner.title, description: owner.shortDescription || "", documentTitle: doc.title || owner.title };
     setDocument(doc); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description); setDocumentTitle(next.documentTitle); setBaseline(signature(next));
     if (window.innerWidth < 820) setCatalogOpen(false);
+  }
+
+  async function createTopic(task) {
+    if (dirty && !window.confirm("Отменить неопубликованные изменения и создать новую тему?")) return;
+    const title = window.prompt(`Название новой темы для задания ${task.number}`)?.trim();
+    if (!title) return;
+    setBusy(true); setError("");
+    try {
+      const created = await adminApi("/topics", {
+        method: "POST",
+        body: JSON.stringify({ exam_task_id: task.id, title, short_description: null }),
+      });
+      const freshCatalog = await loadCatalog();
+      const owner = findOwner(freshCatalog, "topic", created.id);
+      if (!owner) throw new Error("Тема создана, но не найдена в обновлённом каталоге");
+      await choose({ ...owner, type: "topic", taskNumber: task.number }, true);
+      setNotice("Тема создана"); setTimeout(() => setNotice(""), 2200);
+    } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
   function updateBlock(id, patch) {
@@ -383,7 +401,7 @@ function PocketEditor() {
   return <div className="form-app">
     <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap"><a className="deprecated-form-link" href="/theory/deprecated" target="_blank" rel="noreferrer">Deprecated</a>{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
     <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
-      <Catalog catalog={catalog} selected={selected} choose={choose} />
+      <Catalog catalog={catalog} selected={selected} choose={choose} createTopic={createTopic} />
       <main className="workspace">
         {!selected ? <Welcome /> : <>
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
@@ -407,8 +425,8 @@ function PocketEditor() {
   </div>;
 }
 
-function Catalog({ catalog, selected, choose }) {
-  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button>{task.topics.map((topic) => <button key={topic.id} className={`topic ${!isTopicVisible(topic.status) ? "is-hidden" : ""} ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}><span>{topic.title}</span>{!isTopicVisible(topic.status) && <i>скрыта</i>}</button>)}</div>)}</div></aside>;
+function Catalog({ catalog, selected, choose, createTopic }) {
+  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><div className="catalog-task-head"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button><button className="add-topic-button" onClick={() => createTopic(task)} title={`Добавить тему в задание ${task.number}`} aria-label={`Добавить тему в задание ${task.number}`}>+</button></div>{task.topics.map((topic) => <button key={topic.id} className={`topic ${!isTopicVisible(topic.status) ? "is-hidden" : ""} ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}><span>{topic.title}</span>{!isTopicVisible(topic.status) && <i>скрыта</i>}</button>)}</div>)}</div></aside>;
 }
 function Welcome() { return <section className="welcome"><Logo /><p className="overline">Карманная форма</p><h1>Выберите задание или тему</h1><p>Редактируйте блоки слева и сразу смотрите итоговую страницу. На сервер изменения попадут только после публикации.</p></section>; }
 function Logo() { return <a className="form-logo" href="/"><BrandLogo className="form-brand-logo" /></a>; }

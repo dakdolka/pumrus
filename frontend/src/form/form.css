@@ -71,7 +71,10 @@ button { color: inherit; }
 .catalog h2 { margin: 0 7px 10px; font: 650 17px/1.2 var(--display-font); }
 .catalog > .overline { margin-inline: 8px; }
 .catalog-task { margin-bottom: 3px; }
+.catalog-task-head { display: grid; grid-template-columns: minmax(0, 1fr) 25px; align-items: center; gap: 2px; }
 .catalog-task button { width: 100%; display: flex; align-items: center; gap: 7px; padding: 7px 8px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+.catalog-task-head .add-topic-button { width: 25px; height: 25px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; color: var(--text-secondary); font-size: 17px; line-height: 1; }
+.catalog-task-head .add-topic-button:hover { border-color: var(--line); background: var(--surface-soft); color: var(--accent); }
 .catalog-task button:hover, .catalog-task button.active { background: var(--surface-soft); }
 .catalog-task button.active { color: var(--accent); }
 .catalog-task b { flex: 0 0 25px; font: 700 12px/1 var(--display-font); }
