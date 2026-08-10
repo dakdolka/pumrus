@@ -486,9 +486,34 @@ function BlockFields({ block, setData, update }) {
   if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
   if (block.type === "section") return <label>Название группы · Markdown<input value={block.data?.title || ""} onChange={(e) => setData({ title: e.target.value })} /></label>;
   if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><label>Пункты · один на строку<textarea className="markdown-editor short" value={(block.data?.items || []).map((item) => item?.text || item).join("\n")} onChange={(e) => setData({ items: e.target.value.split("\n") })} /></label></>;
-  if (block.type === "table") return <label>Таблица · строки с новой строки, ячейки через |<textarea className="markdown-editor short" value={(block.data?.rows || []).map((row) => (row?.cells || row || []).map((cell) => cell?.text || cell).join(" | ")).join("\n")} onChange={(e) => setData({ rows: e.target.value.split("\n").map((row) => ({ cells: row.split("|").map((cell) => cell.trim()) })) })} /></label>;
+  if (block.type === "table") {
+    const value = serializeTable(block.data?.rows || []);
+    const change = (nextValue) => setData({ rows: parseTable(nextValue) });
+    const handleKeyDown = (event) => {
+      if (event.key !== "Enter" || !event.shiftKey) return;
+      event.preventDefault();
+      const field = event.currentTarget;
+      const start = field.selectionStart;
+      const end = field.selectionEnd;
+      const nextValue = `${value.slice(0, start)}\\n${value.slice(end)}`;
+      change(nextValue);
+      requestAnimationFrame(() => field.setSelectionRange(start + 2, start + 2));
+    };
+    return <label>Таблица · Enter — новая строка, Shift+Enter — перенос в ячейке, ячейки через |<textarea className="markdown-editor short" value={value} onChange={(event) => change(event.target.value)} onKeyDown={handleKeyDown} /></label>;
+  }
   if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
   return <label>Ссылка на видео<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label>;
+}
+function serializeTable(rows) {
+  return rows.map((row) => (row?.cells || row || [])
+    .map((cell) => String(cell?.text ?? cell ?? "").replace(/\n/g, "\\n"))
+    .join(" | "))
+    .join("\n");
+}
+function parseTable(value) {
+  return value.split("\n").map((row) => ({
+    cells: row.split("|").map((cell) => cell.trim().replace(/\\n/g, "\n")),
+  }));
 }
 function label(type) { return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type; }
 function excerpt(block) { return String(block.data?.title || block.data?.markdown || block.data?.url || "Пустой блок").replace(/[#*_`]/g, "").replace(/\s+/g, " ").slice(0, 55); }
