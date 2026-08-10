@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./app.css";
 import { TheoryDocument } from "./theory/TheoryRenderer";
 import BrandLogo from "./BrandLogo";
@@ -57,36 +57,76 @@ async function openRelatedPractice(taskNumber, navigate) {
 }
 
 
+function routeScrollKey() {
+  return `umrus:scroll:${window.location.pathname}${window.location.search}`;
+}
+
+
+function restoreRouteScroll(key) {
+  const target = Math.max(0, Number(sessionStorage.getItem(key) || 0));
+  let frame = 0;
+  let attempts = 0;
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    cancelAnimationFrame(frame);
+    window.removeEventListener("wheel", stop);
+    window.removeEventListener("touchstart", stop);
+    window.removeEventListener("pointerdown", stop);
+  };
+  const apply = () => {
+    if (stopped) return;
+    window.scrollTo({ top: target, behavior: "auto" });
+    attempts += 1;
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    if (Math.abs(window.scrollY - target) <= 2 || target <= maxScroll || attempts >= 300) {
+      stop();
+      return;
+    }
+    frame = requestAnimationFrame(apply);
+  };
+  window.addEventListener("wheel", stop, { passive: true });
+  window.addEventListener("touchstart", stop, { passive: true });
+  window.addEventListener("pointerdown", stop, { passive: true });
+  frame = requestAnimationFrame(apply);
+  return stop;
+}
+
+
 function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
+  const currentScrollKey = useRef(routeScrollKey());
+  const stopRestoring = useRef(() => {});
 
   useEffect(() => {
     const update = () => {
+      sessionStorage.setItem(currentScrollKey.current, String(window.scrollY));
+      currentScrollKey.current = routeScrollKey();
       setPath(window.location.pathname);
-      const key = `umrus:scroll:${window.location.pathname}${window.location.search}`;
-      const saved = Number(sessionStorage.getItem(key) || 0);
-      requestAnimationFrame(() => window.scrollTo({ top: saved, behavior: "auto" }));
+      stopRestoring.current();
+      stopRestoring.current = restoreRouteScroll(currentScrollKey.current);
     };
+    const save = () => sessionStorage.setItem(currentScrollKey.current, String(window.scrollY));
+    window.history.scrollRestoration = "manual";
     window.addEventListener("popstate", update);
-    return () => window.removeEventListener("popstate", update);
+    window.addEventListener("pagehide", save);
+    return () => {
+      stopRestoring.current();
+      window.removeEventListener("popstate", update);
+      window.removeEventListener("pagehide", save);
+    };
   }, []);
 
   const navigate = useCallback((nextPath) => {
     const url = new URL(nextPath, window.location.origin);
     if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-    sessionStorage.setItem(
-      `umrus:scroll:${window.location.pathname}${window.location.search}`,
-      String(window.scrollY),
-    );
+    sessionStorage.setItem(currentScrollKey.current, String(window.scrollY));
     window.history.pushState({}, "", nextPath);
+    currentScrollKey.current = routeScrollKey();
     setPath(url.pathname);
-    const saved = Number(
-      sessionStorage.getItem(`umrus:scroll:${url.pathname}${url.search}`) || 0,
-    );
-    requestAnimationFrame(() => window.scrollTo({
-      top: saved,
-      behavior: saved ? "auto" : "smooth",
-    }));
+    stopRestoring.current();
+    stopRestoring.current = restoreRouteScroll(currentScrollKey.current);
   }, []);
 
   return { path, navigate };
@@ -1263,6 +1303,8 @@ function PracticeSession({ sessionId, navigate }) {
 
 
 function RelatedTheory({ taskNumber, topicId, onSelectTopic }) {
+  const taskScrollPosition = useRef(0);
+  const previousTopicId = useRef(topicId);
   const taskState = useRemote(
     () => api(`/v2/catalog/tasks/${taskNumber}`),
     [taskNumber],
@@ -1271,6 +1313,19 @@ function RelatedTheory({ taskNumber, topicId, onSelectTopic }) {
     () => topicId ? api(`/v2/theory/topics/${topicId}`) : Promise.resolve(null),
     [topicId],
   );
+  useEffect(() => {
+    const previous = previousTopicId.current;
+    previousTopicId.current = topicId;
+    if (!previous && topicId) {
+      taskScrollPosition.current = window.scrollY;
+      window.scrollTo({ top: 0, behavior: "auto" });
+    } else if (previous && !topicId) {
+      requestAnimationFrame(() => window.scrollTo({
+        top: taskScrollPosition.current,
+        behavior: "auto",
+      }));
+    }
+  }, [topicId]);
   if (taskState.loading || (topicId && topicState.loading)) return <Loading />;
   if (taskState.error) return <ErrorState message={taskState.error} />;
   if (topicId && topicState.error) return <ErrorState message={topicState.error} />;
