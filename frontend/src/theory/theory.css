@@ -55,24 +55,33 @@
   .theory-block.note-right-tilted > .theory-block-main,
   .theory-block.note-left-tilted > .theory-block-main,
   .theory-block.note-vertical-right > .theory-block-main,
-  .theory-block.note-vertical-left > .theory-block-main { display: grid; align-items: center; column-gap: 12px; }
-  .theory-block.note-right-tilted > .theory-block-main,
-  .theory-block.note-vertical-right > .theory-block-main { grid-template-columns: minmax(0, 1fr) minmax(92px, 128px); }
-  .theory-block.note-left-tilted > .theory-block-main,
-  .theory-block.note-vertical-left > .theory-block-main { grid-template-columns: minmax(92px, 128px) minmax(0, 1fr); }
-  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content,
-  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content { grid-column: 2; }
-  .theory-block.note-left-tilted > .theory-block-main > .author-note,
-  .theory-block.note-vertical-left > .theory-block-main > .author-note { grid-column: 1; grid-row: 1; }
-  .theory-block.note-right-tilted > .theory-block-main > .author-note,
-  .theory-block.note-left-tilted > .theory-block-main > .author-note { align-self: center; margin: 0; padding-inline: 7px; }
-  .theory-block.note-vertical-right > .theory-block-main > .author-note,
-  .theory-block.note-vertical-left > .theory-block-main > .author-note { align-self: stretch; margin: 4px 0; padding-inline: 7px; border-inline-start: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); writing-mode: vertical-rl; }
-  .theory-block.note-vertical-left > .theory-block-main > .author-note { border-inline-start: 0; border-inline-end: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); transform: rotate(180deg); }
+  .theory-block.note-vertical-left > .theory-block-main,
   .theory-block.note-top-right > .theory-block-main,
-  .theory-block.note-top-left > .theory-block-main { display: flex; flex-direction: column; }
+  .theory-block.note-top-left > .theory-block-main { position: relative; }
+  .theory-block.note-right-tilted > .theory-block-main > .author-note,
+  .theory-block.note-left-tilted > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 50%; width: 132px; margin: 0; transform: translateY(-50%); }
+  .theory-block.note-right-tilted > .theory-block-main > .author-note { right: -4px; padding-right: 9px; text-align: right; }
+  .theory-block.note-left-tilted > .theory-block-main > .author-note { left: -4px; padding-left: 9px; }
+  .theory-block.note-right-tilted > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 142px; }
+  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 142px; }
+  .theory-block.note-right-tilted > .theory-block-main > .theory-block-content > .table-scroll td:last-child { padding-right: 142px; }
+  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content > .table-scroll td:first-child { padding-left: 142px; }
+  .theory-block.note-vertical-right > .theory-block-main > .author-note,
+  .theory-block.note-vertical-left > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 7px; bottom: 7px; width: 34px; margin: 0; padding-inline: 5px; justify-content: flex-start; border-inline-start: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); writing-mode: vertical-rl; }
+  .theory-block.note-vertical-right > .theory-block-main > .author-note { right: 2px; }
+  .theory-block.note-vertical-left > .theory-block-main > .author-note { left: 2px; border-inline-start: 0; border-inline-end: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); transform: rotate(180deg); }
+  .theory-block.note-vertical-right > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 46px; }
+  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 46px; }
+  .theory-block.note-vertical-right > .theory-block-main > .theory-block-content > .table-scroll td:last-child { padding-right: 46px; }
+  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content > .table-scroll td:first-child { padding-left: 46px; }
   .theory-block.note-top-right > .theory-block-main > .author-note,
-  .theory-block.note-top-left > .theory-block-main > .author-note { order: -1; margin-bottom: 2px; }
+  .theory-block.note-top-left > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 1px; width: min(46%, 260px); margin: 0; }
+  .theory-block.note-top-right > .theory-block-main > .author-note { right: 10px; text-align: right; }
+  .theory-block.note-top-left > .theory-block-main > .author-note { left: 10px; }
+  .theory-block.note-top-right > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link),
+  .theory-block.note-top-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-top: 48px; }
+  .theory-block.note-top-right > .theory-block-main > .theory-block-content > .table-scroll tr:first-child td,
+  .theory-block.note-top-left > .theory-block-main > .theory-block-content > .table-scroll tr:first-child td { padding-top: 48px; }
   .theory-section > .author-note { margin: 4px 14px 13px; }
 }
 @media (min-width: 900px) { .theory-document { padding-inline: 0; } }
