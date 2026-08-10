@@ -46,11 +46,16 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
     event.stopPropagation();
     onBlockClick(block.id);
   };
+  const authorNote = String(block.settings?.authorNote || "").trim();
+  const requestedPlacement = block.settings?.authorNotePlacement || "auto";
+  const notePlacement = requestedPlacement === "auto"
+    ? block.type === "table" ? "vertical" : ["callout", "example"].includes(block.type) ? "angled" : "below"
+    : requestedPlacement;
 
   if (block.type === "section") {
     return (
       <details
-        className={`theory-section depth-${Math.min(depth, 3)} ${selectedBlockId === block.id ? "is-selected" : ""}`}
+        className={`theory-section depth-${Math.min(depth, 3)} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`}
         onClick={click}
       >
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
@@ -59,6 +64,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
             <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />
           ))}
         </div>
+        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} />}
       </details>
     );
   }
@@ -88,11 +94,16 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
   }
 
   return (
-    <div className={`theory-block theory-block-${block.type} ${selectedBlockId === block.id ? "is-selected" : ""}`} onClick={click}>
+    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`} onClick={click}>
       {content}
+      {authorNote && <AuthorNote text={authorNote} placement={notePlacement} />}
       {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />)}</div>}
     </div>
   );
+}
+
+function AuthorNote({ text, placement }) {
+  return <aside className={`author-note author-note-${placement}`} aria-label="Комментарий автора"><span>{text}</span></aside>;
 }
 
 function calloutLabel(variant) {

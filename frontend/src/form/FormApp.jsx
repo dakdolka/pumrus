@@ -342,7 +342,7 @@ function PocketEditor() {
     setBlocks((items) => items.filter((item) => !doomed.has(item.id)));
     setSelectedId(null);
   }
-  function dropBefore(targetId) {
+  function dropAdjacent(targetId, after = false) {
     if (!draggedId || draggedId === targetId) return;
     setBlocks((items) => {
       const target = items.find((item) => item.id === targetId);
@@ -350,14 +350,15 @@ function PocketEditor() {
       if (!target || !moved || isDescendant(items, target.parentId, draggedId)) return items;
       const siblings = items.filter((item) => item.parentId === target.parentId && item.id !== draggedId).sort((a, b) => a.sortOrder - b.sortOrder);
       const index = siblings.findIndex((item) => item.id === targetId);
-      siblings.splice(index, 0, { ...moved, parentId: target.parentId });
+      siblings.splice(index + (after ? 1 : 0), 0, { ...moved, parentId: target.parentId });
       const order = new Map(siblings.map((item, i) => [item.id, i]));
       return items.map((item) => item.id === draggedId ? { ...item, parentId: target.parentId, sortOrder: order.get(item.id) } : order.has(item.id) ? { ...item, sortOrder: order.get(item.id) } : item);
     });
     setDraggedId(null);
   }
   function nestInside(parentId) {
-    if (!draggedId || draggedId === parentId || isDescendant(blocks, parentId, draggedId)) return;
+    const parent = blocks.find((item) => item.id === parentId);
+    if (!draggedId || parent?.type !== "section" || draggedId === parentId || isDescendant(blocks, parentId, draggedId)) return;
     const count = blocks.filter((item) => item.parentId === parentId && item.id !== draggedId).length;
     updateBlock(draggedId, { parentId, sortOrder: count });
     setDraggedId(null);
@@ -410,7 +411,7 @@ function PocketEditor() {
             <div className="editing-body">
               <div className="structure-column">
                 <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
-                <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropBefore} onNest={nestInside} onAdd={addBlock} />)}</div>
+                <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropAdjacent} onNest={nestInside} onAdd={addBlock} />)}</div>
               </div>
               {selectedBlock
                 ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} />
@@ -433,27 +434,35 @@ function Logo() { return <a className="form-logo" href="/"><BrandLogo className=
 
 function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, onAdd }) {
   const [expanded, setExpanded] = useState(false);
+  const [dropZone, setDropZone] = useState("");
   const hasChildren = Boolean(node.children?.length);
+  const canContain = node.type === "section";
+  function zoneFor(event) {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const position = (event.clientY - bounds.top) / bounds.height;
+    if (position < .28) return "before";
+    if (canContain && position < .72) return "inside";
+    return "after";
+  }
   function handleDrop(event) {
     event.preventDefault();
     event.stopPropagation();
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const position = (event.clientY - bounds.top) / bounds.height;
-    if (position < .25) onDrop(node.id);
-    else {
+    const zone = dropZone || zoneFor(event);
+    setDropZone("");
+    if (zone === "inside") {
       onNest(node.id);
       setExpanded(true);
-    }
+    } else onDrop(node.id, zone === "after");
   }
   function addChild() {
     setExpanded(true);
     onAdd(node.id);
   }
   return <div className="tree-node">
-    <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+    <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""} ${dropZone ? `drop-${dropZone}` : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(event) => { event.preventDefault(); setDropZone(zoneFor(event)); }} onDragLeave={() => setDropZone("")} onDrop={handleDrop}>
       <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong></button>
       {hasChildren ? <button className={`tree-toggle ${expanded ? "open" : ""}`} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "Свернуть группу" : "Развернуть группу"}>›</button> : <span />}
-      <button className="add-child" onClick={addChild} title="Добавить вложенный блок">+</button>
+      {canContain ? <button className="add-child" onClick={addChild} title="Добавить блок в группу">+</button> : <span className="no-child" title="Вложение доступно только для групп" />}
     </div>
     {expanded && node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
   </div>;
@@ -470,6 +479,7 @@ function BlockInspector({ block, update, remove }) {
   return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
     <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
     <BlockFields block={block} setData={setData} update={update} />
+    <fieldset className="author-note-editor"><legend>Авторская пометка</legend><label>Текст<input value={block.settings?.authorNote || ""} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNote: e.target.value } })} placeholder="Самое противное · Лайфхак · Запомни" /></label><label>Расположение<select value={block.settings?.authorNotePlacement || "auto"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNotePlacement: e.target.value } })}><option value="auto">Автоматически</option><option value="angled">Наклонно сбоку</option><option value="vertical">Вдоль блока</option><option value="below">Под блоком</option></select></label><small>Пустое поле убирает пометку. На телефоне боковые варианты автоматически становятся горизонтальными.</small></fieldset>
   </aside>;
 }
 function BlockFields({ block, setData, update }) {

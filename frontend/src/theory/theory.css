@@ -38,4 +38,13 @@
 .table-scroll table { width: 100%; border-collapse: collapse; }
 .table-scroll td { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
+.author-note { display: flex; justify-content: flex-end; margin: 3px 8px 9px; color: color-mix(in srgb, var(--accent) 78%, var(--text)); pointer-events: none; }
+.author-note span { max-width: 23rem; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-style: italic; font-weight: 650; line-height: 1.15; letter-spacing: .01em; }
+.author-note-below span { transform: rotate(-1.5deg); transform-origin: right center; }
+@media (min-width: 1000px) {
+  .theory-block.note-angled > .author-note, .theory-section.note-angled > .author-note { position: absolute; z-index: 2; top: 50%; right: -126px; width: 108px; margin: 0; justify-content: flex-start; transform: translateY(-50%) rotate(-5deg); }
+  .theory-block.note-vertical > .author-note, .theory-section.note-vertical > .author-note { position: absolute; z-index: 2; top: 8px; right: -55px; max-height: calc(100% - 16px); margin: 0; writing-mode: vertical-rl; transform: rotate(180deg); }
+  .theory-block.note-vertical > .author-note span, .theory-section.note-vertical > .author-note span { max-width: none; max-height: 100%; }
+  .theory-section.has-author-note { position: relative; overflow: visible; }
+}
 @media (min-width: 900px) { .theory-document { padding-inline: 0; } }
