@@ -94,6 +94,14 @@
   .theory-block.note-below-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-bottom: 48px; }
   .theory-block.note-below-right > .theory-block-main > .theory-block-content > .table-scroll tr:last-child td,
   .theory-block.note-below-left > .theory-block-main > .theory-block-content > .table-scroll tr:last-child td { padding-bottom: 48px; }
+  .theory-block-table.note-right-tilted > .theory-block-main > .author-note { right: 18px; }
+  .theory-block-table.note-left-tilted > .theory-block-main > .author-note { left: 18px; }
+  .theory-block-table.note-top-right > .theory-block-main > .author-note { top: 8px; right: 18px; }
+  .theory-block-table.note-top-left > .theory-block-main > .author-note { top: 8px; left: 18px; }
+  .theory-block-table.note-below-right > .theory-block-main > .author-note { right: 18px; bottom: 8px; }
+  .theory-block-table.note-below-left > .theory-block-main > .author-note { left: 18px; bottom: 8px; }
+  .theory-block-table.note-vertical-right > .theory-block-main > .author-note { right: 12px; }
+  .theory-block-table.note-vertical-left > .theory-block-main > .author-note { left: 12px; }
   .theory-section > .author-note { margin: 4px 14px 13px; }
 }
 @media (min-width: 900px) { .theory-document { padding-inline: 0; } }
