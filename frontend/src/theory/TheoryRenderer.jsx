@@ -97,8 +97,10 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
 
   return (
     <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`} onClick={click}>
-      {content}
-      {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
+      <div className="theory-block-main">
+        <div className="theory-block-content">{content}</div>
+        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
+      </div>
       {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />)}</div>}
     </div>
   );

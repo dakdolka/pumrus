@@ -1,5 +1,6 @@
 .theory-document { width: 100%; max-width: var(--reading-max, 760px); padding: 6px 18px 36px; }
 .theory-block { position: relative; }
+.theory-block-main, .theory-block-content { min-width: 0; }
 .theory-block + .theory-block { margin-top: 8px; }
 .theory-block.is-selected > :first-child, .theory-section.is-selected > summary { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 4px; }
 .theory-document h2 { margin: 19px 0 7px; font-size: clamp(22px, 5vw, 30px); line-height: 1.2; }
@@ -38,32 +39,40 @@
 .table-scroll table { width: 100%; border-collapse: collapse; }
 .table-scroll td { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
-.author-note { --note-color: var(--info, #79a8d8); display: flex; justify-content: flex-end; margin: 3px 8px 9px; color: color-mix(in srgb, var(--note-color) 84%, var(--text)); pointer-events: none; }
+@font-face { font-family: "UmRus Handwriting"; src: url("/manual.ttf") format("truetype"); font-display: swap; }
+.author-note { --note-color: var(--info, #79a8d8); display: flex; min-width: 0; justify-content: flex-end; align-items: center; margin: 5px 10px 9px; color: color-mix(in srgb, var(--note-color) 90%, var(--text)); pointer-events: none; }
 .author-note-tone-note { --note-color: var(--info, #79a8d8); }
 .author-note-tone-rule { --note-color: var(--success, #6fbd92); }
 .author-note-tone-warning { --note-color: var(--danger, #d97a74); }
 .author-note-tone-important { --note-color: var(--warning, #dda45a); }
 .author-note-tone-tip { --note-color: var(--example, #9b83c9); }
-.author-note span { max-width: 23rem; font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-style: italic; font-weight: 650; line-height: 1.14; letter-spacing: .012em; text-wrap: balance; }
-.author-note-below-right span, .author-note-below-left span { transform: rotate(-1.5deg); transform-origin: right center; }
+.author-note span { max-width: 23rem; font-family: "UmRus Handwriting", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-size: clamp(17px, 2.2vw, 21px); font-style: normal; font-weight: 400; line-height: 1.05; letter-spacing: .015em; text-wrap: balance; }
+.author-note-below-right span, .author-note-right-tilted span, .author-note-top-right span { transform: rotate(-5.5deg); transform-origin: right center; }
 .author-note-below-left { justify-content: flex-start; }
 .author-note-left-tilted, .author-note-top-left, .author-note-vertical-left { justify-content: flex-start; }
-.author-note-below-left span { transform: rotate(1.5deg); transform-origin: left center; }
-@media (min-width: 1000px) {
-  .theory-block.note-right-tilted > .author-note, .theory-section.note-right-tilted > .author-note,
-  .theory-block.note-left-tilted > .author-note, .theory-section.note-left-tilted > .author-note { position: absolute; z-index: 2; top: 50%; width: 112px; margin: 0; padding-left: 9px; border-left: 1px solid color-mix(in srgb, var(--note-color) 48%, transparent); justify-content: flex-start; transform: translate(100%, -50%) rotate(-4deg); }
-  .theory-block.note-right-tilted > .author-note, .theory-section.note-right-tilted > .author-note { right: -7px; }
-  .theory-block.note-left-tilted > .author-note, .theory-section.note-left-tilted > .author-note { left: -7px; padding: 0 9px 0 0; border-right: 1px solid color-mix(in srgb, var(--note-color) 48%, transparent); border-left: 0; transform: translate(-100%, -50%) rotate(4deg); text-align: right; }
-  .theory-block.note-top-right > .author-note, .theory-section.note-top-right > .author-note,
-  .theory-block.note-top-left > .author-note, .theory-section.note-top-left > .author-note { position: absolute; z-index: 2; top: -8px; width: 118px; margin: 0; padding-bottom: 4px; border-bottom: 1px solid color-mix(in srgb, var(--note-color) 48%, transparent); }
-  .theory-block.note-top-right > .author-note, .theory-section.note-top-right > .author-note { right: 8px; transform: rotate(-3deg); text-align: right; }
-  .theory-block.note-top-left > .author-note, .theory-section.note-top-left > .author-note { left: 8px; justify-content: flex-start; transform: rotate(3deg); }
-  .theory-block.note-vertical-right > .author-note, .theory-section.note-vertical-right > .author-note,
-  .theory-block.note-vertical-left > .author-note, .theory-section.note-vertical-left > .author-note { position: absolute; z-index: 2; top: 5px; max-height: calc(100% - 10px); margin: 0; padding-left: 5px; border-left: 1px solid color-mix(in srgb, var(--note-color) 52%, transparent); writing-mode: vertical-rl; }
-  .theory-block.note-vertical-right > .author-note, .theory-section.note-vertical-right > .author-note { right: -23px; }
-  .theory-block.note-vertical-left > .author-note, .theory-section.note-vertical-left > .author-note { left: -23px; transform: rotate(180deg); }
-  .theory-block.note-vertical-right > .author-note span, .theory-section.note-vertical-right > .author-note span,
-  .theory-block.note-vertical-left > .author-note span, .theory-section.note-vertical-left > .author-note span { max-width: none; max-height: 100%; }
-  .theory-section.has-author-note { position: relative; overflow: visible; }
+.author-note-below-left span, .author-note-left-tilted span, .author-note-top-left span { transform: rotate(5.5deg); transform-origin: left center; }
+@media (min-width: 720px) {
+  .theory-block.note-right-tilted > .theory-block-main,
+  .theory-block.note-left-tilted > .theory-block-main,
+  .theory-block.note-vertical-right > .theory-block-main,
+  .theory-block.note-vertical-left > .theory-block-main { display: grid; align-items: center; column-gap: 12px; }
+  .theory-block.note-right-tilted > .theory-block-main,
+  .theory-block.note-vertical-right > .theory-block-main { grid-template-columns: minmax(0, 1fr) minmax(92px, 128px); }
+  .theory-block.note-left-tilted > .theory-block-main,
+  .theory-block.note-vertical-left > .theory-block-main { grid-template-columns: minmax(92px, 128px) minmax(0, 1fr); }
+  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content,
+  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content { grid-column: 2; }
+  .theory-block.note-left-tilted > .theory-block-main > .author-note,
+  .theory-block.note-vertical-left > .theory-block-main > .author-note { grid-column: 1; grid-row: 1; }
+  .theory-block.note-right-tilted > .theory-block-main > .author-note,
+  .theory-block.note-left-tilted > .theory-block-main > .author-note { align-self: center; margin: 0; padding-inline: 7px; }
+  .theory-block.note-vertical-right > .theory-block-main > .author-note,
+  .theory-block.note-vertical-left > .theory-block-main > .author-note { align-self: stretch; margin: 4px 0; padding-inline: 7px; border-inline-start: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); writing-mode: vertical-rl; }
+  .theory-block.note-vertical-left > .theory-block-main > .author-note { border-inline-start: 0; border-inline-end: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); transform: rotate(180deg); }
+  .theory-block.note-top-right > .theory-block-main,
+  .theory-block.note-top-left > .theory-block-main { display: flex; flex-direction: column; }
+  .theory-block.note-top-right > .theory-block-main > .author-note,
+  .theory-block.note-top-left > .theory-block-main > .author-note { order: -1; margin-bottom: 2px; }
+  .theory-section > .author-note { margin: 4px 14px 13px; }
 }
 @media (min-width: 900px) { .theory-document { padding-inline: 0; } }
