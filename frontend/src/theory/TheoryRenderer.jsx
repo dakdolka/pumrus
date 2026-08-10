@@ -48,9 +48,11 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
   };
   const authorNote = String(block.settings?.authorNote || "").trim();
   const requestedPlacement = block.settings?.authorNotePlacement || "auto";
-  const notePlacement = requestedPlacement === "auto"
-    ? block.type === "table" ? "vertical" : ["callout", "example"].includes(block.type) ? "angled" : "below"
-    : requestedPlacement;
+  const legacyPlacement = { angled: "right-tilted", vertical: "vertical-right", below: "below-right" }[requestedPlacement] || requestedPlacement;
+  const notePlacement = legacyPlacement === "auto"
+    ? block.type === "table" ? "vertical-right" : ["callout", "example"].includes(block.type) ? "right-tilted" : "below-right"
+    : legacyPlacement;
+  const noteColor = block.settings?.authorNoteColor || "note";
 
   if (block.type === "section") {
     return (
@@ -64,7 +66,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
             <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />
           ))}
         </div>
-        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} />}
+        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
       </details>
     );
   }
@@ -96,14 +98,14 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
   return (
     <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`} onClick={click}>
       {content}
-      {authorNote && <AuthorNote text={authorNote} placement={notePlacement} />}
+      {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
       {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />)}</div>}
     </div>
   );
 }
 
-function AuthorNote({ text, placement }) {
-  return <aside className={`author-note author-note-${placement}`} aria-label="Комментарий автора"><span>{text}</span></aside>;
+function AuthorNote({ text, placement, color }) {
+  return <aside className={`author-note author-note-${placement} author-note-tone-${color}`} aria-label="Комментарий автора"><span><InlineMarkdown value={text} /></span></aside>;
 }
 
 function calloutLabel(variant) {
