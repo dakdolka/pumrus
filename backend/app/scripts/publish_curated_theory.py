@@ -307,7 +307,8 @@ async def publish_task8(
         else:
             topic.title = definition["title"]
             topic.short_description = definition["description"]
-            topic.status = "published"
+            if topic.status != "hidden":
+                topic.status = "published"
 
         link = await session.get(ExamTaskTopicBD, (task.id, topic.id))
         if link is None:
@@ -389,7 +390,8 @@ async def publish_bundle(
         else:
             topic_record.title = topic_definition["title"]
             topic_record.short_description = topic_definition["description"]
-            topic_record.status = "published"
+            if topic_record.status != "hidden":
+                topic_record.status = "published"
 
         link = await session.get(ExamTaskTopicBD, (task.id, topic_record.id))
         if link is None:
@@ -499,7 +501,7 @@ async def restore_legacy_and_hide_other_curated(
             legacy_version.status = "published"
             document.published_version_id = legacy_version.id
             document.status = "published"
-            if topic is not None:
+            if topic is not None and topic.status != "hidden":
                 topic.status = "published"
             restored += 1
             continue
@@ -511,10 +513,11 @@ async def restore_legacy_and_hide_other_curated(
         )
         if owner_numbers & KEPT_CURATED_TASKS:
             continue
-        document.published_version_id = None
+        if topic is not None and topic.status == "published_manual":
+            continue
         document.status = "deprecated"
         if topic is not None:
-            topic.status = "deprecated"
+            topic.status = "hidden"
         hidden += 1
     return {"legacy_restored": restored, "curated_hidden": hidden}
 

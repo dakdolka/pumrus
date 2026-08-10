@@ -76,12 +76,20 @@ button { color: inherit; }
 .catalog-task button.active { color: var(--accent); }
 .catalog-task b { flex: 0 0 25px; font: 700 12px/1 var(--display-font); }
 .catalog-task span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; font-size: 13px; }
-.catalog-task .topic { display: block; padding: 5px 8px 5px 38px; color: var(--text-secondary); font-size: 11px; line-height: 1.25; }
+.catalog-task .topic { display: flex; justify-content: space-between; padding: 5px 8px 5px 38px; color: var(--text-secondary); font-size: 11px; line-height: 1.25; }
+.catalog-task .topic i { flex: none; color: var(--danger); font-size: 9px; font-style: normal; }
+.catalog-task .topic.is-hidden:not(.active) span { opacity: .58; }
 .workspace { min-width: 0; }
 .workspace:has(.edit-pane) { display: grid; grid-template-columns: minmax(600px, 760px) minmax(330px, 440px); justify-content: center; align-items: start; gap: clamp(12px, 1.6vw, 22px); padding: 14px clamp(12px, 2vw, 24px) 40px; }
 .edit-pane { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 62%, var(--bg)); }
 .preview-pane { width: 100%; min-width: 0; padding: 0; background: transparent; }
 .owner-fields { display: grid; gap: 5px; margin-bottom: 10px; }
+.owner-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.owner-meta .overline { margin: 0; }
+.visibility-button { flex: none; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text-secondary); font-size: 10px; font-weight: 700; cursor: pointer; }
+.visibility-button:hover { border-color: var(--danger); color: var(--danger); }
+.visibility-button.is-hidden { border-color: color-mix(in srgb, var(--success) 45%, var(--line)); color: var(--success); }
+.visibility-button:disabled { opacity: .5; cursor: default; }
 input, textarea, select { width: 100%; border: 1px solid var(--line); border-radius: 9px; outline: none; background: var(--surface); color: var(--text); }
 input, select { min-height: 34px; padding: 6px 9px; }
 textarea { padding: 7px 9px; resize: vertical; line-height: 1.4; }

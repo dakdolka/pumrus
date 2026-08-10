@@ -36,6 +36,7 @@ from app.infra.practice.models import (
 
 
 router = APIRouter(prefix="/v2", tags=["v2"])
+VISIBLE_TOPIC_STATUSES = ("published", "published_manual")
 
 
 class SessionCreateIn(BaseModel):
@@ -165,7 +166,7 @@ async def list_exam_tasks(
         .join(TopicBD, TopicBD.id == ExamTaskTopicBD.topic_id)
         .where(
             ExamTaskTopicBD.exam_task_id == ExamTaskBD.id,
-            TopicBD.status == "published",
+            TopicBD.status.in_(VISIBLE_TOPIC_STATUSES),
         )
         .correlate(ExamTaskBD)
         .scalar_subquery()
@@ -294,7 +295,7 @@ async def get_exam_task(task_number: int, db: AsyncSession = Depends(get_db)):
             .join(ExamTaskTopicBD, ExamTaskTopicBD.topic_id == TopicBD.id)
             .where(
                 ExamTaskTopicBD.exam_task_id == task.id,
-                TopicBD.status == "published",
+                TopicBD.status.in_(VISIBLE_TOPIC_STATUSES),
             )
             .order_by(ExamTaskTopicBD.sort_order, TopicBD.title)
         )
@@ -309,7 +310,7 @@ async def get_exam_task(task_number: int, db: AsyncSession = Depends(get_db)):
 @router.get("/theory/topics/{topic_id}")
 async def get_topic_theory(topic_id: int, db: AsyncSession = Depends(get_db)):
     topic = await db.scalar(
-        select(TopicBD).where(TopicBD.id == topic_id, TopicBD.status == "published")
+        select(TopicBD).where(TopicBD.id == topic_id, TopicBD.status.in_(VISIBLE_TOPIC_STATUSES))
     )
     if topic is None:
         raise HTTPException(404, "Topic not found")

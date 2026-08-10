@@ -44,6 +44,9 @@ function normalizeBlocks(blocks = []) {
 function signature(value) {
   return JSON.stringify(value);
 }
+function isTopicVisible(status) {
+  return status === "published" || status === "published_manual";
+}
 function defaultData(type, previous = {}) {
   const markdown = previous.markdown || "";
   if (type === "section") return { title: previous.title || markdown || "Новая группа" };
@@ -267,6 +270,7 @@ function PocketEditor() {
   const [panel, setPanel] = useState("edit");
   const [catalogOpen, setCatalogOpen] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [visibilityBusy, setVisibilityBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -359,6 +363,23 @@ function PocketEditor() {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
+  async function toggleTopicVisibility() {
+    if (selected?.type !== "topic" || visibilityBusy) return;
+    const willShow = !isTopicVisible(selected.status);
+    setVisibilityBusy(true); setError("");
+    try {
+      const result = await adminApi(`/topics/${selected.id}/visibility`, {
+        method: "PATCH",
+        body: JSON.stringify({ visible: willShow }),
+      });
+      const freshCatalog = await loadCatalog();
+      const refreshed = findOwner(freshCatalog, "topic", selected.id);
+      setSelected((current) => ({ ...current, ...(refreshed || {}), status: result.status }));
+      setNotice(willShow ? "Тема снова видна ученикам" : "Тема скрыта от учеников");
+      setTimeout(() => setNotice(""), 2200);
+    } catch (e) { setError(e.message); } finally { setVisibilityBusy(false); }
+  }
+
   return <div className="form-app">
     <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap"><a className="deprecated-form-link" href="/theory/deprecated" target="_blank" rel="noreferrer">Deprecated</a>{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
     <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
@@ -367,7 +388,7 @@ function PocketEditor() {
         {!selected ? <Welcome /> : <>
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
           <section className={`edit-pane mobile-${panel}`}>
-            <div className="owner-fields"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
+            <div className="owner-fields"><div className="owner-meta"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span>{selected.type === "topic" && <button className={`visibility-button ${!isTopicVisible(selected.status) ? "is-hidden" : ""}`} disabled={visibilityBusy} onClick={toggleTopicVisibility}>{visibilityBusy ? "Сохраняем…" : !isTopicVisible(selected.status) ? "Показать тему" : "Скрыть тему"}</button>}</div><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
             <div className="editing-body">
               <div className="structure-column">
                 <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
@@ -387,7 +408,7 @@ function PocketEditor() {
 }
 
 function Catalog({ catalog, selected, choose }) {
-  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button>{task.topics.map((topic) => <button key={topic.id} className={`topic ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}>{topic.title}</button>)}</div>)}</div></aside>;
+  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button>{task.topics.map((topic) => <button key={topic.id} className={`topic ${!isTopicVisible(topic.status) ? "is-hidden" : ""} ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}><span>{topic.title}</span>{!isTopicVisible(topic.status) && <i>скрыта</i>}</button>)}</div>)}</div></aside>;
 }
 function Welcome() { return <section className="welcome"><Logo /><p className="overline">Карманная форма</p><h1>Выберите задание или тему</h1><p>Редактируйте блоки слева и сразу смотрите итоговую страницу. На сервер изменения попадут только после публикации.</p></section>; }
 function Logo() { return <a className="form-logo" href="/"><BrandLogo className="form-brand-logo" /></a>; }

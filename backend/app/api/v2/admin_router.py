@@ -47,6 +47,10 @@ class TopicCreateIn(CatalogUpdateIn):
     exam_task_id: int
 
 
+class TopicVisibilityIn(BaseModel):
+    visible: bool
+
+
 class DocumentCreateIn(BaseModel):
     owner_type: Literal["task", "topic"]
     owner_id: int
@@ -307,6 +311,37 @@ async def update_topic(
     topic.short_description = body.short_description
     await db.commit()
     return {"id": topic.id, "title": topic.title}
+
+
+@router.patch("/topics/{topic_id}/visibility", dependencies=[Depends(require_admin)])
+async def update_topic_visibility(
+    topic_id: int,
+    body: TopicVisibilityIn,
+    db: AsyncSession = Depends(get_db),
+):
+    topic = await db.get(TopicBD, topic_id)
+    if topic is None:
+        raise HTTPException(404, "Тема не найдена")
+    topic.status = "published_manual" if body.visible else "hidden"
+    document = await db.scalar(
+        select(TheoryDocumentBD).where(TheoryDocumentBD.topic_id == topic.id)
+    )
+    if body.visible and document is not None:
+        if document.published_version_id is None:
+            latest = await db.scalar(
+                select(TheoryDocumentVersionBD)
+                .where(
+                    TheoryDocumentVersionBD.document_id == document.id,
+                    TheoryDocumentVersionBD.status == "published",
+                )
+                .order_by(TheoryDocumentVersionBD.version_number.desc())
+                .limit(1)
+            )
+            if latest is not None:
+                document.published_version_id = latest.id
+        document.status = "published"
+    await db.commit()
+    return {"id": topic.id, "status": topic.status, "visible": body.visible}
 
 
 @router.get("/theory-documents", dependencies=[Depends(require_admin)])
