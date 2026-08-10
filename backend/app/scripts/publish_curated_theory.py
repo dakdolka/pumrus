@@ -43,6 +43,7 @@ OBSOLETE_BASELINE_TOPIC_CODES = {
     "task-5-paronyms",
     "task-6-lexical",
 }
+KEPT_CURATED_TASKS = {1, 3}
 
 
 async def _course_version(
@@ -419,11 +420,10 @@ async def hide_superseded_topics(
     course_version: CourseVersionBD,
 ) -> int:
     """Keep legacy versions readable in Deprecated, but remove old topic shells from the live catalog."""
-    desired_by_task = {8: {item["code"] for item in TASK8_TOPICS}}
-    desired_by_task.update({
+    desired_by_task = {
         item["number"]: {topic["code"] for topic in item["topics"]}
-        for item in BUNDLES
-    })
+        for item in BUNDLES if item["number"] in KEPT_CURATED_TASKS
+    }
     hidden = 0
     for number, desired_codes in desired_by_task.items():
         task = await session.scalar(select(ExamTaskBD).where(
@@ -449,19 +449,84 @@ async def hide_superseded_topics(
                 )
                 .limit(1)
             )
-            if has_legacy_version is not None or topic.code.startswith(f"task-{number}-"):
+            if has_legacy_version is None and topic.code.startswith(f"task-{number}-"):
                 if topic.status != "deprecated":
                     topic.status = "deprecated"
                     hidden += 1
     return hidden
 
 
+async def restore_legacy_and_hide_other_curated(
+    session: AsyncSession,
+    course_version: CourseVersionBD,
+) -> dict[str, int]:
+    """Expose every imported document and retire generated theory except tasks 1 and 3."""
+    tasks = list((await session.scalars(select(ExamTaskBD).where(
+        ExamTaskBD.course_version_id == course_version.id,
+    ))).all())
+    task_by_id = {task.id: task for task in tasks}
+    topic_task_numbers: dict[int, set[int]] = {}
+    links = list((await session.scalars(
+        select(ExamTaskTopicBD)
+        .join(ExamTaskBD, ExamTaskBD.id == ExamTaskTopicBD.exam_task_id)
+        .where(ExamTaskBD.course_version_id == course_version.id)
+    )).all())
+    for link in links:
+        task = task_by_id.get(link.exam_task_id)
+        if task is not None:
+            topic_task_numbers.setdefault(link.topic_id, set()).add(task.number)
+
+    documents = list((await session.scalars(
+        select(TheoryDocumentBD).where(
+            (TheoryDocumentBD.exam_task_id.in_(task_by_id))
+            | (TheoryDocumentBD.topic_id.in_(topic_task_numbers))
+        )
+    )).all())
+    restored = 0
+    hidden = 0
+    for document in documents:
+        legacy_version = await session.scalar(
+            select(TheoryDocumentVersionBD)
+            .where(
+                TheoryDocumentVersionBD.document_id == document.id,
+                TheoryDocumentVersionBD.source_legacy_theory_id.is_not(None),
+            )
+            .order_by(TheoryDocumentVersionBD.version_number.desc())
+            .limit(1)
+        )
+        topic = await session.get(TopicBD, document.topic_id) if document.topic_id else None
+        if legacy_version is not None:
+            legacy_version.status = "published"
+            document.published_version_id = legacy_version.id
+            document.status = "published"
+            if topic is not None:
+                topic.status = "published"
+            restored += 1
+            continue
+
+        owner_numbers = (
+            {task_by_id[document.exam_task_id].number}
+            if document.exam_task_id in task_by_id
+            else topic_task_numbers.get(document.topic_id, set())
+        )
+        if owner_numbers & KEPT_CURATED_TASKS:
+            continue
+        document.published_version_id = None
+        document.status = "deprecated"
+        if topic is not None:
+            topic.status = "deprecated"
+        hidden += 1
+    return {"legacy_restored": restored, "curated_hidden": hidden}
+
+
 async def run(course_version_code: str | None, execute: bool) -> None:
     async with async_session_factory() as session:
         version = await _course_version(session, course_version_code)
-        obsolete_restored = await remove_obsolete_baseline(session, version)
-        results = [await publish_task8(session, version)]
+        cleanup = await restore_legacy_and_hide_other_curated(session, version)
+        results = []
         for bundle in BUNDLES:
+            if bundle["number"] not in KEPT_CURATED_TASKS:
+                continue
             results.append(await publish_bundle(session, version, bundle))
         superseded_hidden = await hide_superseded_topics(session, version)
         counters = {
@@ -470,8 +535,9 @@ async def run(course_version_code: str | None, execute: bool) -> None:
         }
         print("Curated theory publication plan:")
         print(f"  course version: {version.code}")
-        print(f"  bundles: {len(BUNDLES) + 1}")
-        print(f"  obsolete baseline documents restored/hidden: {obsolete_restored}")
+        print(f"  curated bundles kept: {len(KEPT_CURATED_TASKS)}")
+        print(f"  legacy documents restored: {cleanup['legacy_restored']}")
+        print(f"  other curated documents hidden: {cleanup['curated_hidden']}")
         print(f"  superseded topics hidden from live catalog: {superseded_hidden}")
         print(f"  tasks skipped because absent: {counters['tasks_skipped']}")
         print(f"  topics to create: {counters['topics_created']}")
