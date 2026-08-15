@@ -33,6 +33,7 @@ from app.scripts.curated_theory_data import (
     TASK8_SOURCES,
     TASK8_TOPICS,
 )
+from app.scripts.curated_orthography import ORTHOGRAPHY_BUNDLES
 from app.scripts.curated_theory_remaining import BUNDLES
 
 
@@ -43,7 +44,11 @@ OBSOLETE_BASELINE_TOPIC_CODES = {
     "task-5-paronyms",
     "task-6-lexical",
 }
-KEPT_CURATED_TASKS = {1, 3}
+ORTHOGRAPHY_TASKS = {bundle["number"] for bundle in ORTHOGRAPHY_BUNDLES}
+PUBLISHABLE_BUNDLES = [
+    bundle for bundle in BUNDLES if bundle["number"] not in ORTHOGRAPHY_TASKS
+] + ORTHOGRAPHY_BUNDLES
+KEPT_CURATED_TASKS = {1, 3, *ORTHOGRAPHY_TASKS}
 
 
 async def _course_version(
@@ -388,9 +393,9 @@ async def publish_bundle(
             await session.flush()
             counters["topics_created"] += 1
         else:
-            topic_record.title = topic_definition["title"]
-            topic_record.short_description = topic_definition["description"]
-            if topic_record.status != "hidden":
+            if topic_record.status not in {"hidden", "published_manual"}:
+                topic_record.title = topic_definition["title"]
+                topic_record.short_description = topic_definition["description"]
                 topic_record.status = "published"
 
         link = await session.get(ExamTaskTopicBD, (task.id, topic_record.id))
@@ -424,7 +429,7 @@ async def hide_superseded_topics(
     """Keep legacy versions readable in Deprecated, but remove old topic shells from the live catalog."""
     desired_by_task = {
         item["number"]: {topic["code"] for topic in item["topics"]}
-        for item in BUNDLES if item["number"] in KEPT_CURATED_TASKS
+        for item in PUBLISHABLE_BUNDLES if item["number"] in KEPT_CURATED_TASKS
     }
     hidden = 0
     for number, desired_codes in desired_by_task.items():
@@ -462,7 +467,7 @@ async def restore_legacy_and_hide_other_curated(
     session: AsyncSession,
     course_version: CourseVersionBD,
 ) -> dict[str, int]:
-    """Expose every imported document and retire generated theory except tasks 1 and 3."""
+    """Expose imported documents and retire generated theory outside the kept task set."""
     tasks = list((await session.scalars(select(ExamTaskBD).where(
         ExamTaskBD.course_version_id == course_version.id,
     ))).all())
@@ -487,6 +492,15 @@ async def restore_legacy_and_hide_other_curated(
     restored = 0
     hidden = 0
     for document in documents:
+        owner_numbers = (
+            {task_by_id[document.exam_task_id].number}
+            if document.exam_task_id in task_by_id
+            else topic_task_numbers.get(document.topic_id, set())
+        )
+        # Kept bundles may already have a manual publication.  Never replace it
+        # with a legacy version during startup cleanup.
+        if owner_numbers & KEPT_CURATED_TASKS:
+            continue
         legacy_version = await session.scalar(
             select(TheoryDocumentVersionBD)
             .where(
@@ -506,13 +520,6 @@ async def restore_legacy_and_hide_other_curated(
             restored += 1
             continue
 
-        owner_numbers = (
-            {task_by_id[document.exam_task_id].number}
-            if document.exam_task_id in task_by_id
-            else topic_task_numbers.get(document.topic_id, set())
-        )
-        if owner_numbers & KEPT_CURATED_TASKS:
-            continue
         if topic is not None and topic.status == "published_manual":
             continue
         document.status = "deprecated"
@@ -527,7 +534,7 @@ async def run(course_version_code: str | None, execute: bool) -> None:
         version = await _course_version(session, course_version_code)
         cleanup = await restore_legacy_and_hide_other_curated(session, version)
         results = []
-        for bundle in BUNDLES:
+        for bundle in PUBLISHABLE_BUNDLES:
             if bundle["number"] not in KEPT_CURATED_TASKS:
                 continue
             results.append(await publish_bundle(session, version, bundle))
