@@ -21,7 +21,7 @@ export function buildTheoryTree(blocks = []) {
   return (children.get(null) || []).map((block) => attach(block));
 }
 
-export function TheoryDocument({ document, onBlockClick, selectedBlockId }) {
+export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPracticeNavigate }) {
   const tree = useMemo(() => buildTheoryTree(document?.blocks || []), [document]);
   return (
     <article className="theory-document">
@@ -32,13 +32,14 @@ export function TheoryDocument({ document, onBlockClick, selectedBlockId }) {
           depth={0}
           onBlockClick={onBlockClick}
           selectedBlockId={selectedBlockId}
+          onPracticeNavigate={onPracticeNavigate}
         />
       ))}
     </article>
   );
 }
 
-function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
+function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNavigate }) {
   const children = block.children || [];
   const markdown = block.data?.markdown || "";
   const click = (event) => {
@@ -63,7 +64,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
         <div className="theory-section-content">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />
+            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} />
           ))}
         </div>
         {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
@@ -88,6 +89,25 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
     content = <div className="table-scroll"><table><tbody>{(block.data?.rows || []).map((row, rowIndex) => <tr key={rowIndex}>{(row?.cells || row || []).map((cell, cellIndex) => <td key={cellIndex}><InlineMarkdown value={String(cell?.text || cell || "")} /></td>)}</tr>)}</tbody></table></div>;
   } else if (block.type === "video_embed" && block.data?.url) {
     content = <a className="video-link" href={safeUrl(block.data.url) || "#"} target="_blank" rel="noreferrer">Открыть видео <span>↗</span></a>;
+  } else if (block.type === "practice_link") {
+    const taskNumber = Number(block.data?.taskNumber);
+    const exerciseSetId = Number(block.data?.exerciseSetId) || null;
+    const validTarget = Number.isInteger(taskNumber) && taskNumber > 0;
+    const followLink = (event) => {
+      event.stopPropagation();
+      if (validTarget && onPracticeNavigate) onPracticeNavigate(taskNumber, exerciseSetId);
+    };
+    content = (
+      <aside className="practice-link-card">
+        <span className="practice-link-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M7 3.5h10v17L12 17l-5 3.5v-17Z" /></svg>
+        </span>
+        <div className="practice-link-copy"><Markdown value={markdown} /></div>
+        <button type="button" onClick={followLink} aria-disabled={!validTarget || !onPracticeNavigate}>
+          {block.data?.buttonLabel || "Перейти к тренажёру"}<span aria-hidden="true">→</span>
+        </button>
+      </aside>
+    );
   } else {
     const variant = block.settings?.variant;
     if (variant === "heading_1") content = <h2><InlineMarkdown value={markdown} /></h2>;
@@ -101,7 +121,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId }) {
         <div className="theory-block-content">{content}</div>
         {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
       </div>
-      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} />)}</div>}
+      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} />)}</div>}
     </div>
   );
 }

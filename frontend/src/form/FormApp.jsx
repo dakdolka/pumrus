@@ -6,7 +6,7 @@ import "./form.css";
 const BLOCK_TYPES = [
   ["rich_text", "Текст"], ["section", "Группа"], ["callout", "Выноска"],
   ["example", "Пример"], ["list", "Список"], ["table", "Таблица"],
-  ["image", "Изображение"], ["video_embed", "Видео"],
+  ["image", "Изображение"], ["video_embed", "Видео"], ["practice_link", "Ссылка на тренажёр"],
 ];
 const CALLOUTS = [
   ["note", "Примечание"], ["rule", "Правило"], ["warning", "Предупреждение"],
@@ -47,13 +47,26 @@ function signature(value) {
 function isTopicVisible(status) {
   return status === "published" || status === "published_manual";
 }
-function defaultData(type, previous = {}) {
+function defaultData(type, previous = {}, currentOwner = null, exerciseSets = []) {
   const markdown = previous.markdown || "";
   if (type === "section") return { title: previous.title || markdown || "Новая группа" };
   if (type === "list") return { style: "unordered", items: previous.items || (markdown ? markdown.split("\n") : ["Новый пункт"]) };
   if (type === "table") return { rows: previous.rows || [{ cells: ["Ячейка"] }] };
   if (type === "image") return { url: previous.url || "", alt: previous.alt || "", caption: previous.caption || "" };
   if (type === "video_embed") return { url: previous.url || "" };
+  if (type === "practice_link") {
+    const currentTaskNumber = Number(currentOwner?.taskNumber) || null;
+    const matchingSets = exerciseSets.filter((item) => item.taskNumber === currentTaskNumber);
+    const suggestedSet = matchingSets.find((item) => currentOwner?.type === "topic" && item.topicTitle === currentOwner.title)
+      || matchingSets.find((item) => !item.topicTitle)
+      || matchingSets[0];
+    return {
+      markdown: previous.markdown || "А это лучше отработать в нашем тренажёре",
+      taskNumber: Number(previous.taskNumber) || suggestedSet?.taskNumber || currentTaskNumber,
+      exerciseSetId: Number(previous.exerciseSetId) || suggestedSet?.id || null,
+      buttonLabel: previous.buttonLabel || "Перейти к тренажёру",
+    };
+  }
   if (type === "callout") return { markdown: markdown || previous.title || "", variant: previous.variant || "note" };
   return { markdown: markdown || previous.title || "" };
 }
@@ -258,6 +271,7 @@ function AccessGate({ access, verify }) {
 
 function PocketEditor() {
   const [catalog, setCatalog] = useState(null);
+  const [exerciseSets, setExerciseSets] = useState([]);
   const [selected, setSelected] = useState(null);
   const [document, setDocument] = useState(null);
   const [blocks, setBlocks] = useState([]);
@@ -284,7 +298,10 @@ function PocketEditor() {
     setCatalog(data);
     return data;
   }
-  useEffect(() => { loadCatalog().catch((e) => setError(e.message)); }, []);
+  useEffect(() => {
+    loadCatalog().catch((e) => setError(e.message));
+    adminApi("/exercise-sets").then(setExerciseSets).catch((e) => setError(e.message));
+  }, []);
   useEffect(() => {
     const stop = (event) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", stop);
@@ -414,7 +431,7 @@ function PocketEditor() {
                 <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropAdjacent} onNest={nestInside} onAdd={addBlock} />)}</div>
               </div>
               {selectedBlock
-                ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} />
+                ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={selected} />
                 : <aside className="inspector inspector-empty"><span className="overline">Редактор блока</span><p>Выберите блок или добавьте новый.</p></aside>}
             </div>
           </section>
@@ -468,21 +485,21 @@ function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, 
   </div>;
 }
 
-function BlockInspector({ block, update, remove }) {
+function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
   const editorRef = useRef(null);
   const setData = (patch) => update(block.id, { data: { ...(block.data || {}), ...patch } });
-  function changeType(type) { update(block.id, { type, data: defaultData(type, block.data) }); }
+  function changeType(type) { update(block.id, { type, data: defaultData(type, block.data, currentOwner, exerciseSets) }); }
   useEffect(() => {
     const field = editorRef.current?.querySelector(".markdown-editor, input:not([type]), textarea");
     field?.focus();
   }, [block.id]);
   return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
     <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
-    <BlockFields block={block} setData={setData} update={update} />
+    <BlockFields block={block} setData={setData} update={update} exerciseSets={exerciseSets} currentOwner={currentOwner} />
     <fieldset className="author-note-editor"><legend>Авторская пометка</legend><label>Текст · Markdown<input value={block.settings?.authorNote || ""} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNote: e.target.value } })} placeholder="Самое противное · Лайфхак · Запомни" /></label><div className="author-note-controls"><label>Расположение<select value={({ angled: "right-tilted", vertical: "vertical-right", below: "below-right" }[block.settings?.authorNotePlacement] || block.settings?.authorNotePlacement || "auto")} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNotePlacement: e.target.value } })}><option value="auto">Автоматически</option><option value="right-tilted">Справа, с наклоном</option><option value="left-tilted">Слева, с наклоном</option><option value="top-right">Правый верхний угол</option><option value="top-left">Левый верхний угол</option><option value="vertical-right">Вдоль правой границы</option><option value="vertical-left">Вдоль левой границы</option><option value="below-right">Снизу справа</option><option value="below-left">Снизу слева</option></select></label><label>Цвет<select value={block.settings?.authorNoteColor || "note"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNoteColor: e.target.value } })}><option value="note">Примечание · синий</option><option value="rule">Правило · зелёный</option><option value="warning">Предупреждение · красный</option><option value="important">Важно · жёлтый</option><option value="tip">Лайфхак · фиолетовый</option></select></label></div><small>Пустое поле убирает пометку. Расположение одинаково в приложении и предпросмотре на любой ширине.</small></fieldset>
   </aside>;
 }
-function BlockFields({ block, setData, update }) {
+function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
   if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
   if (block.type === "section") return <label>Название группы · Markdown<input value={block.data?.title || ""} onChange={(e) => setData({ title: e.target.value })} /></label>;
   if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><label>Пункты · один на строку<textarea className="markdown-editor short" value={(block.data?.items || []).map((item) => item?.text || item).join("\n")} onChange={(e) => setData({ items: e.target.value.split("\n") })} /></label></>;
@@ -502,6 +519,7 @@ function BlockFields({ block, setData, update }) {
     return <label>Таблица · Enter — новая строка, Shift+Enter — перенос в ячейке, ячейки через |<textarea className="markdown-editor short" value={value} onChange={(event) => change(event.target.value)} onKeyDown={handleKeyDown} /></label>;
   }
   if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
+  if (block.type === "practice_link") return <div className="field-stack"><label>Текст · Markdown<textarea className="markdown-editor short" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="А это лучше отработать в нашем тренажёре" /></label><label>Связанный тренажёр<select value={Number(block.data?.exerciseSetId) || ""} onChange={(e) => { const selectedSet = exerciseSets.find((item) => item.id === Number(e.target.value)); setData({ exerciseSetId: selectedSet?.id || null, taskNumber: selectedSet?.taskNumber || Number(currentOwner?.taskNumber) || null }); }}><option value="">Автоматически · задание {block.data?.taskNumber || currentOwner?.taskNumber}</option>{exerciseSets.map((item) => <option key={item.id} value={item.id}>Задание {item.taskNumber} · {item.title}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</option>)}</select></label><label>Текст кнопки<input value={block.data?.buttonLabel || ""} onChange={(e) => setData({ buttonLabel: e.target.value })} placeholder="Перейти к тренажёру" /></label></div>;
   return <label>Ссылка на видео<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label>;
 }
 function serializeTable(rows) {

@@ -39,6 +39,19 @@
 .table-scroll table { width: 100%; border-collapse: collapse; }
 .table-scroll td { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
+.practice-link-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px 12px; margin: 12px 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.practice-link-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); }
+.practice-link-mark svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.practice-link-copy { min-width: 0; }
+.practice-link-copy .rich-text { font-size: 14.5px; font-weight: 600; line-height: 1.42; }
+.practice-link-card > button { display: inline-flex; grid-column: 2; width: fit-content; min-height: 36px; align-items: center; justify-content: center; gap: 8px; padding: 7px 11px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line)); border-radius: 9px; background: var(--accent); color: var(--accent-contrast, #fff); font: 700 12px/1.2 var(--display-font, inherit); cursor: pointer; transition: transform .16s ease, filter .16s ease; }
+.practice-link-card > button:hover { filter: brightness(1.05); transform: translateY(-1px); }
+.practice-link-card > button:active { transform: translateY(0); }
+.practice-link-card > button[aria-disabled="true"] { cursor: default; }
+@media (max-width: 520px) {
+  .practice-link-card { gap: 9px 11px; padding: 12px; }
+  .practice-link-card > button { grid-column: 1 / -1; width: 100%; }
+}
 @font-face { font-family: "UmRus Handwriting"; src: url("/manual.ttf") format("truetype"); font-display: swap; }
 .author-note { --note-color: var(--info, #79a8d8); display: flex; min-width: 0; justify-content: flex-end; align-items: center; margin: 5px 10px 9px; color: color-mix(in srgb, var(--note-color) 90%, var(--text)); pointer-events: none; }
 .author-note-tone-note { --note-color: var(--info, #79a8d8); }

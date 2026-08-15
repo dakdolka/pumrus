@@ -29,15 +29,18 @@ function practiceClientId() {
 }
 
 
-async function openRelatedPractice(taskNumber, navigate) {
+async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null) {
   try {
     const data = await api(`/v2/practice/tasks/${taskNumber}/sets`);
     const taskSets = data.sets.filter((item) => !item.topicId);
-    const set = taskSets.length === 1
+    const requestedSet = exerciseSetId
+      ? data.sets.find((item) => item.id === Number(exerciseSetId))
+      : null;
+    const set = requestedSet || (taskSets.length === 1
       ? taskSets[0]
       : data.sets.length === 1
         ? data.sets[0]
-        : null;
+        : null);
     if (!set) throw new Error("Для задания не настроена единственная общая подборка");
     const session = await api("/v2/practice/sessions", {
       method: "POST",
@@ -465,7 +468,7 @@ function DeprecatedTheory({ navigate }) {
           <button className="deprecated-back" onClick={() => setSelectedId(null)}><AppIcon type="back" /> К списку</button>
           {document.loading && <Loading />}
           {document.error && <ErrorState message={document.error} />}
-          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} /></>}
+          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} /></>}
         </section>
       )}
     </Shell>
@@ -560,7 +563,7 @@ function TaskTheory({ taskNumber, navigate }) {
             <h1>{state.data.title}</h1>
             {state.data.shortDescription && <p>{state.data.shortDescription}</p>}
           </section>
-          {state.data.theory && <TheoryDocument document={state.data.theory} />}
+          {state.data.theory && <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} />}
           <section className="section-block">
             <div className="section-heading">
               <p className="eyebrow">По частям</p>
@@ -620,7 +623,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
             <h1>{state.data.title}</h1>
           </section>
           {state.data.theory
-            ? <TheoryDocument document={state.data.theory} />
+            ? <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} />
             : <EmptyCard text="Материал этой темы пока готовится." />}
         </>
       )}

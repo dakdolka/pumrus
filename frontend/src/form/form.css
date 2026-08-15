@@ -116,6 +116,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .block-row.type-list { --block-tone: var(--success); }
 .block-row.type-table { --block-tone: var(--warning); }
 .block-row.type-image, .block-row.type-video_embed { --block-tone: var(--info); }
+.block-row.type-practice_link { --block-tone: var(--accent); }
 .block-row:hover, .block-row.active { border-color: color-mix(in srgb, var(--accent) 65%, var(--line)); }
 .block-row.active { border-color: color-mix(in srgb, var(--block-tone) 70%, var(--line)); background: color-mix(in srgb, var(--block-tone) 8%, var(--surface)); }
 .block-row.drop-before { box-shadow: 0 -3px 0 var(--accent); }
