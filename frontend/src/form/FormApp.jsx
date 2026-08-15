@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TheoryDocument, buildTheoryTree } from "../theory/TheoryRenderer";
+import { TheoryDocument } from "../theory/TheoryRenderer";
+import { buildTheoryTree } from "../theory/theoryTree";
 import BrandLogo from "../BrandLogo";
 import "./form.css";
 
@@ -534,6 +535,24 @@ function parseTable(value) {
   }));
 }
 function label(type) { return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type; }
-function excerpt(block) { return String(block.data?.title || block.data?.markdown || block.data?.url || "Пустой блок").replace(/[#*_`]/g, "").replace(/\s+/g, " ").slice(0, 55); }
+function excerpt(block) {
+  const listPreview = (block.data?.items || [])
+    .slice(0, 2)
+    .map((item) => item?.text || item)
+    .join(" · ");
+  const tablePreview = (block.data?.rows?.[0]?.cells || block.data?.rows?.[0] || [])
+    .map((cell) => cell?.text || cell)
+    .join(" · ");
+  return String(
+    block.data?.title
+      || block.data?.markdown
+      || listPreview
+      || tablePreview
+      || block.data?.caption
+      || block.data?.alt
+      || block.data?.url
+      || "Пустой блок",
+  ).replace(/[#*_`]/g, "").replace(/\s+/g, " ").slice(0, 55);
+}
 function isDescendant(blocks, id, possibleAncestor) { let cursor = id; while (cursor) { if (cursor === possibleAncestor) return true; cursor = blocks.find((item) => item.id === cursor)?.parentId; } return false; }
 function findOwner(catalog, type, id) { for (const task of catalog?.tasks || []) { if (type === "task" && task.id === id) return { ...task, type, taskNumber: task.number }; const topic = task.topics.find((item) => item.id === id); if (type === "topic" && topic) return { ...topic, type, taskNumber: task.number }; } return null; }

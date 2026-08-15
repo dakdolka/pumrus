@@ -17,6 +17,13 @@ async function api(path, options = {}) {
 }
 
 
+function reportAppError(error) {
+  window.dispatchEvent(new CustomEvent("umrus:app-error", {
+    detail: error?.message || "Не удалось выполнить действие",
+  }));
+}
+
+
 function practiceClientId() {
   const key = "umrus:practice-client";
   let value = localStorage.getItem(key);
@@ -29,7 +36,7 @@ function practiceClientId() {
 }
 
 
-async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null) {
+async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null, userId = null) {
   try {
     const data = await api(`/v2/practice/tasks/${taskNumber}/sets`);
     const taskSets = data.sets.filter((item) => !item.topicId);
@@ -46,7 +53,7 @@ async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null) {
       method: "POST",
       body: JSON.stringify({
         exercise_set_id: set.id,
-        user_id: window.__umrusUserId || null,
+        user_id: userId,
         client_session_id: practiceClientId(),
         mode: "standard",
         limit: set.sessionSize,
@@ -55,7 +62,7 @@ async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null) {
     });
     navigate(`/practice/sessions/${session.id}?origin=theory`);
   } catch (error) {
-    window.alert(error.message);
+    reportAppError(error);
   }
 }
 
@@ -98,7 +105,9 @@ function restoreRouteScroll(key) {
 
 
 function useRoute() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [location, setLocation] = useState(
+    () => `${window.location.pathname}${window.location.search}`,
+  );
   const currentScrollKey = useRef(routeScrollKey());
   const stopRestoring = useRef(() => {});
 
@@ -106,7 +115,7 @@ function useRoute() {
     const update = () => {
       sessionStorage.setItem(currentScrollKey.current, String(window.scrollY));
       currentScrollKey.current = routeScrollKey();
-      setPath(window.location.pathname);
+      setLocation(`${window.location.pathname}${window.location.search}`);
       stopRestoring.current();
       stopRestoring.current = restoreRouteScroll(currentScrollKey.current);
     };
@@ -127,12 +136,12 @@ function useRoute() {
     sessionStorage.setItem(currentScrollKey.current, String(window.scrollY));
     window.history.pushState({}, "", nextPath);
     currentScrollKey.current = routeScrollKey();
-    setPath(url.pathname);
+    setLocation(`${url.pathname}${url.search}`);
     stopRestoring.current();
     stopRestoring.current = restoreRouteScroll(currentScrollKey.current);
   }, []);
 
-  return { path, navigate };
+  return { path: location.split("?")[0], navigate };
 }
 
 
@@ -175,6 +184,7 @@ function AppIcon({ type }) {
 
 
 function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
+  const [notice, setNotice] = useState("");
   const backPath = breadcrumbs.length > 1
     ? breadcrumbs[breadcrumbs.length - 2].path
     : "/";
@@ -192,6 +202,20 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
     }
     return () => tg?.BackButton?.offClick?.(handleBack);
   }, [backPath, breadcrumbs.length, navigate]);
+
+  useEffect(() => {
+    let timeout;
+    const show = (event) => {
+      window.clearTimeout(timeout);
+      setNotice(String(event.detail || "Не удалось выполнить действие"));
+      timeout = window.setTimeout(() => setNotice(""), 5000);
+    };
+    window.addEventListener("umrus:app-error", show);
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("umrus:app-error", show);
+    };
+  }, []);
 
   return (
     <div className="app-shell">
@@ -241,6 +265,12 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
         </div>
       )}
       <main>{children}</main>
+      {notice && (
+        <div className="app-notice" role="alert">
+          <span>{notice}</span>
+          <button onClick={() => setNotice("")} aria-label="Закрыть">×</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -325,7 +355,7 @@ function AppFooter() {
 }
 
 
-function TaskCatalog({ mode, navigate }) {
+function TaskCatalog({ mode, navigate, userId }) {
   const state = useRemote(() => api(`/v2/catalog/tasks?mode=${mode}`), [mode]);
   const isTheory = mode === "theory";
   const [startingTaskId, setStartingTaskId] = useState(null);
@@ -342,7 +372,7 @@ function TaskCatalog({ mode, navigate }) {
         method: "POST",
         body: JSON.stringify({
           exercise_set_id: task.directExerciseSetId,
-          user_id: window.__umrusUserId || null,
+          user_id: userId,
           client_session_id: practiceClientId(),
           mode: "standard",
         }),
@@ -350,7 +380,7 @@ function TaskCatalog({ mode, navigate }) {
       navigate(`/practice/sessions/${session.id}`);
     } catch (error) {
       setStartingTaskId(null);
-      window.alert(error.message);
+      reportAppError(error);
     }
   }
 
@@ -422,7 +452,7 @@ function TaskCatalog({ mode, navigate }) {
 }
 
 
-function DeprecatedTheory({ navigate }) {
+function DeprecatedTheory({ navigate, userId }) {
   const catalog = useRemote(() => api("/v2/theory/deprecated"), []);
   const [selectedId, setSelectedId] = useState(null);
   const document = useRemote(
@@ -468,7 +498,7 @@ function DeprecatedTheory({ navigate }) {
           <button className="deprecated-back" onClick={() => setSelectedId(null)}><AppIcon type="back" /> К списку</button>
           {document.loading && <Loading />}
           {document.error && <ErrorState message={document.error} />}
-          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} /></>}
+          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} /></>}
         </section>
       )}
     </Shell>
@@ -502,9 +532,23 @@ function groupTasks(tasks) {
 
 function InfoButton({ title, text, compact = false }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef(null);
+  const closeRef = useRef(null);
+  const close = useCallback(() => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
+  }, []);
+  useEffect(() => {
+    if (!open) return undefined;
+    closeRef.current?.focus();
+    const handleKeyDown = (event) => event.key === "Escape" && close();
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [close, open]);
   return (
     <>
       <button
+        ref={triggerRef}
         className={compact ? "info-button compact" : "info-button"}
         aria-label={`О разделе «${title}»`}
         onClick={() => setOpen(true)}
@@ -512,9 +556,9 @@ function InfoButton({ title, text, compact = false }) {
         ?
       </button>
       {open && (
-        <div className="info-backdrop" role="presentation" onMouseDown={() => setOpen(false)}>
+        <div className="info-backdrop" role="presentation" onMouseDown={close}>
           <section className="info-popup" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="popup-close" onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+            <button ref={closeRef} className="popup-close" onClick={close} aria-label="Закрыть">×</button>
             <p className="eyebrow">О разделе</p>
             <h2>{title}</h2>
             <p>{text}</p>
@@ -535,7 +579,7 @@ function topicWord(count) {
 }
 
 
-function TaskTheory({ taskNumber, navigate }) {
+function TaskTheory({ taskNumber, navigate, userId }) {
   const state = useRemote(
     () => api(`/v2/catalog/tasks/${taskNumber}`),
     [taskNumber],
@@ -551,7 +595,7 @@ function TaskTheory({ taskNumber, navigate }) {
         label: "Практика",
         icon: "bookmark",
         active: false,
-        onClick: () => openRelatedPractice(taskNumber, navigate),
+        onClick: () => openRelatedPractice(taskNumber, navigate, null, userId),
       }}
     >
       {state.loading && <Loading />}
@@ -563,7 +607,7 @@ function TaskTheory({ taskNumber, navigate }) {
             <h1>{state.data.title}</h1>
             {state.data.shortDescription && <p>{state.data.shortDescription}</p>}
           </section>
-          {state.data.theory && <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} />}
+          {state.data.theory && <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />}
           <section className="section-block">
             <div className="section-heading">
               <p className="eyebrow">По частям</p>
@@ -594,7 +638,7 @@ function TaskTheory({ taskNumber, navigate }) {
 }
 
 
-function TopicTheory({ taskNumber, topicId, navigate }) {
+function TopicTheory({ taskNumber, topicId, navigate, userId }) {
   const state = useRemote(
     () => api(`/v2/theory/topics/${topicId}`),
     [topicId],
@@ -611,7 +655,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
         label: "Практика",
         icon: "bookmark",
         active: false,
-        onClick: () => openRelatedPractice(taskNumber, navigate),
+        onClick: () => openRelatedPractice(taskNumber, navigate, null, userId),
       }}
     >
       {state.loading && <Loading />}
@@ -623,7 +667,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
             <h1>{state.data.title}</h1>
           </section>
           {state.data.theory
-            ? <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId)} />
+            ? <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />
             : <EmptyCard text="Материал этой темы пока готовится." />}
         </>
       )}
@@ -632,184 +676,7 @@ function TopicTheory({ taskNumber, topicId, navigate }) {
 }
 
 
-function LegacyTheoryDocument({ document }) {
-  const blockTree = useMemo(() => {
-    const blocks = document.blocks || [];
-    if (blocks.some((block) => Array.isArray(block.children))) {
-      return blocks;
-    }
-
-    const children = new Map();
-    const ids = new Set(blocks.map((block) => block.id));
-    blocks.forEach((block) => {
-      const key = block.parentId != null && ids.has(block.parentId)
-        ? block.parentId
-        : null;
-      children.set(key, [...(children.get(key) || []), block]);
-    });
-
-    const attachChildren = (block, ancestors = new Set()) => {
-      if (ancestors.has(block.id)) return { ...block, children: [] };
-      const nextAncestors = new Set(ancestors).add(block.id);
-      return {
-        ...block,
-        children: (children.get(block.id) || [])
-          .map((child) => attachChildren(child, nextAncestors)),
-      };
-    };
-    return (children.get(null) || []).map((block) => attachChildren(block));
-  }, [document]);
-
-  return (
-    <article className="theory-document">
-      {blockTree.map((block) => (
-        <TheoryBlock key={block.id} block={block} depth={0} />
-      ))}
-    </article>
-  );
-}
-
-
-function TheoryBlock({ block, depth }) {
-  const [sectionOpen, setSectionOpen] = useState(true);
-  const children = block.children || [];
-  const markdown = block.data?.markdown || "";
-  if (block.type === "section") {
-    return (
-      <details
-        className={`theory-section depth-${Math.min(depth, 3)}`}
-        open={sectionOpen}
-        onToggle={(event) => setSectionOpen(event.currentTarget.open)}
-      >
-        <summary>
-          <span>{block.data?.title || "Подраздел"}</span>
-          <i>+</i>
-        </summary>
-        <div className="theory-section-content">
-          {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} depth={depth + 1} />
-          ))}
-        </div>
-      </details>
-    );
-  }
-
-  let content;
-  if (block.type === "callout") {
-    content = (
-      <fieldset className={`callout callout-${block.data?.variant || "note"}`}>
-        <legend>{calloutLabel(block.data?.variant)}</legend>
-        <MarkdownText value={markdown} />
-      </fieldset>
-    );
-  } else if (block.type === "example") {
-    content = (
-      <fieldset className="example-block">
-        <legend>Пример</legend>
-        <MarkdownText value={markdown} />
-      </fieldset>
-    );
-  } else if (block.type === "image") {
-    const source = block.data?.sourceType === "inline_svg"
-      ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(block.data?.svg || "")}`
-      : block.data?.url;
-    content = source ? (
-      <figure className="theory-image">
-        <img src={source} alt={block.data?.alt || ""} />
-        {block.data?.caption && <figcaption>{block.data.caption}</figcaption>}
-      </figure>
-    ) : null;
-  } else if (block.type === "list") {
-    const items = block.data?.items || [];
-    const ListTag = block.data?.style === "ordered" ? "ol" : "ul";
-    content = (
-      <ListTag className="theory-list">
-        {items.map((item, index) => <li key={index}>{String(item?.text || item)}</li>)}
-      </ListTag>
-    );
-  } else if (block.type === "table") {
-    const rows = block.data?.rows || [];
-    content = (
-      <div className="table-scroll">
-        <table>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {(row?.cells || row || []).map((cell, cellIndex) => (
-                  <td key={cellIndex}>{String(cell?.text || cell || "")}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  } else if (block.type === "video_embed" && block.data?.url) {
-    content = (
-      <a className="video-link" href={block.data.url} target="_blank" rel="noreferrer">
-        Открыть видео
-        <AppIcon type="arrow" />
-      </a>
-    );
-  } else {
-    const variant = block.settings?.variant;
-    if (variant === "heading_1") content = <h2>{markdown}</h2>;
-    else if (variant === "heading_2") content = <h3>{markdown}</h3>;
-    else content = <MarkdownText value={markdown} />;
-  }
-
-  return (
-    <div className={`theory-block theory-block-${block.type}`}>
-      {content}
-      {children.length > 0 && (
-        <div className="theory-nested">
-          {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} depth={depth + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-function calloutLabel(variant) {
-  return {
-    warning: "Обратите внимание",
-    rule: "Правило",
-    important: "Важно",
-    tip: "Подсказка",
-    note: "Примечание",
-  }[variant] || "Примечание";
-}
-
-
-function MarkdownText({ value }) {
-  return (
-    <div className="rich-text">
-      {String(value || "").split(/\n{2,}/).filter(Boolean).map((paragraph, index) => (
-        <p key={index}><InlineMarkdown value={paragraph} /></p>
-      ))}
-    </div>
-  );
-}
-
-
-function InlineMarkdown({ value }) {
-  const parts = String(value || "").split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((part, index) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={index}>{part.slice(1, -1)}</code>;
-    }
-    return part;
-  });
-}
-
-
-function PracticeTask({ taskNumber, navigate }) {
+function PracticeTask({ taskNumber, navigate, userId }) {
   const search = new URLSearchParams(window.location.search);
   const topicId = search.get("topic");
   const theoryOrigin = search.get("origin") === "theory";
@@ -826,7 +693,7 @@ function PracticeTask({ taskNumber, navigate }) {
         method: "POST",
         body: JSON.stringify({
           exercise_set_id: set.id,
-          user_id: window.__umrusUserId || null,
+          user_id: userId,
           client_session_id: practiceClientId(),
           mode: mistakesMode ? "mistakes" : "standard",
           limit: set.sessionSize,
@@ -837,7 +704,7 @@ function PracticeTask({ taskNumber, navigate }) {
       navigate(`/practice/sessions/${session.id}${contextQuery}`);
     } catch (error) {
       setAutoStartingSetId(-1);
-      window.alert(error.message);
+      reportAppError(error);
     }
   }, [mistakesMode, navigate, theoryOrigin]);
 
@@ -911,8 +778,7 @@ function PracticeTask({ taskNumber, navigate }) {
 }
 
 
-function MistakesPractice({ navigate }) {
-  const userId = window.__umrusUserId || null;
+function MistakesPractice({ navigate, userId }) {
   const state = useRemote(
     () => userId ? api(`/v2/practice/mistakes?user_id=${userId}`) : Promise.resolve({ total: 0, tasks: [] }),
     [userId],
@@ -966,7 +832,7 @@ function PracticeSession({ sessionId, navigate }) {
   const [results, setResults] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
   const [errorResult, setErrorResult] = useState(null);
-  const [pendingAdvance, setPendingAdvance] = useState(null);
+  const [, setPendingAdvance] = useState(null);
   const [activeItemId, setActiveItemId] = useState(null);
   const [relatedTheoryOpen, setRelatedTheoryOpen] = useState(false);
   const [relatedTheoryTopicId, setRelatedTheoryTopicId] = useState(null);
@@ -1136,7 +1002,7 @@ function PracticeSession({ sessionId, navigate }) {
         }, 450);
       }
     } catch (error) {
-      window.alert(error.message);
+      reportAppError(error);
     } finally {
       setSubmittingId(null);
     }
@@ -1149,7 +1015,7 @@ function PracticeSession({ sessionId, navigate }) {
       localStorage.removeItem(`umrus:drafts:${session.id}`);
       navigate(`/practice/tasks/${session.context.taskNumber}`);
     } catch (error) {
-      window.alert(error.message);
+      reportAppError(error);
     }
   }
 
@@ -1589,76 +1455,6 @@ function hasResponse(item, response) {
 }
 
 
-function ResultCard({ result, onTheory }) {
-  const correct = result.status === "correct";
-  return (
-    <div className={`result-card ${correct ? "correct" : "incorrect"}`}>
-      <div className="result-title">
-        <span><AppIcon type={correct ? "check" : "back"} /></span>
-        <strong>{correct ? "Верно" : "Нужно повторить"}</strong>
-      </div>
-      {!correct && result.correctAnswer && (
-        <p>Правильный ответ: <b>{result.correctAnswer}</b></p>
-      )}
-      {result.feedback?.message && <p>{result.feedback.message}</p>}
-      {(result.feedback?.theoryLinks || []).map((link) => (
-        <button className="theory-link" key={link.route} onClick={() => onTheory(link)}>
-          <AppIcon type="theory" />
-          {link.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-
-function TheoryOverlay({ link, onClose }) {
-  const state = useRemote(
-    () => link.topicId
-      ? api(`/v2/theory/topics/${link.topicId}`)
-      : api(`/v2/catalog/tasks/${link.taskNumber}`),
-    [link.topicId, link.taskNumber],
-  );
-  const document = state.data?.theory;
-
-  useEffect(() => {
-    const handle = (event) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", handle);
-    return () => window.removeEventListener("keydown", handle);
-  }, [onClose]);
-
-  return (
-    <div className="overlay-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="theory-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-label={link.label}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="overlay-handle" />
-        <header>
-          <div>
-            <p className="eyebrow">Теория к упражнению</p>
-            <h2>{state.data?.title || link.label}</h2>
-          </div>
-          <button onClick={onClose} aria-label="Закрыть">×</button>
-        </header>
-        <div className="overlay-scroll">
-          {state.loading && <Loading />}
-          {state.error && <ErrorState message={state.error} />}
-          {state.data && (
-            document
-              ? <TheoryDocument document={document} />
-              : <EmptyCard text="Связанная теория пока готовится." />
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-
 function EmptyCard({ text }) {
   return <div className="empty-card">{text}</div>;
 }
@@ -1698,6 +1494,10 @@ function resolveRoute(path) {
 export default function App() {
   const { path, navigate } = useRoute();
   const route = resolveRoute(path);
+  const [userId, setUserId] = useState(() => {
+    const stored = Number(sessionStorage.getItem("umrus:user-id"));
+    return Number.isInteger(stored) && stored > 0 ? stored : null;
+  });
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
@@ -1749,28 +1549,31 @@ export default function App() {
         avatar_url: user.photo_url || null,
       }),
     }).then((payload) => {
-      window.__umrusUserId = payload.user.id;
+      const id = Number(payload.user.id);
+      if (!Number.isInteger(id) || id <= 0) return;
+      sessionStorage.setItem("umrus:user-id", String(id));
+      setUserId(id);
     }).catch(() => {});
   }, []);
 
   if (route.screen === "home") return <Home navigate={navigate} />;
   if (route.screen === "catalog") {
-    return <TaskCatalog mode={route.mode} navigate={navigate} />;
+    return <TaskCatalog mode={route.mode} navigate={navigate} userId={userId} />;
   }
   if (route.screen === "taskTheory") {
-    return <TaskTheory taskNumber={route.taskNumber} navigate={navigate} />;
+    return <TaskTheory taskNumber={route.taskNumber} navigate={navigate} userId={userId} />;
   }
   if (route.screen === "deprecatedTheory") {
-    return <DeprecatedTheory navigate={navigate} />;
+    return <DeprecatedTheory navigate={navigate} userId={userId} />;
   }
   if (route.screen === "topicTheory") {
-    return <TopicTheory {...route} navigate={navigate} />;
+    return <TopicTheory {...route} navigate={navigate} userId={userId} />;
   }
   if (route.screen === "practiceTask") {
-    return <PracticeTask taskNumber={route.taskNumber} navigate={navigate} />;
+    return <PracticeTask taskNumber={route.taskNumber} navigate={navigate} userId={userId} />;
   }
   if (route.screen === "mistakesPractice") {
-    return <MistakesPractice navigate={navigate} />;
+    return <MistakesPractice navigate={navigate} userId={userId} />;
   }
   if (route.screen === "session") {
     return <PracticeSession sessionId={route.sessionId} navigate={navigate} />;

@@ -38,6 +38,8 @@
 .table-scroll { margin: 10px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
 .table-scroll table { width: 100%; border-collapse: collapse; }
 .table-scroll td { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; }
+.table-scroll tr:first-child td { background: var(--surface-soft); font-weight: 700; }
+.table-scroll tr:nth-child(even):not(:first-child) td { background: color-mix(in srgb, var(--surface-soft) 46%, transparent); }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
 .practice-link-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px 12px; margin: 12px 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 .practice-link-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); }

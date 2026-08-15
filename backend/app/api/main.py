@@ -12,6 +12,7 @@ from app.api.user.general.router import router as users_router
 from app.api.user.mistakes.router import router as user_mistakes_router
 from app.api.v2.router import router as v2_router
 from app.api.v2.admin_router import router as v2_admin_router
+from app.core.config import settings
 from app.core.db import async_engine
 
 
@@ -41,8 +42,8 @@ app.include_router(v2_admin_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
