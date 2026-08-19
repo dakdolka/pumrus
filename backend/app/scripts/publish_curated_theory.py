@@ -327,6 +327,8 @@ async def publish_task8(
             await session.flush()
             counters["topics_created"] += 1
         else:
+            if topic.status == "deleted":
+                continue
             topic.title = definition["title"]
             topic.short_description = definition["description"]
             if topic.status != "hidden":
@@ -410,6 +412,8 @@ async def publish_bundle(
             await session.flush()
             counters["topics_created"] += 1
         else:
+            if topic_record.status == "deleted":
+                continue
             if topic_record.status not in {"hidden", "published_manual"}:
                 topic_record.title = topic_definition["title"]
                 topic_record.short_description = topic_definition["description"]
@@ -462,7 +466,7 @@ async def hide_superseded_topics(
             .where(ExamTaskTopicBD.exam_task_id == task.id)
         )).all())
         for topic in topics:
-            if topic.code in desired_codes or topic.status in {"hidden", "published_manual"}:
+            if topic.code in desired_codes or topic.status in {"deleted", "hidden", "published_manual"}:
                 continue
             if topic.status != "deprecated":
                 topic.status = "deprecated"
@@ -518,6 +522,8 @@ async def restore_legacy_and_hide_other_curated(
             .limit(1)
         )
         topic = await session.get(TopicBD, document.topic_id) if document.topic_id else None
+        if topic is not None and topic.status == "deleted":
+            continue
         if legacy_version is not None:
             legacy_version.status = "published"
             document.published_version_id = legacy_version.id

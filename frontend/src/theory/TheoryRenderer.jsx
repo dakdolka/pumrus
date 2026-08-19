@@ -57,6 +57,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
     return (
       <details
         className={`theory-section depth-${Math.min(depth, 3)} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`}
+        data-theory-block-id={block.id}
         onClick={click}
       >
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
@@ -118,7 +119,7 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
   }
 
   return (
-    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`} onClick={click}>
+    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`} data-theory-block-id={block.id} onClick={click}>
       <div className="theory-block-main">
         <div className="theory-block-content">{content}</div>
         {authorNote && <AuthorNote {...authorNoteProps} />}

@@ -210,7 +210,10 @@ async def admin_catalog(db: AsyncSession = Depends(get_db)):
         await db.execute(
             select(ExamTaskTopicBD, TopicBD)
             .join(TopicBD, TopicBD.id == ExamTaskTopicBD.topic_id)
-            .where(TopicBD.course_version_id == course_version.id)
+            .where(
+                TopicBD.course_version_id == course_version.id,
+                TopicBD.status != "deleted",
+            )
             .order_by(
                 ExamTaskTopicBD.exam_task_id,
                 ExamTaskTopicBD.sort_order,
@@ -305,12 +308,30 @@ async def update_topic(
     db: AsyncSession = Depends(get_db),
 ):
     topic = await db.get(TopicBD, topic_id)
-    if topic is None:
+    if topic is None or topic.status == "deleted":
         raise HTTPException(404, "Тема не найдена")
     topic.title = body.title.strip()
     topic.short_description = body.short_description
     await db.commit()
     return {"id": topic.id, "title": topic.title}
+
+
+@router.delete("/topics/{topic_id}", dependencies=[Depends(require_admin)])
+async def delete_topic(
+    topic_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    topic = await db.get(TopicBD, topic_id)
+    if topic is None or topic.status == "deleted":
+        raise HTTPException(404, "Тема не найдена")
+    topic.status = "deleted"
+    document = await db.scalar(
+        select(TheoryDocumentBD).where(TheoryDocumentBD.topic_id == topic.id)
+    )
+    if document is not None:
+        document.status = "deprecated"
+    await db.commit()
+    return {"deleted": True, "id": topic.id}
 
 
 @router.patch("/topics/{topic_id}/visibility", dependencies=[Depends(require_admin)])
@@ -320,7 +341,7 @@ async def update_topic_visibility(
     db: AsyncSession = Depends(get_db),
 ):
     topic = await db.get(TopicBD, topic_id)
-    if topic is None:
+    if topic is None or topic.status == "deleted":
         raise HTTPException(404, "Тема не найдена")
     topic.status = "published_manual" if body.visible else "hidden"
     document = await db.scalar(

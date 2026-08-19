@@ -286,8 +286,10 @@ function PocketEditor() {
   const [catalogOpen, setCatalogOpen] = useState(true);
   const [busy, setBusy] = useState(false);
   const [visibilityBusy, setVisibilityBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const previewRef = useRef(null);
 
   const currentState = useMemo(() => ({ blocks, ownerTitle, description, documentTitle }), [blocks, ownerTitle, description, documentTitle]);
   const dirty = Boolean(document) && signature(currentState) !== baseline;
@@ -308,6 +310,36 @@ function PocketEditor() {
     window.addEventListener("beforeunload", stop);
     return () => window.removeEventListener("beforeunload", stop);
   }, [dirty]);
+  useEffect(() => {
+    if (!selectedId) return undefined;
+    let nestedFrame = null;
+    const frame = window.requestAnimationFrame(() => {
+      const pane = previewRef.current;
+      const target = Array.from(pane?.querySelectorAll("[data-theory-block-id]") || [])
+        .find((element) => String(element.dataset.theoryBlockId) === String(selectedId));
+      if (!pane || !target) return;
+      let parentSection = target.parentElement?.closest("details.theory-section");
+      while (parentSection) {
+        parentSection.open = true;
+        parentSection = parentSection.parentElement?.closest("details.theory-section");
+      }
+      nestedFrame = window.requestAnimationFrame(() => {
+        if (pane.scrollHeight > pane.clientHeight + 2) {
+          const paneBounds = pane.getBoundingClientRect();
+          const targetBounds = target.getBoundingClientRect();
+          const targetTop = pane.scrollTop + targetBounds.top - paneBounds.top;
+          const offset = Math.max(24, (pane.clientHeight - Math.min(targetBounds.height, pane.clientHeight)) * .32);
+          pane.scrollTo({ top: Math.max(0, targetTop - offset), behavior: "smooth" });
+        } else {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (nestedFrame !== null) window.cancelAnimationFrame(nestedFrame);
+    };
+  }, [selectedId, panel, selected?.id]);
 
   async function choose(owner, skipDirtyCheck = false) {
     if (!skipDirtyCheck && dirty && !window.confirm("Отменить неопубликованные изменения?")) return;
@@ -422,6 +454,22 @@ function PocketEditor() {
     } catch (e) { setError(e.message); } finally { setVisibilityBusy(false); }
   }
 
+  async function deleteTopic() {
+    if (selected?.type !== "topic" || deleteBusy) return;
+    const warning = dirty
+      ? "Удалить тему и отменить неопубликованные изменения? Она исчезнет из приложения, но её данные останутся в базе."
+      : "Удалить тему? Она исчезнет из приложения, но её данные останутся в базе.";
+    if (!window.confirm(warning)) return;
+    setDeleteBusy(true); setError("");
+    try {
+      await adminApi(`/topics/${selected.id}`, { method: "DELETE" });
+      await loadCatalog();
+      setSelected(null); setDocument(null); setBlocks([]); setSelectedId(null);
+      setOwnerTitle(""); setDescription(""); setDocumentTitle(""); setBaseline("");
+      setNotice("Тема удалена"); setTimeout(() => setNotice(""), 2200);
+    } catch (e) { setError(e.message); } finally { setDeleteBusy(false); }
+  }
+
   return <div className="form-app">
     <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap"><a className="deprecated-form-link" href="/theory/deprecated" target="_blank" rel="noreferrer">Deprecated</a>{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
     <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
@@ -430,7 +478,7 @@ function PocketEditor() {
         {!selected ? <Welcome /> : <>
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
           <section className={`edit-pane mobile-${panel}`}>
-            <div className="owner-fields"><div className="owner-meta"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span>{selected.type === "topic" && <button className={`visibility-button ${!isTopicVisible(selected.status) ? "is-hidden" : ""}`} disabled={visibilityBusy} onClick={toggleTopicVisibility}>{visibilityBusy ? "Сохраняем…" : !isTopicVisible(selected.status) ? "Показать тему" : "Скрыть тему"}</button>}</div><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
+            <div className="owner-fields"><div className="owner-meta"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span>{selected.type === "topic" && <div className="topic-actions"><button className={`visibility-button ${!isTopicVisible(selected.status) ? "is-hidden" : ""}`} disabled={visibilityBusy || deleteBusy} onClick={toggleTopicVisibility}>{visibilityBusy ? "Сохраняем…" : !isTopicVisible(selected.status) ? "Показать тему" : "Скрыть тему"}</button><button className="delete-topic-button" disabled={deleteBusy || visibilityBusy} onClick={deleteTopic}>{deleteBusy ? "Удаляем…" : "Удалить"}</button></div>}</div><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
             <div className="editing-body">
               <div className="structure-column">
                 <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
@@ -441,7 +489,7 @@ function PocketEditor() {
                 : <aside className="inspector inspector-empty"><span className="overline">Редактор блока</span><p>Выберите блок или добавьте новый.</p></aside>}
             </div>
           </section>
-          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Пометки можно перетаскивать</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} selectedBlockId={selectedId} onBlockClick={(id) => { setSelectedId(String(id)); }} onAuthorNoteChange={updateAuthorNote} /></div></section>
+          <section className={`preview-pane mobile-${panel}`} ref={previewRef}><div className="preview-label"><span>Предпросмотр</span><small>Выбранный блок показывается автоматически</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} selectedBlockId={selectedId} onBlockClick={(id) => { setSelectedId(String(id)); }} onAuthorNoteChange={updateAuthorNote} /></div></section>
         </>}
       </main>
     </div>
@@ -506,55 +554,26 @@ function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
   </aside>;
 }
 
-const NOTE_PLACEMENT_COORDS = {
-  auto: [82, 50],
-  "right-tilted": [86, 50],
-  "left-tilted": [14, 50],
-  "top-right": [84, 12],
-  "top-left": [16, 12],
-  "vertical-right": [94, 50],
-  "vertical-left": [6, 50],
-  "below-right": [84, 88],
-  "below-left": [16, 88],
-  free: [50, 50],
-};
-
 function AuthorNoteEditor({ block, update }) {
   const settings = block.settings || {};
-  const placement = ({ angled: "right-tilted", vertical: "vertical-right", below: "below-right" }[settings.authorNotePlacement]
-    || settings.authorNotePlacement
-    || "auto");
-  const effectivePlacement = placement === "auto"
-    ? block.type === "table" ? "vertical-right" : ["callout", "example"].includes(block.type) ? "right-tilted" : "below-right"
-    : placement;
   const scale = boundedNumber(settings.authorNoteScale, 100, 50, 200);
-  const rotation = boundedNumber(settings.authorNoteRotation, defaultRotation(effectivePlacement), -45, 45);
-  const [fallbackX, fallbackY] = NOTE_PLACEMENT_COORDS[effectivePlacement] || NOTE_PLACEMENT_COORDS.free;
-  const x = boundedNumber(settings.authorNoteX, fallbackX, 0, 100);
-  const y = boundedNumber(settings.authorNoteY, fallbackY, 0, 100);
-  const patchSettings = (patch) => update(block.id, { settings: { ...settings, ...patch } });
-  const choosePlacement = (value) => {
-    patchSettings({
-      authorNotePlacement: value,
-      ...(value === "free" ? { authorNoteX: x, authorNoteY: y } : {}),
-    });
-  };
+  const rotation = boundedNumber(settings.authorNoteRotation, 0, -45, 45);
+  const x = boundedNumber(settings.authorNoteX, 50, 0, 100);
+  const y = boundedNumber(settings.authorNoteY, 50, 0, 100);
+  const patchSettings = (patch) => update(block.id, { settings: { ...settings, authorNotePlacement: "free", ...patch } });
   return <fieldset className="author-note-editor">
     <legend>Авторская пометка</legend>
     <label>Текст · Markdown<input value={settings.authorNote || ""} onChange={(event) => patchSettings({ authorNote: event.target.value })} placeholder="Самое противное · Лайфхак · Запомни" /></label>
     <div className="author-note-controls">
-      <label>Стартовая позиция<select value={placement} onChange={(event) => choosePlacement(event.target.value)}><option value="auto">Автоматически</option><option value="free">Свободно</option><option value="right-tilted">Справа</option><option value="left-tilted">Слева</option><option value="top-right">Правый верх</option><option value="top-left">Левый верх</option><option value="vertical-right">Вдоль справа</option><option value="vertical-left">Вдоль слева</option><option value="below-right">Правый низ</option><option value="below-left">Левый низ</option></select></label>
       <label>Цвет<select value={settings.authorNoteColor || "note"} onChange={(event) => patchSettings({ authorNoteColor: event.target.value })}><option value="note">Синий</option><option value="rule">Зелёный</option><option value="warning">Красный</option><option value="important">Жёлтый</option><option value="tip">Фиолетовый</option></select></label>
     </div>
     <div className="author-note-sliders">
       <RangeControl label="Масштаб" value={scale} min={50} max={200} step={5} suffix="%" onChange={(value) => patchSettings({ authorNoteScale: value })} />
       <RangeControl label="Наклон" value={rotation} min={-45} max={45} step={1} suffix="°" onChange={(value) => patchSettings({ authorNoteRotation: value })} />
-      {placement === "free" && <>
-        <RangeControl label="По горизонтали" value={x} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteX: value })} />
-        <RangeControl label="По вертикали" value={y} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteY: value })} />
-      </>}
+      <RangeControl label="По горизонтали" value={x} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteX: value })} />
+      <RangeControl label="По вертикали" value={y} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteY: value })} />
     </div>
-    <div className="author-note-hint"><span>Перетащите надпись прямо в предпросмотре — позиция сохранится относительно блока.</span><button type="button" onClick={() => patchSettings({ authorNotePlacement: "free", authorNoteX: 50, authorNoteY: 50 })}>В центр</button></div>
+    <div className="author-note-hint"><span>Перетащите надпись в любое место блока прямо в предпросмотре.</span></div>
     <small>Пустое поле убирает пометку. Масштаб, наклон и положение будут такими же у ученика.</small>
   </fieldset>;
 }
@@ -570,11 +589,6 @@ function boundedNumber(value, fallback, min, max) {
     : fallback;
 }
 
-function defaultRotation(placement) {
-  if (["right-tilted", "top-right", "below-left"].includes(placement)) return 6;
-  if (["left-tilted", "top-left", "below-right"].includes(placement)) return -6;
-  return 0;
-}
 function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
   if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
   if (block.type === "section") return <label>Название группы · Markdown<input value={block.data?.title || ""} onChange={(e) => setData({ title: e.target.value })} /></label>;
