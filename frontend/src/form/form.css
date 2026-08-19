@@ -90,6 +90,17 @@ button { color: inherit; }
 .catalog-task .topic { display: flex; justify-content: space-between; padding: 5px 8px 5px 38px; color: var(--text-secondary); font-size: 11px; line-height: 1.25; }
 .catalog-task .topic i { flex: none; color: var(--danger); font-size: 9px; font-style: normal; }
 .catalog-task .topic.is-hidden:not(.active) span { opacity: .58; }
+.catalog-task .change-dot, .block-select .change-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  overflow: visible;
+  border-radius: 50%;
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-strong) 14%, transparent);
+  opacity: 1;
+}
+.catalog-task .topic.is-hidden:not(.active) .change-dot { opacity: 1; }
 .workspace { min-width: 0; }
 .workspace:has(.edit-pane) { display: grid; grid-template-columns: minmax(600px, 760px) minmax(330px, 440px); justify-content: center; align-items: start; gap: clamp(12px, 1.6vw, 22px); padding: 14px clamp(12px, 2vw, 24px) 40px; }
 .edit-pane { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 62%, var(--bg)); }
@@ -135,9 +146,10 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .block-row.drop-inside { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
 .drag-handle, .block-select, .tree-toggle, .add-child { height: 100%; border: 0; background: transparent; cursor: pointer; }
 .drag-handle { color: var(--text-secondary); cursor: grab; }
-.block-select { min-width: 0; padding: 4px 6px; text-align: left; }
+.block-select { position: relative; min-width: 0; padding: 4px 18px 4px 6px; text-align: left; }
 .block-select small { display: block; color: var(--block-tone); font-size: 8px; font-weight: 750; text-transform: uppercase; letter-spacing: .07em; }
 .block-select strong { display: block; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.block-select .change-dot { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); }
 .tree-toggle, .add-child { color: var(--text-secondary); font-size: 17px; }
 .no-child { display: block; }
 .tree-toggle { transform: rotate(0); transition: transform .16s ease; }
@@ -243,6 +255,14 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
   font-weight: 700;
 }
 .form-mode-tabs button.active { background: var(--accent); color: var(--accent-text); }
+.form-mode-tabs button:disabled { opacity: .5; cursor: wait; }
+.form-mode-divider { width: 1px; align-self: stretch; margin: .2rem .1rem; background: var(--line); }
+.form-mode-tabs .export-button {
+  min-width: 2.55rem;
+  padding-inline: .55rem;
+  color: var(--text-secondary);
+}
+.form-mode-tabs .export-button:hover:not(:disabled) { background: var(--surface-strong); color: var(--text); }
 
 .practice-form { max-width: 980px; margin: 0 auto; padding: 5rem 1rem 2rem; }
 .practice-form header { max-width: 640px; margin-bottom: 1rem; }

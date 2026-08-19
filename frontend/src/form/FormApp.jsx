@@ -29,6 +29,28 @@ async function adminApi(path, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 
+async function downloadAdminExport(kind) {
+  const token = sessionStorage.getItem("umrus:admin-key") || "";
+  const response = await fetch(`/api/v2/admin/exports/${kind}`, {
+    headers: token ? { "X-Admin-Key": token } : {},
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(payload?.detail || "Не удалось подготовить выгрузку");
+  }
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+    || `umrus-${kind}.json`;
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function makeId() {
   return `local-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`}`;
 }
@@ -44,6 +66,21 @@ function normalizeBlocks(blocks = []) {
 }
 function signature(value) {
   return JSON.stringify(value);
+}
+function ownerKey(owner) {
+  return owner ? `${owner.type}:${owner.id}` : "";
+}
+function changedBlocks(currentBlocks, baseline) {
+  if (!baseline) return new Set();
+  try {
+    const original = JSON.parse(baseline).blocks || [];
+    const originalById = new Map(original.map((item) => [String(item.id), signature(item)]));
+    return new Set(currentBlocks
+      .filter((item) => originalById.get(String(item.id)) !== signature(item))
+      .map((item) => String(item.id)));
+  } catch {
+    return new Set(currentBlocks.map((item) => String(item.id)));
+  }
 }
 function isTopicVisible(status) {
   return status === "published" || status === "published_manual";
@@ -103,10 +140,25 @@ export default function FormApp() {
 
 function FormWorkspace() {
   const [mode, setMode] = useState("theory");
+  const [exporting, setExporting] = useState("");
+  async function download(kind) {
+    if (exporting) return;
+    setExporting(kind);
+    try {
+      await downloadAdminExport(kind);
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setExporting("");
+    }
+  }
   return <>
     <nav className="form-mode-tabs">
       <button className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
       <button className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
+      <span className="form-mode-divider" aria-hidden="true" />
+      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("theory")} title="Скачать всю теорию со всеми версиями и блоками">{exporting === "theory" ? "…" : "↓ Т"}</button>
+      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("practice")} title="Скачать всю практику со всеми упражнениями и ответами">{exporting === "practice" ? "…" : "↓ П"}</button>
     </nav>
     {mode === "theory" ? <PocketEditor /> : <PracticeSettings />}
   </>;
@@ -289,10 +341,20 @@ function PocketEditor() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [drafts, setDrafts] = useState({});
   const previewRef = useRef(null);
+  const draftsRef = useRef({});
+  const chooseRequestRef = useRef(0);
 
   const currentState = useMemo(() => ({ blocks, ownerTitle, description, documentTitle }), [blocks, ownerTitle, description, documentTitle]);
   const dirty = Boolean(document) && signature(currentState) !== baseline;
+  const currentOwnerKey = ownerKey(selected);
+  const dirtyOwnerKeys = useMemo(() => {
+    const keys = new Set(Object.keys(drafts).filter((key) => key !== currentOwnerKey));
+    if (dirty && currentOwnerKey) keys.add(currentOwnerKey);
+    return keys;
+  }, [drafts, currentOwnerKey, dirty]);
+  const changedBlockIds = useMemo(() => changedBlocks(blocks, baseline), [blocks, baseline]);
   const tree = useMemo(() => buildTheoryTree(blocks), [blocks]);
   const selectedBlock = blocks.find((item) => item.id === selectedId);
 
@@ -306,10 +368,11 @@ function PocketEditor() {
     adminApi("/exercise-sets").then(setExerciseSets).catch((e) => setError(e.message));
   }, []);
   useEffect(() => {
-    const stop = (event) => { if (dirty) { event.preventDefault(); event.returnValue = ""; } };
+    const hasPendingChanges = dirty || Object.keys(drafts).some((key) => key !== currentOwnerKey);
+    const stop = (event) => { if (hasPendingChanges) { event.preventDefault(); event.returnValue = ""; } };
     window.addEventListener("beforeunload", stop);
     return () => window.removeEventListener("beforeunload", stop);
-  }, [dirty]);
+  }, [dirty, drafts, currentOwnerKey]);
   useEffect(() => {
     if (!selectedId) return undefined;
     let nestedFrame = null;
@@ -341,20 +404,48 @@ function PocketEditor() {
     };
   }, [selectedId, panel, selected?.id]);
 
-  async function choose(owner, skipDirtyCheck = false) {
-    if (!skipDirtyCheck && dirty && !window.confirm("Отменить неопубликованные изменения?")) return;
-    setSelected(owner); setSelectedId(null); setError(""); setPanel("edit");
+  function replaceDrafts(next) {
+    draftsRef.current = next;
+    setDrafts(next);
+  }
+  function stashCurrentDraft() {
+    if (!selected || !document) return;
+    const key = ownerKey(selected);
+    const next = { ...draftsRef.current };
+    if (dirty) {
+      next[key] = { document, state: currentState, baseline, selectedId };
+    } else {
+      delete next[key];
+    }
+    replaceDrafts(next);
+  }
+  async function choose(owner) {
+    if (ownerKey(owner) === currentOwnerKey) return;
+    stashCurrentDraft();
+    const requestId = ++chooseRequestRef.current;
+    const saved = draftsRef.current[ownerKey(owner)];
+    setDocument(null); setSelected(owner); setSelectedId(null); setBlocks([]);
+    setOwnerTitle(owner.title); setDescription(owner.shortDescription || ""); setDocumentTitle(owner.title);
+    setBaseline(""); setError(""); setPanel("edit");
+    if (saved) {
+      setDocument(saved.document); setBlocks(saved.state.blocks); setOwnerTitle(saved.state.ownerTitle);
+      setDescription(saved.state.description); setDocumentTitle(saved.state.documentTitle);
+      setBaseline(saved.baseline); setSelectedId(saved.selectedId || null);
+      if (window.innerWidth < 820) setCatalogOpen(false);
+      return;
+    }
     let doc = await adminApi(`/theory-documents?owner_type=${owner.type}&owner_id=${owner.id}`);
     if (!doc) {
       doc = await adminApi("/theory-documents", { method: "POST", body: JSON.stringify({ owner_type: owner.type, owner_id: owner.id, title: owner.title }) });
     }
+    if (requestId !== chooseRequestRef.current) return;
     const next = { blocks: normalizeBlocks(doc.blocks), ownerTitle: owner.title, description: owner.shortDescription || "", documentTitle: doc.title || owner.title };
     setDocument(doc); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description); setDocumentTitle(next.documentTitle); setBaseline(signature(next));
     if (window.innerWidth < 820) setCatalogOpen(false);
   }
 
   async function createTopic(task) {
-    if (dirty && !window.confirm("Отменить неопубликованные изменения и создать новую тему?")) return;
+    stashCurrentDraft();
     const title = window.prompt(`Название новой темы для задания ${task.number}`)?.trim();
     if (!title) return;
     setBusy(true); setError("");
@@ -366,7 +457,7 @@ function PocketEditor() {
       const freshCatalog = await loadCatalog();
       const owner = findOwner(freshCatalog, "topic", created.id);
       if (!owner) throw new Error("Тема создана, но не найдена в обновлённом каталоге");
-      await choose({ ...owner, type: "topic", taskNumber: task.number }, true);
+      await choose({ ...owner, type: "topic", taskNumber: task.number });
       setNotice("Тема создана"); setTimeout(() => setNotice(""), 2200);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
@@ -433,6 +524,9 @@ function PocketEditor() {
       const refreshedOwner = findOwner(freshCatalog, selected.type, selected.id) || { ...selected, title: ownerTitle, shortDescription: description };
       const next = { blocks: normalizeBlocks(result.blocks), ownerTitle: refreshedOwner.title, description: refreshedOwner.shortDescription || "", documentTitle: result.title };
       setDocument(result); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description); setDocumentTitle(next.documentTitle); setBaseline(signature(next)); setSelected({ ...selected, ...refreshedOwner });
+      const remainingDrafts = { ...draftsRef.current };
+      delete remainingDrafts[currentOwnerKey];
+      replaceDrafts(remainingDrafts);
       setNotice("Опубликовано"); setTimeout(() => setNotice(""), 2200);
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
@@ -464,6 +558,9 @@ function PocketEditor() {
     try {
       await adminApi(`/topics/${selected.id}`, { method: "DELETE" });
       await loadCatalog();
+      const remainingDrafts = { ...draftsRef.current };
+      delete remainingDrafts[currentOwnerKey];
+      replaceDrafts(remainingDrafts);
       setSelected(null); setDocument(null); setBlocks([]); setSelectedId(null);
       setOwnerTitle(""); setDescription(""); setDocumentTitle(""); setBaseline("");
       setNotice("Тема удалена"); setTimeout(() => setNotice(""), 2200);
@@ -473,7 +570,7 @@ function PocketEditor() {
   return <div className="form-app">
     <header className="form-header"><button className="icon-button" onClick={() => setCatalogOpen((v) => !v)} aria-label="Каталог">☰</button><Logo /><div className="publish-wrap"><a className="deprecated-form-link" href="/theory/deprecated" target="_blank" rel="noreferrer">Deprecated</a>{dirty && <span>есть изменения</span>}<button className="button primary" disabled={!dirty || busy} onClick={publish}>{busy ? "Публикуем…" : "Опубликовать"}</button></div></header>
     <div className={`form-layout ${catalogOpen ? "" : "catalog-hidden"}`}>
-      <Catalog catalog={catalog} selected={selected} choose={choose} createTopic={createTopic} />
+      <Catalog catalog={catalog} selected={selected} choose={choose} createTopic={createTopic} dirtyOwnerKeys={dirtyOwnerKeys} />
       <main className="workspace">
         {!selected ? <Welcome /> : <>
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
@@ -482,7 +579,7 @@ function PocketEditor() {
             <div className="editing-body">
               <div className="structure-column">
                 <div className="blocks-head"><div><span className="overline">Структура</span><strong>{blocks.length} блоков</strong></div><button className="button" onClick={() => addBlock()}>+ Блок</button></div>
-                <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropAdjacent} onNest={nestInside} onAdd={addBlock} />)}</div>
+                <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} changedBlockIds={changedBlockIds} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropAdjacent} onNest={nestInside} onAdd={addBlock} />)}</div>
               </div>
               {selectedBlock
                 ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={selected} />
@@ -497,13 +594,13 @@ function PocketEditor() {
   </div>;
 }
 
-function Catalog({ catalog, selected, choose, createTopic }) {
-  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><div className="catalog-task-head"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span></button><button className="add-topic-button" onClick={() => createTopic(task)} title={`Добавить тему в задание ${task.number}`} aria-label={`Добавить тему в задание ${task.number}`}>+</button></div>{task.topics.map((topic) => <button key={topic.id} className={`topic ${!isTopicVisible(topic.status) ? "is-hidden" : ""} ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}><span>{topic.title}</span>{!isTopicVisible(topic.status) && <i>скрыта</i>}</button>)}</div>)}</div></aside>;
+function Catalog({ catalog, selected, choose, createTopic, dirtyOwnerKeys }) {
+  return <aside className="catalog"><p className="overline">{catalog?.courseVersion?.title || "Теория"}</p><h2>Содержание</h2><div className="catalog-list">{catalog?.tasks?.map((task) => <div key={task.id} className="catalog-task"><div className="catalog-task-head"><button className={selected?.type === "task" && selected.id === task.id ? "active" : ""} onClick={() => choose({ ...task, type: "task", taskNumber: task.number })}><b>{task.number}</b><span>{task.title}</span>{dirtyOwnerKeys.has(`task:${task.id}`) && <span className="change-dot" title="Есть неопубликованные изменения" />}</button><button className="add-topic-button" onClick={() => createTopic(task)} title={`Добавить тему в задание ${task.number}`} aria-label={`Добавить тему в задание ${task.number}`}>+</button></div>{task.topics.map((topic) => <button key={topic.id} className={`topic ${!isTopicVisible(topic.status) ? "is-hidden" : ""} ${selected?.type === "topic" && selected.id === topic.id ? "active" : ""}`} onClick={() => choose({ ...topic, type: "topic", taskNumber: task.number })}><span>{topic.title}</span>{dirtyOwnerKeys.has(`topic:${topic.id}`) && <span className="change-dot" title="Есть неопубликованные изменения" />}{!isTopicVisible(topic.status) && <i>скрыта</i>}</button>)}</div>)}</div></aside>;
 }
 function Welcome() { return <section className="welcome"><Logo /><p className="overline">Карманная форма</p><h1>Выберите задание или тему</h1><p>Редактируйте блоки слева и сразу смотрите итоговую страницу. На сервер изменения попадут только после публикации.</p></section>; }
 function Logo() { return <a className="form-logo" href="/"><BrandLogo className="form-brand-logo" /></a>; }
 
-function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, onAdd }) {
+function BlockNode({ node, depth, selectedId, changedBlockIds, onSelect, onDrag, onDrop, onNest, onAdd }) {
   const [expanded, setExpanded] = useState(false);
   const [dropZone, setDropZone] = useState("");
   const hasChildren = Boolean(node.children?.length);
@@ -531,11 +628,11 @@ function BlockNode({ node, depth, selectedId, onSelect, onDrag, onDrop, onNest, 
   }
   return <div className="tree-node">
     <div className={`block-row type-${node.type} variant-${node.data?.variant || "default"} ${selectedId === node.id ? "active" : ""} ${dropZone ? `drop-${dropZone}` : ""}`} style={{ "--depth": depth }} draggable onDragStart={() => onDrag(node.id)} onDragOver={(event) => { event.preventDefault(); setDropZone(zoneFor(event)); }} onDragLeave={() => setDropZone("")} onDrop={handleDrop}>
-      <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong></button>
+      <button className="drag-handle" aria-label="Перетащить">⠿</button><button className="block-select" onClick={() => onSelect(node.id)}><small>{label(node.type)}</small><strong>{excerpt(node)}</strong>{changedBlockIds.has(node.id) && <span className="change-dot" title="Блок изменён" />}</button>
       {hasChildren ? <button className={`tree-toggle ${expanded ? "open" : ""}`} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "Свернуть группу" : "Развернуть группу"}>›</button> : <span />}
       {canContain ? <button className="add-child" onClick={addChild} title="Добавить блок в группу">+</button> : <span className="no-child" title="Вложение доступно только для групп" />}
     </div>
-    {expanded && node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
+    {expanded && node.children?.map((child) => <BlockNode key={child.id} node={child} depth={depth + 1} selectedId={selectedId} changedBlockIds={changedBlockIds} onSelect={onSelect} onDrag={onDrag} onDrop={onDrop} onNest={onNest} onAdd={onAdd} />)}
   </div>;
 }
 

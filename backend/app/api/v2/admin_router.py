@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +35,7 @@ from app.infra.exercises.models import (
     ExerciseVersionBD,
 )
 from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
+from app.api.v2.content_export import build_practice_export, build_theory_export
 
 
 router = APIRouter(prefix="/v2/admin", tags=["v2-admin"])
@@ -114,6 +117,29 @@ def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
 @router.get("/status")
 async def admin_status():
     return {"requiresAuth": bool(settings.admin_token)}
+
+
+def _export_response(payload: dict[str, Any], kind: str) -> JSONResponse:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return JSONResponse(
+        content=jsonable_encoder(payload),
+        headers={
+            "Cache-Control": "no-store",
+            "Content-Disposition": (
+                f'attachment; filename="umrus-{kind}-{stamp}.json"'
+            ),
+        },
+    )
+
+
+@router.get("/exports/theory", dependencies=[Depends(require_admin)])
+async def export_theory(db: AsyncSession = Depends(get_db)):
+    return _export_response(await build_theory_export(db), "theory")
+
+
+@router.get("/exports/practice", dependencies=[Depends(require_admin)])
+async def export_practice(db: AsyncSession = Depends(get_db)):
+    return _export_response(await build_practice_export(db), "practice")
 
 
 def _block_out(block: TheoryBlockV2BD) -> dict[str, Any]:
