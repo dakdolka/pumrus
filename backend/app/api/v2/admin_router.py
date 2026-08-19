@@ -133,13 +133,27 @@ def _export_response(payload: dict[str, Any], kind: str) -> JSONResponse:
 
 
 @router.get("/exports/theory", dependencies=[Depends(require_admin)])
-async def export_theory(db: AsyncSession = Depends(get_db)):
-    return _export_response(await build_theory_export(db), "theory")
+async def export_theory(
+    include_history: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await build_theory_export(db, include_history=include_history)
+    return _export_response(
+        payload,
+        "theory-history" if include_history else "theory",
+    )
 
 
 @router.get("/exports/practice", dependencies=[Depends(require_admin)])
-async def export_practice(db: AsyncSession = Depends(get_db)):
-    return _export_response(await build_practice_export(db), "practice")
+async def export_practice(
+    include_history: bool = False,
+    db: AsyncSession = Depends(get_db),
+):
+    payload = await build_practice_export(db, include_history=include_history)
+    return _export_response(
+        payload,
+        "practice-history" if include_history else "practice",
+    )
 
 
 def _block_out(block: TheoryBlockV2BD) -> dict[str, Any]:

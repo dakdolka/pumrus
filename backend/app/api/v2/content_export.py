@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.catalog.models import (
@@ -30,6 +30,7 @@ from app.infra.exercises.models import (
 
 
 EXPORT_SCHEMA_VERSION = 1
+VISIBLE_TOPIC_STATUSES = ("published", "published_manual")
 
 
 def _temporal(value: date | datetime | None) -> str | None:
@@ -43,29 +44,51 @@ def _timestamps(item: Any) -> dict[str, str | None]:
     }
 
 
-async def _catalog(db: AsyncSession) -> tuple[dict[str, Any], dict[str, list[Any]]]:
-    courses = list((await db.scalars(select(CourseBD).order_by(CourseBD.id))).all())
+async def _catalog(
+    db: AsyncSession,
+    include_history: bool,
+) -> tuple[dict[str, Any], dict[str, list[Any]]]:
+    version_query = select(CourseVersionBD)
+    if not include_history:
+        version_query = version_query.where(CourseVersionBD.is_active.is_(True))
     course_versions = list((await db.scalars(
-        select(CourseVersionBD).order_by(CourseVersionBD.course_id, CourseVersionBD.id)
+        version_query.order_by(CourseVersionBD.course_id, CourseVersionBD.id)
     )).all())
+    course_ids = {item.course_id for item in course_versions}
+    courses = list((await db.scalars(
+        select(CourseBD).where(CourseBD.id.in_(course_ids)).order_by(CourseBD.id)
+    )).all()) if course_ids else []
+    version_ids = {item.id for item in course_versions}
     tasks = list((await db.scalars(
-        select(ExamTaskBD).order_by(
+        select(ExamTaskBD)
+        .where(ExamTaskBD.course_version_id.in_(version_ids))
+        .order_by(
             ExamTaskBD.course_version_id,
             ExamTaskBD.sort_order,
             ExamTaskBD.number,
             ExamTaskBD.id,
         )
-    )).all())
+    )).all()) if version_ids else []
+    topic_query = select(TopicBD).where(TopicBD.course_version_id.in_(version_ids))
+    if not include_history:
+        topic_query = topic_query.where(TopicBD.status.in_(VISIBLE_TOPIC_STATUSES))
     topics = list((await db.scalars(
-        select(TopicBD).order_by(TopicBD.course_version_id, TopicBD.id)
-    )).all())
+        topic_query.order_by(TopicBD.course_version_id, TopicBD.id)
+    )).all()) if version_ids else []
+    task_ids = {item.id for item in tasks}
+    topic_ids = {item.id for item in topics}
     task_topic_links = list((await db.scalars(
-        select(ExamTaskTopicBD).order_by(
+        select(ExamTaskTopicBD)
+        .where(
+            ExamTaskTopicBD.exam_task_id.in_(task_ids),
+            ExamTaskTopicBD.topic_id.in_(topic_ids),
+        )
+        .order_by(
             ExamTaskTopicBD.exam_task_id,
             ExamTaskTopicBD.sort_order,
             ExamTaskTopicBD.topic_id,
         )
-    )).all())
+    )).all()) if task_ids and topic_ids else []
 
     payload = {
         "courses": [
@@ -140,37 +163,69 @@ async def _catalog(db: AsyncSession) -> tuple[dict[str, Any], dict[str, list[Any
     }
 
 
-def _envelope(kind: str, catalog: dict[str, Any]) -> dict[str, Any]:
+def _envelope(
+    kind: str,
+    catalog: dict[str, Any],
+    include_history: bool,
+) -> dict[str, Any]:
     return {
         "schemaVersion": EXPORT_SCHEMA_VERSION,
         "kind": kind,
         "exportedAt": datetime.now(timezone.utc).isoformat(),
-        "scope": "all-course-versions",
+        "scope": "all-course-versions" if include_history else "active-course-version",
+        "includeHistory": include_history,
         "catalog": catalog,
     }
 
 
-async def build_theory_export(db: AsyncSession) -> dict[str, Any]:
-    catalog, _ = await _catalog(db)
+async def build_theory_export(
+    db: AsyncSession,
+    include_history: bool = False,
+) -> dict[str, Any]:
+    catalog, refs = await _catalog(db, include_history)
+    document_query = select(TheoryDocumentBD)
+    if not include_history:
+        task_ids = {item.id for item in refs["tasks"]}
+        topic_ids = {item.id for item in refs["topics"]}
+        document_query = document_query.where(
+            TheoryDocumentBD.status == "published",
+            TheoryDocumentBD.published_version_id.is_not(None),
+            or_(
+                TheoryDocumentBD.exam_task_id.in_(task_ids),
+                TheoryDocumentBD.topic_id.in_(topic_ids),
+            ),
+        )
     documents = list((await db.scalars(
-        select(TheoryDocumentBD).order_by(TheoryDocumentBD.id)
+        document_query.order_by(TheoryDocumentBD.id)
     )).all())
+    version_query = select(TheoryDocumentVersionBD)
+    if not include_history:
+        published_version_ids = {
+            item.published_version_id for item in documents
+            if item.published_version_id is not None
+        }
+        version_query = version_query.where(
+            TheoryDocumentVersionBD.id.in_(published_version_ids)
+        )
     versions = list((await db.scalars(
-        select(TheoryDocumentVersionBD).order_by(
+        version_query.order_by(
             TheoryDocumentVersionBD.document_id,
             TheoryDocumentVersionBD.version_number,
             TheoryDocumentVersionBD.id,
         )
     )).all())
+    version_ids = {item.id for item in versions}
     blocks = list((await db.scalars(
-        select(TheoryBlockV2BD).order_by(
+        select(TheoryBlockV2BD)
+        .where(TheoryBlockV2BD.document_version_id.in_(version_ids))
+        .order_by(
             TheoryBlockV2BD.document_version_id,
             TheoryBlockV2BD.sort_order,
             TheoryBlockV2BD.id,
         )
-    )).all())
+    )).all()) if version_ids else []
 
-    payload = _envelope("theory", catalog)
+    payload = _envelope("theory", catalog, include_history)
     payload["theory"] = {
         "documents": [
             {
@@ -220,49 +275,109 @@ async def build_theory_export(db: AsyncSession) -> dict[str, Any]:
     return payload
 
 
-async def build_practice_export(db: AsyncSession) -> dict[str, Any]:
-    catalog, _ = await _catalog(db)
+async def build_practice_export(
+    db: AsyncSession,
+    include_history: bool = False,
+) -> dict[str, Any]:
+    catalog, refs = await _catalog(db, include_history)
+    task_ids = {item.id for item in refs["tasks"]}
+    topic_ids = {item.id for item in refs["topics"]}
+    version_ids = {item.id for item in refs["courseVersions"]}
+
+    task_document_query = select(TaskDocumentBD)
+    exercise_set_query = select(ExerciseSetBD)
+    if not include_history:
+        task_document_query = task_document_query.where(
+            TaskDocumentBD.exam_task_id.in_(task_ids),
+            TaskDocumentBD.status == "published",
+        )
+        exercise_set_query = exercise_set_query.where(
+            ExerciseSetBD.course_version_id.in_(version_ids),
+            ExerciseSetBD.exam_task_id.in_(task_ids),
+            ExerciseSetBD.status == "published",
+            or_(
+                ExerciseSetBD.topic_id.is_(None),
+                ExerciseSetBD.topic_id.in_(topic_ids),
+            ),
+        )
     task_documents = list((await db.scalars(
-        select(TaskDocumentBD).order_by(TaskDocumentBD.exam_task_id, TaskDocumentBD.id)
-    )).all())
-    exercises = list((await db.scalars(
-        select(ExerciseBD).order_by(ExerciseBD.course_version_id, ExerciseBD.id)
-    )).all())
-    versions = list((await db.scalars(
-        select(ExerciseVersionBD).order_by(
-            ExerciseVersionBD.exercise_id,
-            ExerciseVersionBD.version_number,
-            ExerciseVersionBD.id,
-        )
-    )).all())
-    task_links = list((await db.scalars(
-        select(ExerciseTaskLinkBD).order_by(
-            ExerciseTaskLinkBD.exercise_id,
-            ExerciseTaskLinkBD.exam_task_id,
-        )
-    )).all())
-    topic_links = list((await db.scalars(
-        select(ExerciseTopicLinkBD).order_by(
-            ExerciseTopicLinkBD.exercise_id,
-            ExerciseTopicLinkBD.topic_id,
-        )
+        task_document_query.order_by(TaskDocumentBD.exam_task_id, TaskDocumentBD.id)
     )).all())
     exercise_sets = list((await db.scalars(
-        select(ExerciseSetBD).order_by(
+        exercise_set_query.order_by(
             ExerciseSetBD.course_version_id,
             ExerciseSetBD.exam_task_id,
             ExerciseSetBD.id,
         )
     )).all())
+    exercise_set_ids = {item.id for item in exercise_sets}
+    set_item_query = select(ExerciseSetItemBD)
+    if not include_history:
+        set_item_query = set_item_query.where(
+            ExerciseSetItemBD.exercise_set_id.in_(exercise_set_ids)
+        )
     set_items = list((await db.scalars(
-        select(ExerciseSetItemBD).order_by(
+        set_item_query.order_by(
             ExerciseSetItemBD.exercise_set_id,
             ExerciseSetItemBD.sort_order,
             ExerciseSetItemBD.id,
         )
     )).all())
+    included_exercise_ids = {item.exercise_id for item in set_items}
+    exercise_query = select(ExerciseBD)
+    if not include_history:
+        exercise_query = exercise_query.where(
+            ExerciseBD.id.in_(included_exercise_ids),
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
+    exercises = list((await db.scalars(
+        exercise_query.order_by(ExerciseBD.course_version_id, ExerciseBD.id)
+    )).all())
+    exercise_ids = {item.id for item in exercises}
+    if not include_history:
+        set_items = [item for item in set_items if item.exercise_id in exercise_ids]
+    exercise_version_query = select(ExerciseVersionBD)
+    if not include_history:
+        published_version_ids = {
+            item.published_version_id for item in exercises
+            if item.published_version_id is not None
+        }
+        exercise_version_query = exercise_version_query.where(
+            ExerciseVersionBD.id.in_(published_version_ids)
+        )
+    versions = list((await db.scalars(
+        exercise_version_query.order_by(
+            ExerciseVersionBD.exercise_id,
+            ExerciseVersionBD.version_number,
+            ExerciseVersionBD.id,
+        )
+    )).all())
+    task_link_query = select(ExerciseTaskLinkBD)
+    topic_link_query = select(ExerciseTopicLinkBD)
+    if not include_history:
+        task_link_query = task_link_query.where(
+            ExerciseTaskLinkBD.exercise_id.in_(exercise_ids),
+            ExerciseTaskLinkBD.exam_task_id.in_(task_ids),
+        )
+        topic_link_query = topic_link_query.where(
+            ExerciseTopicLinkBD.exercise_id.in_(exercise_ids),
+            ExerciseTopicLinkBD.topic_id.in_(topic_ids),
+        )
+    task_links = list((await db.scalars(
+        task_link_query.order_by(
+            ExerciseTaskLinkBD.exercise_id,
+            ExerciseTaskLinkBD.exam_task_id,
+        )
+    )).all())
+    topic_links = list((await db.scalars(
+        topic_link_query.order_by(
+            ExerciseTopicLinkBD.exercise_id,
+            ExerciseTopicLinkBD.topic_id,
+        )
+    )).all())
 
-    payload = _envelope("practice", catalog)
+    payload = _envelope("practice", catalog, include_history)
     payload["practice"] = {
         "taskDocuments": [
             {
