@@ -150,6 +150,15 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .author-note-editor { margin: 15px 0 0; padding: 9px 10px 11px; border: 1px dashed color-mix(in srgb, var(--accent) 48%, var(--line)); border-radius: 10px; }
 .author-note-editor legend { padding: 0 6px; color: var(--accent); font: italic 650 12px/1 Georgia, serif; }
 .author-note-controls { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 7px; }
+.author-note-sliders { display: grid; gap: 5px; margin-top: 8px; padding: 8px 9px 9px; border-radius: 9px; background: var(--surface-soft); }
+.inspector .note-range { margin-top: 0; }
+.note-range > span { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.note-range output { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 750; }
+.note-range input[type="range"] { width: 100%; height: 18px; margin: 0; padding: 0; accent-color: var(--accent); cursor: ew-resize; }
+.author-note-hint { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; color: var(--text-secondary); font-size: 10px; line-height: 1.35; }
+.author-note-hint span { max-width: 220px; }
+.author-note-hint button { flex: 0 0 auto; min-height: 28px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: transparent; color: var(--text); font: 650 10px/1 var(--display-font); cursor: pointer; }
+.author-note-hint button:hover { border-color: var(--accent); color: var(--accent); }
 .author-note-editor small { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 10px; font-weight: 450; line-height: 1.35; }
 .inspector label { display: grid; gap: 5px; margin-top: 9px; color: var(--text-secondary); font-size: 11px; font-weight: 650; }
 .markdown-editor { min-height: 210px; font-family: ui-monospace, "Cascadia Code", monospace; font-size: 13px; }

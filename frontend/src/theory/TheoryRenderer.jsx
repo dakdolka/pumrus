@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import "./theory.css";
 import { buildTheoryTree } from "./theoryTree";
 
-export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPracticeNavigate }) {
+export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPracticeNavigate, onAuthorNoteChange }) {
   const tree = useMemo(() => buildTheoryTree(document?.blocks || []), [document]);
   return (
     <article className="theory-document">
@@ -14,13 +14,14 @@ export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPrac
           onBlockClick={onBlockClick}
           selectedBlockId={selectedBlockId}
           onPracticeNavigate={onPracticeNavigate}
+          onAuthorNoteChange={onAuthorNoteChange}
         />
       ))}
     </article>
   );
 }
 
-function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNavigate }) {
+function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNavigate, onAuthorNoteChange }) {
   const children = block.children || [];
   const markdown = block.data?.markdown || "";
   const click = (event) => {
@@ -35,20 +36,36 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
     ? block.type === "table" ? "vertical-right" : ["callout", "example"].includes(block.type) ? "right-tilted" : "below-right"
     : legacyPlacement;
   const noteColor = block.settings?.authorNoteColor || "note";
+  const noteRotation = numericSetting(block.settings, "authorNoteRotation", defaultNoteRotation(notePlacement), -45, 45);
+  const noteScale = numericSetting(block.settings, "authorNoteScale", 100, 50, 200);
+  const noteX = numericSetting(block.settings, "authorNoteX", 50, 0, 100);
+  const noteY = numericSetting(block.settings, "authorNoteY", 50, 0, 100);
+  const authorNoteProps = {
+    text: authorNote,
+    placement: notePlacement,
+    color: noteColor,
+    rotation: noteRotation,
+    scale: noteScale,
+    x: noteX,
+    y: noteY,
+    blockId: block.id,
+    onBlockClick,
+    onChange: onAuthorNoteChange,
+  };
 
   if (block.type === "section") {
     return (
       <details
-        className={`theory-section depth-${Math.min(depth, 3)} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`}
+        className={`theory-section depth-${Math.min(depth, 3)} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`}
         onClick={click}
       >
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
         <div className="theory-section-content">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} />
+            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onAuthorNoteChange={onAuthorNoteChange} />
           ))}
         </div>
-        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
+        {authorNote && <AuthorNote {...authorNoteProps} />}
       </details>
     );
   }
@@ -101,18 +118,76 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
   }
 
   return (
-    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${selectedBlockId === block.id ? "is-selected" : ""}`} onClick={click}>
+    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`} onClick={click}>
       <div className="theory-block-main">
         <div className="theory-block-content">{content}</div>
-        {authorNote && <AuthorNote text={authorNote} placement={notePlacement} color={noteColor} />}
+        {authorNote && <AuthorNote {...authorNoteProps} />}
       </div>
-      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} />)}</div>}
+      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onAuthorNoteChange={onAuthorNoteChange} />)}</div>}
     </div>
   );
 }
 
-function AuthorNote({ text, placement, color }) {
-  return <aside className={`author-note author-note-${placement} author-note-tone-${color}`} aria-label="Комментарий автора"><span><InlineMarkdown value={text} /></span></aside>;
+function AuthorNote({ text, placement, color, rotation, scale, x, y, blockId, onBlockClick, onChange }) {
+  const draggable = Boolean(onChange);
+  const setPosition = (clientX, clientY, anchor) => {
+    if (!anchor || (!clientX && !clientY)) return;
+    const bounds = anchor.getBoundingClientRect();
+    if (!bounds.width || !bounds.height) return;
+    onChange(blockId, {
+      authorNotePlacement: "free",
+      authorNoteX: clamp(Math.round(((clientX - bounds.left) / bounds.width) * 1000) / 10, 0, 100),
+      authorNoteY: clamp(Math.round(((clientY - bounds.top) / bounds.height) * 1000) / 10, 0, 100),
+    });
+  };
+  const startDrag = (event) => {
+    if (!draggable) return;
+    event.preventDefault();
+    event.stopPropagation();
+    onBlockClick?.(blockId);
+    const anchor = event.currentTarget.closest(".theory-block-main, .theory-section");
+    const noteBounds = event.currentTarget.getBoundingClientRect();
+    const grabOffsetX = event.clientX - (noteBounds.left + noteBounds.width / 2);
+    const grabOffsetY = event.clientY - (noteBounds.top + noteBounds.height / 2);
+    const move = (nextEvent) => {
+      nextEvent.preventDefault();
+      setPosition(nextEvent.clientX - grabOffsetX, nextEvent.clientY - grabOffsetY, anchor);
+    };
+    const finish = (nextEvent) => {
+      setPosition(nextEvent.clientX - grabOffsetX, nextEvent.clientY - grabOffsetY, anchor);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+    };
+    setPosition(event.clientX - grabOffsetX, event.clientY - grabOffsetY, anchor);
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  };
+  const style = {
+    "--note-x": `${x}%`,
+    "--note-y": `${y}%`,
+    "--note-rotation": `${rotation}deg`,
+    "--note-font-size": `${20 * (scale / 100)}px`,
+  };
+  return <aside className={`author-note author-note-${placement} author-note-tone-${color} ${draggable ? "is-draggable" : ""}`} style={style} aria-label="Комментарий автора" onPointerDown={startDrag} onClick={(event) => draggable && event.stopPropagation()}><span><InlineMarkdown value={text} /></span></aside>;
+}
+
+function numericSetting(settings, key, fallback, min, max) {
+  const value = Number(settings?.[key]);
+  return Number.isFinite(value) && settings?.[key] !== "" && settings?.[key] != null
+    ? clamp(value, min, max)
+    : fallback;
+}
+
+function defaultNoteRotation(placement) {
+  if (["right-tilted", "top-right", "below-left"].includes(placement)) return 6;
+  if (["left-tilted", "top-left", "below-right"].includes(placement)) return -6;
+  return 0;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function calloutLabel(variant) {

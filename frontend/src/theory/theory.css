@@ -61,13 +61,12 @@
 .author-note-tone-warning { --note-color: var(--danger, #d97a74); }
 .author-note-tone-important { --note-color: var(--warning, #dda45a); }
 .author-note-tone-tip { --note-color: var(--example, #9b83c9); }
-.author-note span { max-width: 23rem; font-family: "UmRus Handwriting", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-size: clamp(17px, 2.2vw, 21px); font-style: normal; font-weight: 400; line-height: 1.05; letter-spacing: .015em; text-wrap: balance; }
-.author-note-right-tilted span, .author-note-top-right span, .author-note-below-left span { transform: rotate(6deg); }
-.author-note-left-tilted span, .author-note-top-left span, .author-note-below-right span { transform: rotate(-6deg); }
-.author-note-right-tilted span, .author-note-top-right span, .author-note-below-right span { transform-origin: right center; }
+.author-note span { max-width: 23rem; font-family: "UmRus Handwriting", "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-size: clamp(10px, var(--note-font-size, 20px), 40px); font-style: normal; font-weight: 400; line-height: 1.05; letter-spacing: .015em; text-wrap: balance; transform: rotate(var(--note-rotation, 0deg)); transform-origin: center; }
+.author-note.is-draggable { pointer-events: auto; cursor: grab; touch-action: none; user-select: none; }
+.author-note.is-draggable:active { cursor: grabbing; }
+.author-note.is-draggable:hover span { filter: drop-shadow(0 2px 6px color-mix(in srgb, var(--note-color) 30%, transparent)); }
 .author-note-below-left { justify-content: flex-start; }
 .author-note-left-tilted, .author-note-top-left, .author-note-vertical-left { justify-content: flex-start; }
-.author-note-below-left span, .author-note-left-tilted span, .author-note-top-left span { transform-origin: left center; }
 @media (min-width: 0px) {
   .theory-block.note-right-tilted > .theory-block-main,
   .theory-block.note-left-tilted > .theory-block-main,
@@ -76,7 +75,9 @@
   .theory-block.note-top-right > .theory-block-main,
   .theory-block.note-top-left > .theory-block-main,
   .theory-block.note-below-right > .theory-block-main,
-  .theory-block.note-below-left > .theory-block-main { position: relative; overflow: visible; }
+  .theory-block.note-below-left > .theory-block-main,
+  .theory-block.note-free > .theory-block-main { position: relative; overflow: visible; }
+  .author-note-free { position: absolute; z-index: 4; top: var(--note-y, 50%); left: var(--note-x, 50%); width: max-content; max-width: min(72%, 300px); margin: 0; justify-content: center; text-align: center; transform: translate(-50%, -50%); }
   .theory-block.note-right-tilted > .theory-block-main > .author-note,
   .theory-block.note-left-tilted > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 50%; width: 132px; margin: 0; transform: translateY(-50%); }
   .theory-block.note-right-tilted > .theory-block-main > .author-note { right: -30px; padding-right: 9px; text-align: right; }
@@ -137,6 +138,7 @@
   .theory-section.note-vertical-left > .author-note { top: 7px; bottom: 7px; width: 34px; justify-content: flex-start; writing-mode: vertical-rl; }
   .theory-section.note-vertical-right > .author-note { right: 2px; }
   .theory-section.note-vertical-left > .author-note { left: 2px; transform: rotate(180deg); }
+  .theory-section.note-free > .author-note { top: var(--note-y, 50%); left: var(--note-x, 50%); width: max-content; max-width: min(72%, 300px); margin: 0; }
   .theory-section.note-vertical-right > :where(summary, .theory-section-content) { padding-right: 46px; }
   .theory-section.note-vertical-left > :where(summary, .theory-section-content) { padding-left: 46px; }
 }

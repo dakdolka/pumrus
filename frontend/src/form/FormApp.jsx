@@ -342,6 +342,11 @@ function PocketEditor() {
   function updateBlock(id, patch) {
     setBlocks((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
+  function updateAuthorNote(id, settingsPatch) {
+    setBlocks((items) => items.map((item) => item.id === id
+      ? { ...item, settings: { ...(item.settings || {}), ...settingsPatch } }
+      : item));
+  }
   function addBlock(parentId = null) {
     const siblings = blocks.filter((item) => item.parentId === parentId);
     const id = makeId();
@@ -436,7 +441,7 @@ function PocketEditor() {
                 : <aside className="inspector inspector-empty"><span className="overline">Редактор блока</span><p>Выберите блок или добавьте новый.</p></aside>}
             </div>
           </section>
-          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Так страницу увидит ученик</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} onBlockClick={(id) => { setSelectedId(String(id)); setPanel("edit"); }} /></div></section>
+          <section className={`preview-pane mobile-${panel}`}><div className="preview-label"><span>Предпросмотр</span><small>Пометки можно перетаскивать</small></div><div className="preview-device"><header><span>Задание {selected.taskNumber}</span><h1>{ownerTitle}</h1>{description && <p>{description}</p>}</header><TheoryDocument document={{ blocks }} selectedBlockId={selectedId} onBlockClick={(id) => { setSelectedId(String(id)); }} onAuthorNoteChange={updateAuthorNote} /></div></section>
         </>}
       </main>
     </div>
@@ -497,8 +502,78 @@ function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
   return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
     <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
     <BlockFields block={block} setData={setData} update={update} exerciseSets={exerciseSets} currentOwner={currentOwner} />
-    <fieldset className="author-note-editor"><legend>Авторская пометка</legend><label>Текст · Markdown<input value={block.settings?.authorNote || ""} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNote: e.target.value } })} placeholder="Самое противное · Лайфхак · Запомни" /></label><div className="author-note-controls"><label>Расположение<select value={({ angled: "right-tilted", vertical: "vertical-right", below: "below-right" }[block.settings?.authorNotePlacement] || block.settings?.authorNotePlacement || "auto")} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNotePlacement: e.target.value } })}><option value="auto">Автоматически</option><option value="right-tilted">Справа, с наклоном</option><option value="left-tilted">Слева, с наклоном</option><option value="top-right">Правый верхний угол</option><option value="top-left">Левый верхний угол</option><option value="vertical-right">Вдоль правой границы</option><option value="vertical-left">Вдоль левой границы</option><option value="below-right">Снизу справа</option><option value="below-left">Снизу слева</option></select></label><label>Цвет<select value={block.settings?.authorNoteColor || "note"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), authorNoteColor: e.target.value } })}><option value="note">Примечание · синий</option><option value="rule">Правило · зелёный</option><option value="warning">Предупреждение · красный</option><option value="important">Важно · жёлтый</option><option value="tip">Лайфхак · фиолетовый</option></select></label></div><small>Пустое поле убирает пометку. Расположение одинаково в приложении и предпросмотре на любой ширине.</small></fieldset>
+    <AuthorNoteEditor block={block} update={update} />
   </aside>;
+}
+
+const NOTE_PLACEMENT_COORDS = {
+  auto: [82, 50],
+  "right-tilted": [86, 50],
+  "left-tilted": [14, 50],
+  "top-right": [84, 12],
+  "top-left": [16, 12],
+  "vertical-right": [94, 50],
+  "vertical-left": [6, 50],
+  "below-right": [84, 88],
+  "below-left": [16, 88],
+  free: [50, 50],
+};
+
+function AuthorNoteEditor({ block, update }) {
+  const settings = block.settings || {};
+  const placement = ({ angled: "right-tilted", vertical: "vertical-right", below: "below-right" }[settings.authorNotePlacement]
+    || settings.authorNotePlacement
+    || "auto");
+  const effectivePlacement = placement === "auto"
+    ? block.type === "table" ? "vertical-right" : ["callout", "example"].includes(block.type) ? "right-tilted" : "below-right"
+    : placement;
+  const scale = boundedNumber(settings.authorNoteScale, 100, 50, 200);
+  const rotation = boundedNumber(settings.authorNoteRotation, defaultRotation(effectivePlacement), -45, 45);
+  const [fallbackX, fallbackY] = NOTE_PLACEMENT_COORDS[effectivePlacement] || NOTE_PLACEMENT_COORDS.free;
+  const x = boundedNumber(settings.authorNoteX, fallbackX, 0, 100);
+  const y = boundedNumber(settings.authorNoteY, fallbackY, 0, 100);
+  const patchSettings = (patch) => update(block.id, { settings: { ...settings, ...patch } });
+  const choosePlacement = (value) => {
+    patchSettings({
+      authorNotePlacement: value,
+      ...(value === "free" ? { authorNoteX: x, authorNoteY: y } : {}),
+    });
+  };
+  return <fieldset className="author-note-editor">
+    <legend>Авторская пометка</legend>
+    <label>Текст · Markdown<input value={settings.authorNote || ""} onChange={(event) => patchSettings({ authorNote: event.target.value })} placeholder="Самое противное · Лайфхак · Запомни" /></label>
+    <div className="author-note-controls">
+      <label>Стартовая позиция<select value={placement} onChange={(event) => choosePlacement(event.target.value)}><option value="auto">Автоматически</option><option value="free">Свободно</option><option value="right-tilted">Справа</option><option value="left-tilted">Слева</option><option value="top-right">Правый верх</option><option value="top-left">Левый верх</option><option value="vertical-right">Вдоль справа</option><option value="vertical-left">Вдоль слева</option><option value="below-right">Правый низ</option><option value="below-left">Левый низ</option></select></label>
+      <label>Цвет<select value={settings.authorNoteColor || "note"} onChange={(event) => patchSettings({ authorNoteColor: event.target.value })}><option value="note">Синий</option><option value="rule">Зелёный</option><option value="warning">Красный</option><option value="important">Жёлтый</option><option value="tip">Фиолетовый</option></select></label>
+    </div>
+    <div className="author-note-sliders">
+      <RangeControl label="Масштаб" value={scale} min={50} max={200} step={5} suffix="%" onChange={(value) => patchSettings({ authorNoteScale: value })} />
+      <RangeControl label="Наклон" value={rotation} min={-45} max={45} step={1} suffix="°" onChange={(value) => patchSettings({ authorNoteRotation: value })} />
+      {placement === "free" && <>
+        <RangeControl label="По горизонтали" value={x} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteX: value })} />
+        <RangeControl label="По вертикали" value={y} min={0} max={100} step={1} suffix="%" onChange={(value) => patchSettings({ authorNoteY: value })} />
+      </>}
+    </div>
+    <div className="author-note-hint"><span>Перетащите надпись прямо в предпросмотре — позиция сохранится относительно блока.</span><button type="button" onClick={() => patchSettings({ authorNotePlacement: "free", authorNoteX: 50, authorNoteY: 50 })}>В центр</button></div>
+    <small>Пустое поле убирает пометку. Масштаб, наклон и положение будут такими же у ученика.</small>
+  </fieldset>;
+}
+
+function RangeControl({ label, value, min, max, step, suffix, onChange }) {
+  return <label className="note-range"><span>{label}<output>{value}{suffix}</output></span><input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} /></label>;
+}
+
+function boundedNumber(value, fallback, min, max) {
+  const number = Number(value);
+  return Number.isFinite(number) && value !== "" && value != null
+    ? Math.min(max, Math.max(min, number))
+    : fallback;
+}
+
+function defaultRotation(placement) {
+  if (["right-tilted", "top-right", "below-left"].includes(placement)) return 6;
+  if (["left-tilted", "top-left", "below-right"].includes(placement)) return -6;
+  return 0;
 }
 function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
   if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
