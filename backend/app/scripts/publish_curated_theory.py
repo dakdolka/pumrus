@@ -33,8 +33,10 @@ from app.scripts.curated_theory_data import (
     TASK8_SOURCES,
     TASK8_TOPICS,
 )
+from app.scripts.curated_language_norms import LANGUAGE_NORMS_BUNDLES
 from app.scripts.curated_orthography import ORTHOGRAPHY_BUNDLES
 from app.scripts.curated_punctuation import PUNCTUATION_BUNDLES
+from app.scripts.curated_text_analysis import TEXT_ANALYSIS_BUNDLES
 from app.scripts.curated_theory_remaining import BUNDLES
 
 
@@ -47,10 +49,22 @@ OBSOLETE_BASELINE_TOPIC_CODES = {
 }
 ORTHOGRAPHY_TASKS = {bundle["number"] for bundle in ORTHOGRAPHY_BUNDLES}
 PUNCTUATION_TASKS = {bundle["number"] for bundle in PUNCTUATION_BUNDLES}
-REVIEWED_TASKS = ORTHOGRAPHY_TASKS | PUNCTUATION_TASKS
+LANGUAGE_NORMS_TASKS = {bundle["number"] for bundle in LANGUAGE_NORMS_BUNDLES}
+TEXT_ANALYSIS_TASKS = {bundle["number"] for bundle in TEXT_ANALYSIS_BUNDLES}
+REVIEWED_TASKS = (
+    ORTHOGRAPHY_TASKS
+    | PUNCTUATION_TASKS
+    | LANGUAGE_NORMS_TASKS
+    | TEXT_ANALYSIS_TASKS
+)
 PUBLISHABLE_BUNDLES = [
     bundle for bundle in BUNDLES if bundle["number"] not in REVIEWED_TASKS
-] + ORTHOGRAPHY_BUNDLES + PUNCTUATION_BUNDLES
+] + (
+    LANGUAGE_NORMS_BUNDLES
+    + ORTHOGRAPHY_BUNDLES
+    + PUNCTUATION_BUNDLES
+    + TEXT_ANALYSIS_BUNDLES
+)
 KEPT_CURATED_TASKS = {1, 3, *REVIEWED_TASKS}
 
 
@@ -448,21 +462,11 @@ async def hide_superseded_topics(
             .where(ExamTaskTopicBD.exam_task_id == task.id)
         )).all())
         for topic in topics:
-            if topic.code in desired_codes:
+            if topic.code in desired_codes or topic.status in {"hidden", "published_manual"}:
                 continue
-            has_legacy_version = await session.scalar(
-                select(TheoryDocumentVersionBD.id)
-                .join(TheoryDocumentBD, TheoryDocumentBD.id == TheoryDocumentVersionBD.document_id)
-                .where(
-                    TheoryDocumentBD.topic_id == topic.id,
-                    TheoryDocumentVersionBD.source_legacy_theory_id.is_not(None),
-                )
-                .limit(1)
-            )
-            if has_legacy_version is None and topic.code.startswith(f"task-{number}-"):
-                if topic.status != "deprecated":
-                    topic.status = "deprecated"
-                    hidden += 1
+            if topic.status != "deprecated":
+                topic.status = "deprecated"
+                hidden += 1
     return hidden
 
 
