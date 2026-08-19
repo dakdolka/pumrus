@@ -34,6 +34,7 @@ from app.scripts.curated_theory_data import (
     TASK8_TOPICS,
 )
 from app.scripts.curated_orthography import ORTHOGRAPHY_BUNDLES
+from app.scripts.curated_punctuation import PUNCTUATION_BUNDLES
 from app.scripts.curated_theory_remaining import BUNDLES
 
 
@@ -45,10 +46,12 @@ OBSOLETE_BASELINE_TOPIC_CODES = {
     "task-6-lexical",
 }
 ORTHOGRAPHY_TASKS = {bundle["number"] for bundle in ORTHOGRAPHY_BUNDLES}
+PUNCTUATION_TASKS = {bundle["number"] for bundle in PUNCTUATION_BUNDLES}
+REVIEWED_TASKS = ORTHOGRAPHY_TASKS | PUNCTUATION_TASKS
 PUBLISHABLE_BUNDLES = [
-    bundle for bundle in BUNDLES if bundle["number"] not in ORTHOGRAPHY_TASKS
-] + ORTHOGRAPHY_BUNDLES
-KEPT_CURATED_TASKS = {1, 3, *ORTHOGRAPHY_TASKS}
+    bundle for bundle in BUNDLES if bundle["number"] not in REVIEWED_TASKS
+] + ORTHOGRAPHY_BUNDLES + PUNCTUATION_BUNDLES
+KEPT_CURATED_TASKS = {1, 3, *REVIEWED_TASKS}
 
 
 async def _course_version(
