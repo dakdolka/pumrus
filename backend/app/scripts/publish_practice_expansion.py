@@ -69,6 +69,23 @@ TEXT_REPAIRS = {
     ),
 }
 
+TOPIC_CODE_ALIASES = {
+    "task-7-nouns-complete-2026": "task-7-nouns",
+    "task-7-numerals-complete-2026": "task-7-numerals",
+    "task-7-verbs-complete-2026": "task-7-verbs",
+    "task-7-participles-complete-2026": "task-7-participles",
+    "task-9-checkable-complete-2026": "task-9-checkable",
+    "task-10-exceptions-complete-2026": "task-10-invariable",
+    "task-14-adverbs-complete-2026": "task-14-adverbs",
+    "task-14-particles-complete-2026": "task-14-particles",
+    "legacy-theory-9": "task-9-alternating",
+    "legacy-theory-4": "task-10-zs",
+    "legacy-theory-30": "task-10-invariable",
+    "legacy-theory-6": "task-10-signs",
+    "legacy-theory-7": "task-10-signs",
+    "legacy-theory-8": "task-10-pre-pri",
+}
+
 
 def _payload(item: dict[str, Any], key: str) -> dict[str, Any]:
     feedback = {
@@ -125,6 +142,7 @@ async def _topic_by_code(
 ) -> TopicBD | None:
     if not code:
         return None
+    code = TOPIC_CODE_ALIASES.get(code, code)
     return await session.scalar(
         select(TopicBD).where(
             TopicBD.course_version_id == course_version_id,
@@ -310,13 +328,25 @@ async def _publish_sets(
             if item.get("topic_code") and topic is None:
                 counters["topic_links_missing"] += 1
             elif topic is not None:
-                link = await session.get(ExerciseTopicLinkBD, (exercise.id, topic.id))
+                links = list((await session.scalars(
+                    select(ExerciseTopicLinkBD).where(
+                        ExerciseTopicLinkBD.exercise_id == exercise.id
+                    )
+                )).all())
+                link = next(
+                    (candidate for candidate in links if candidate.topic_id == topic.id),
+                    None,
+                )
+                for candidate in links:
+                    candidate.is_primary = candidate.topic_id == topic.id
                 if link is None:
                     session.add(ExerciseTopicLinkBD(
                         exercise_id=exercise.id,
                         topic_id=topic.id,
                         is_primary=True,
                     ))
+                else:
+                    link.is_primary = True
             counters["exercises_published"] += 1
 
 
