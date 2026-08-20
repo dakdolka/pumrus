@@ -983,7 +983,7 @@ function PracticeSession({ sessionId, navigate }) {
           && candidate.state === "pending"
           && !results[candidate.sessionItemId],
       );
-      if (answer.status === "incorrect") {
+      if (answer.status !== "correct") {
         setErrorResult(answer);
         setPendingAdvance(
           next
@@ -1103,7 +1103,7 @@ function PracticeSession({ sessionId, navigate }) {
                     />
                   ) : null}
                   {result && (
-                    item.interactionType === "single_choice"
+                    ["single_choice", "multiple_choice"].includes(item.interactionType)
                     || (item.interactionType === "vowel_fill" && result.status === "incorrect")
                   ) && (
                     <AnswerReview
@@ -1114,6 +1114,7 @@ function PracticeSession({ sessionId, navigate }) {
                   )}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
+                {result?.status === "partial" && <span className="batch-status partial">½</span>}
               </article>
             );
           })}
@@ -1148,9 +1149,9 @@ function PracticeSession({ sessionId, navigate }) {
         ) : null}
       </section>}
       {!relatedTheoryOpen && errorResult && (
-        <div className="answer-sheet incorrect" role="alert">
+        <div className={`answer-sheet ${errorResult.status}`} role="alert">
           <button className="answer-sheet-close" onClick={dismissError} aria-label="Закрыть">×</button>
-          <strong>Нужно повторить</strong>
+          <strong>{errorResult.status === "partial" ? "Частично верно" : "Нужно повторить"}</strong>
           {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
             <button
@@ -1335,6 +1336,13 @@ function answerText(item, response, fallback = "") {
     );
     return option?.label || fallback;
   }
+  if (item.interactionType === "multiple_choice") {
+    const selected = new Set(response?.optionKeys || []);
+    const labels = (item.interaction?.options || [])
+      .filter((candidate) => selected.has(candidate.key))
+      .map((candidate) => candidate.label);
+    return labels.length ? labels.join(", ") : fallback;
+  }
   return fallback;
 }
 
@@ -1349,6 +1357,14 @@ function AnswerReview({ item, result, showSingleLetterSuccess = false }) {
   if (result.status === "correct") {
     if (isSingleLetterGap && !showSingleLetterSuccess) return null;
     return <div className="answer-review correct"><span>Верно</span><b>{correct}</b></div>;
+  }
+  if (result.status === "partial") {
+    return (
+      <div className="answer-review partial">
+        <span><small>Вы выбрали</small>{selected}</span>
+        <span><small>Полный ответ</small><b>{correct}</b></span>
+      </div>
+    );
   }
   return (
     <div className="answer-review comparison">
@@ -1439,6 +1455,39 @@ function Interaction({ item, response, result, setResponse, disabled, onAnswer, 
       </div>
     );
   }
+  if (item.interactionType === "multiple_choice") {
+    const selected = new Set(response.optionKeys || []);
+    const toggle = (key) => {
+      const next = new Set(selected);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      setResponse({ optionKeys: [...next] });
+    };
+    return (
+      <div className="multiple-choice-wrap">
+        <div className="choice-list multiple-choice" aria-label="Выберите все подходящие варианты">
+          {(item.interaction?.options || []).map((option) => (
+            <button
+              key={option.key}
+              className={selected.has(option.key) ? "choice active" : "choice"}
+              disabled={disabled}
+              onClick={() => toggle(option.key)}
+            >
+              <i>{selected.has(option.key) ? "✓" : "○"}</i>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          className="multiple-submit"
+          disabled={disabled || !selected.size}
+          onClick={() => onComplete({ optionKeys: [...selected] })}
+        >
+          Проверить
+        </button>
+      </div>
+    );
+  }
   return (
     <input
       className="answer-input"
@@ -1459,6 +1508,9 @@ function hasResponse(item, response) {
   if (item.interactionType === "single_choice") return Boolean(response.optionKey);
   if (item.interactionType === "stress_selection") {
     return Number.isInteger(response.selectedCharacterIndex);
+  }
+  if (item.interactionType === "multiple_choice") {
+    return Array.isArray(response.optionKeys) && response.optionKeys.length > 0;
   }
   if (item.interactionType === "vowel_fill") return Boolean(response.text);
   return Boolean(response.text?.trim());

@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.scripts.curated_punctuation_practice import PUNCTUATION_PRACTICE
 from app.scripts.curated_practice_topups import TASK13_TOPUP, TASK15_TOPUP
 from app.scripts.curated_practice_volume import MORPHOLOGY_VOLUME, PARONYMS_500
 
 
-PRACTICE_REVISION = "umrus-original-practice-2026-v3"
+PRACTICE_REVISION = "umrus-original-practice-2026-v4"
 PRACTICE_REFERENCES = [
     "FIPI EGE 2026 codifier, specification and preparation navigators",
     "FIPI 2026 methodological recommendations for Russian language",
@@ -306,5 +307,10 @@ PRACTICE_SETS = [
     {"task_number": 13, "code": "task13-topup", "title": "НЕ с разными частями речи", "items": TASK13_TOPUP, "reuse_existing_title": True},
     {"task_number": 14, "code": "hyphens", "title": "Дефисное написание", "items": HYPHENS},
     {"task_number": 15, "code": "task15-topup", "title": "Н и НН", "items": TASK15_TOPUP, "reuse_existing_title": True},
-    {"task_number": 18, "code": "introductory-context", "title": "Вводные слова в контексте", "items": INTRODUCTORY_CONTEXT},
+    {"task_number": 16, "code": "punctuation-16", "title": "Однородные члены и сложные предложения", "items": PUNCTUATION_PRACTICE[16]},
+    {"task_number": 17, "code": "punctuation-17", "title": "Обособленные конструкции", "items": PUNCTUATION_PRACTICE[17]},
+    {"task_number": 18, "code": "introductory-context", "title": "Вводные слова, обращения и междометия", "items": INTRODUCTORY_CONTEXT + PUNCTUATION_PRACTICE[18]},
+    {"task_number": 19, "code": "punctuation-19", "title": "Сложноподчинённые предложения", "items": PUNCTUATION_PRACTICE[19]},
+    {"task_number": 20, "code": "punctuation-20", "title": "Сложные предложения с разными видами связи", "items": PUNCTUATION_PRACTICE[20]},
+    {"task_number": 21, "code": "punctuation-21", "title": "Пунктуационный анализ", "items": PUNCTUATION_PRACTICE[21]},
 ]

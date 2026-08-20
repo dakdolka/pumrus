@@ -485,7 +485,7 @@ async def list_practice_mistakes(
                 AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
             )
             .join(latest, latest.c.attempt_id == AttemptV2BD.id)
-            .where(AttemptV2BD.result_status == "incorrect")
+            .where(AttemptV2BD.result_status.in_(("incorrect", "partial")))
             .group_by(ExamTaskBD.id)
             .order_by(ExamTaskBD.number)
         )
@@ -509,6 +509,10 @@ def _public_question(
         if version.checker_type == "exact_option":
             correct_response = {
                 "optionKey": version.answer_config.get("correctOptionKey")
+            }
+        elif version.checker_type == "set_equality":
+            correct_response = {
+                "optionKeys": version.answer_config.get("correctOptionKeys", [])
             }
         elif version.checker_type == "exact_position":
             correct_response = {
@@ -717,7 +721,7 @@ async def create_practice_session(
                 AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
             )
             .join(latest, latest.c.attempt_id == AttemptV2BD.id)
-            .where(AttemptV2BD.result_status == "incorrect")
+            .where(AttemptV2BD.result_status.in_(("incorrect", "partial")))
         )
         query = query.where(ExerciseBD.id.in_(mistake_exercises))
     if body.user_id is not None or body.client_session_id:
@@ -838,12 +842,29 @@ async def get_practice_session(
 def _check_answer(
     version: ExerciseVersionBD,
     response: dict[str, Any],
-) -> tuple[Literal["incorrect", "correct"], float, dict[str, Any]]:
+) -> tuple[Literal["incorrect", "partial", "correct"], float, dict[str, Any]]:
     if version.checker_type == "exact_option":
         raw = response.get("optionKey")
         correct = version.answer_config.get("correctOptionKey")
         is_correct = raw == correct
         normalized = {"optionKey": raw}
+    elif version.checker_type == "set_equality":
+        raw = response.get("optionKeys")
+        selected = {
+            str(value) for value in raw
+        } if isinstance(raw, list) else set()
+        correct_set = {
+            str(value) for value in version.answer_config.get("correctOptionKeys", [])
+        }
+        overlap = len(selected & correct_set)
+        is_correct = bool(correct_set) and selected == correct_set
+        score = overlap / len(selected | correct_set) if correct_set else 0.0
+        normalized = {"optionKeys": sorted(selected)}
+        if is_correct:
+            return "correct", 1.0, normalized
+        if overlap:
+            return "partial", score, normalized
+        return "incorrect", 0.0, normalized
     elif version.checker_type == "exact_position":
         raw = response.get("selectedCharacterIndex")
         correct = version.answer_config.get("correctCharacterIndex")
@@ -989,6 +1010,8 @@ async def submit_attempt(
         "correctResponse": (
             {"optionKey": version.answer_config.get("correctOptionKey")}
             if version.checker_type == "exact_option"
+            else {"optionKeys": version.answer_config.get("correctOptionKeys", [])}
+            if version.checker_type == "set_equality"
             else {
                 "selectedCharacterIndex": version.answer_config.get(
                     "correctCharacterIndex"

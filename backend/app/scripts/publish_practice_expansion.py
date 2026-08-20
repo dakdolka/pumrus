@@ -88,8 +88,13 @@ TOPIC_CODE_ALIASES = {
 
 
 def _payload(item: dict[str, Any], key: str) -> dict[str, Any]:
+    answer_value = item["answer"]
     feedback = {
-        "correctAnswer": item["answer"],
+        "correctAnswer": (
+            ", ".join(str(value) for value in answer_value)
+            if isinstance(answer_value, list)
+            else answer_value
+        ),
         "correct": item["explanation"],
         "incorrect": item["explanation"],
     }
@@ -113,6 +118,29 @@ def _payload(item: dict[str, Any], key: str) -> dict[str, Any]:
             "interaction_config": {"options": options},
             "answer_config": {"correctOptionKey": correct_key},
             "checker_type": "exact_option",
+            "checker_config": marker,
+            "feedback_data": feedback,
+        }
+    if item["type"] == "multiple_choice":
+        options = [
+            {"key": f"option-{index}", "label": label}
+            for index, label in enumerate(item["options"])
+        ]
+        answers = {str(value) for value in item["answer"]}
+        correct_keys = [
+            option["key"] for option in options
+            if option["label"] in answers
+        ]
+        if len(correct_keys) != len(answers):
+            raise RuntimeError(
+                f"Multiple-choice answer is not present in options: {item!r}"
+            )
+        return {
+            "interaction_type": "multiple_choice",
+            "prompt_data": {"content": item["prompt"], "format": "plain_text"},
+            "interaction_config": {"options": options},
+            "answer_config": {"correctOptionKeys": correct_keys},
+            "checker_type": "set_equality",
             "checker_config": marker,
             "feedback_data": feedback,
         }
