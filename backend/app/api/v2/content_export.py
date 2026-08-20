@@ -449,6 +449,7 @@ async def build_practice_export(
                 "taskId": item.exam_task_id,
                 "topicId": item.topic_id,
                 "title": item.title,
+                "accessLevel": item.access_level,
                 "selectionStrategy": item.selection_strategy,
                 "configuration": item.configuration,
                 "status": item.status,
@@ -464,6 +465,7 @@ async def build_practice_export(
                 "exerciseId": item.exercise_id,
                 "sortOrder": item.sort_order,
                 "weight": item.weight,
+                "isPreview": item.is_preview,
                 **_timestamps(item),
             }
             for item in set_items

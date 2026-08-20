@@ -789,9 +789,14 @@ function PracticeTask({ taskNumber, navigate, userId }) {
                 key={set.id}
                 onClick={() => startSet(set)}
               >
-                <span className="set-label">{set.scopeRole === "task" ? "Всё задание" : "Тема"}</span>
+                <span className="set-label">
+                  {set.scopeRole === "task" ? "Всё задание" : "Тема"}
+                  {set.accessLevel && set.accessLevel !== "free" ? " · Демо" : ""}
+                </span>
                 <strong>{set.title}</strong>
-                <small>{set.exerciseCount} упражнений в банке</small>
+                <small>{set.accessLevel && set.accessLevel !== "free"
+                  ? `${set.demoExerciseCount} упражнений в демо`
+                  : `${set.exerciseCount} упражнений в банке`}</small>
                 <i><AppIcon type="arrow" /></i>
               </button>
             )) : <EmptyCard text="Для этого раздела пока нет опубликованных тренажёров." />}

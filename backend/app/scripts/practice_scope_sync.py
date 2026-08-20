@@ -156,6 +156,12 @@ def _scope_config(
         **(original or {}),
         "sessionSize": int((original or {}).get("sessionSize", 50)),
         "pageSize": int((original or {}).get("pageSize", 5)),
+        "demoSize": int(
+            (original or {}).get(
+                "demoSize",
+                15 if role == PUBLIC_ROLE_TASK else 7,
+            )
+        ),
         "scopeRole": role,
         "scopeCode": code,
         "scopeRevision": SCOPE_REVISION,
@@ -195,6 +201,74 @@ async def _sync_membership(
     return len(added), len(removed)
 
 
+async def sync_preview_membership(
+    session: AsyncSession,
+    exercise_set: ExerciseSetBD,
+) -> int:
+    """Select a stable, varied preview without copying any exercise."""
+    rows = (await session.execute(
+        select(ExerciseSetItemBD, ExerciseVersionBD.interaction_type)
+        .join(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+        .join(
+            ExerciseVersionBD,
+            ExerciseVersionBD.id == ExerciseBD.published_version_id,
+        )
+        .where(
+            ExerciseSetItemBD.exercise_set_id == exercise_set.id,
+            ExerciseBD.status == "published",
+        )
+        .order_by(ExerciseSetItemBD.sort_order, ExerciseSetItemBD.id)
+    )).all()
+    if not rows:
+        return 0
+
+    exercise_ids = [item.exercise_id for item, _ in rows]
+    primary_topics = (await session.execute(
+        select(ExerciseTopicLinkBD.exercise_id, ExerciseTopicLinkBD.topic_id)
+        .where(
+            ExerciseTopicLinkBD.exercise_id.in_(exercise_ids),
+            ExerciseTopicLinkBD.is_primary.is_(True),
+        )
+        .order_by(ExerciseTopicLinkBD.exercise_id, ExerciseTopicLinkBD.topic_id)
+    )).all()
+    primary_topic_by_exercise: dict[int, int] = {}
+    for exercise_id, topic_id in primary_topics:
+        primary_topic_by_exercise.setdefault(exercise_id, topic_id)
+
+    buckets: dict[tuple[int, str], list[ExerciseSetItemBD]] = {}
+    for item, interaction_type in rows:
+        key = (
+            primary_topic_by_exercise.get(item.exercise_id, 0),
+            interaction_type or "unknown",
+        )
+        buckets.setdefault(key, []).append(item)
+
+    requested = int((exercise_set.configuration or {}).get("demoSize", 7))
+    preview_size = min(max(requested, 1), len(rows))
+    selected_ids: set[int] = set()
+    ordered_keys = sorted(buckets, key=lambda value: (value[0], value[1]))
+    while len(selected_ids) < preview_size:
+        advanced = False
+        for key in ordered_keys:
+            bucket = buckets[key]
+            if not bucket:
+                continue
+            selected_ids.add(bucket.pop(0).exercise_id)
+            advanced = True
+            if len(selected_ids) == preview_size:
+                break
+        if not advanced:
+            break
+
+    changed = 0
+    for item, _ in rows:
+        should_preview = item.exercise_id in selected_ids
+        if item.is_preview != should_preview:
+            item.is_preview = should_preview
+            changed += 1
+    return changed
+
+
 async def sync_practice_scopes(
     session: AsyncSession,
     course_version_id: int,
@@ -206,6 +280,7 @@ async def sync_practice_scopes(
         "scope_sets_updated": 0,
         "scope_items_added": 0,
         "scope_items_removed": 0,
+        "preview_items_updated": 0,
     }
     tasks = list((await session.scalars(
         select(ExamTaskBD).where(ExamTaskBD.course_version_id == course_version_id)
@@ -362,6 +437,7 @@ async def sync_practice_scopes(
                 exam_task_id=task.id,
                 topic_id=topic.id if topic else None,
                 title=topic.title if topic else "Смешанная практика",
+                access_level="free",
                 selection_strategy="least_seen_random",
                 configuration={},
                 status="published",
@@ -383,6 +459,11 @@ async def sync_practice_scopes(
             generated=generated,
         )
         added, removed = await _sync_membership(session, selected, target_ids)
+        await session.flush()
+        stats["preview_items_updated"] += await sync_preview_membership(
+            session,
+            selected,
+        )
         if added or removed:
             stats["scope_sets_updated"] += 1
             stats["scope_items_added"] += added

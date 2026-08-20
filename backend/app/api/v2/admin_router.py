@@ -36,6 +36,10 @@ from app.infra.exercises.models import (
 )
 from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
 from app.api.v2.content_export import build_practice_export, build_theory_export
+from app.scripts.practice_scope_sync import (
+    sync_practice_scopes,
+    sync_preview_membership,
+)
 
 
 router = APIRouter(prefix="/v2/admin", tags=["v2-admin"])
@@ -97,6 +101,8 @@ class ExerciseSetSettingsIn(BaseModel):
     page_size: int = Field(ge=1, le=20)
     prompt_display: Literal["normal", "compact"] = "normal"
     show_single_letter_success: bool = False
+    access_level: Literal["free", "preview", "premium"] = "free"
+    demo_size: int = Field(default=7, ge=1, le=50)
 
 
 class BulkExerciseImportIn(BaseModel):
@@ -755,6 +761,8 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
                 ExamTaskBD.number,
                 TopicBD.title,
                 func.count(func.distinct(ExerciseSetItemBD.exercise_id)),
+                func.count(func.distinct(ExerciseSetItemBD.exercise_id))
+                .filter(ExerciseSetItemBD.is_preview.is_(True)),
                 func.array_agg(func.distinct(ExerciseVersionBD.interaction_type)),
             )
             .join(ExamTaskBD, ExamTaskBD.id == ExerciseSetBD.exam_task_id)
@@ -780,7 +788,13 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
                 "scopeRole",
                 "topic" if item.topic_id else "task",
             ),
+            "accessLevel": item.access_level,
             "exerciseCount": count,
+            "demoExerciseCount": preview_count,
+            "demoSize": int((item.configuration or {}).get(
+                "demoSize",
+                15 if item.topic_id is None else 7,
+            )),
             "interactionTypes": [value for value in interaction_types if value],
             "sessionSize": int(item.configuration.get("sessionSize", 50)),
             "pageSize": int(item.configuration.get("pageSize", 5)),
@@ -789,7 +803,7 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
                 item.configuration.get("showSingleLetterSuccess", False)
             ),
         }
-        for item, task_number, topic_title, count, interaction_types in rows
+        for item, task_number, topic_title, count, preview_count, interaction_types in rows
     ]
 
 
@@ -810,13 +824,18 @@ async def update_exercise_set_settings(
         "pageSize": body.page_size,
         "promptDisplay": body.prompt_display,
         "showSingleLetterSuccess": body.show_single_letter_success,
+        "demoSize": body.demo_size,
     }
+    item.access_level = body.access_level
+    await sync_preview_membership(db, item)
     await db.commit()
     return {
         "sessionSize": body.session_size,
         "pageSize": body.page_size,
         "promptDisplay": body.prompt_display,
         "showSingleLetterSuccess": body.show_single_letter_success,
+        "accessLevel": body.access_level,
+        "demoSize": body.demo_size,
     }
 
 
@@ -983,5 +1002,8 @@ async def bulk_import_exercises(
         ))
         next_order += 1
         created += 1
+    if created:
+        await db.flush()
+        await sync_practice_scopes(db, exercise_set.course_version_id)
     await db.commit()
     return {"created": created, "skippedDuplicates": skipped}

@@ -52,6 +52,7 @@ class SessionCreateIn(BaseModel):
     mode: str = "standard"
     limit: int | None = Field(default=None, ge=1, le=100)
     page_size: int | None = Field(default=None, ge=1, le=20)
+    preview: bool = False
 
 
 class AnswerIn(BaseModel):
@@ -436,6 +437,9 @@ async def list_exercise_sets(
                 ExerciseSetBD,
                 TopicBD.title,
                 func.count(ExerciseSetItemBD.id).label("exercise_count"),
+                func.count(ExerciseSetItemBD.id)
+                .filter(ExerciseSetItemBD.is_preview.is_(True))
+                .label("preview_count"),
             )
             .outerjoin(TopicBD, TopicBD.id == ExerciseSetBD.topic_id)
             .outerjoin(
@@ -459,12 +463,14 @@ async def list_exercise_sets(
                     "scopeRole",
                     "topic" if exercise_set.topic_id else "task",
                 ),
+                "accessLevel": exercise_set.access_level,
                 "exerciseCount": exercise_count,
+                "demoExerciseCount": preview_count,
                 "selectionStrategy": exercise_set.selection_strategy,
                 "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
                 "pageSize": int(exercise_set.configuration.get("pageSize", 5)),
             }
-            for exercise_set, topic_title, exercise_count in rows
+            for exercise_set, topic_title, exercise_count, preview_count in rows
         ],
     }
 
@@ -697,6 +703,7 @@ async def create_practice_session(
     )
     if exercise_set is None:
         raise HTTPException(404, "Exercise set not found")
+    preview_mode = body.preview or exercise_set.access_level in {"preview", "premium"}
     limit = body.limit or int(exercise_set.configuration.get("sessionSize", 50))
     page_size = body.page_size or int(exercise_set.configuration.get("pageSize", 5))
     page_size = min(page_size, limit)
@@ -723,6 +730,10 @@ async def create_practice_session(
             ).all()
         )
         for previous in previous_sessions:
+            if bool((previous.configuration or {}).get("previewMode")) != preview_mode:
+                previous.status = "expired"
+                previous.completed_at = now
+                continue
             paused_at_raw = (previous.configuration or {}).get("pausedAt")
             reference_time = previous.last_activity_at
             if paused_at_raw:
@@ -751,6 +762,8 @@ async def create_practice_session(
             ExerciseBD.published_version_id.is_not(None),
         )
     )
+    if preview_mode:
+        query = query.where(ExerciseSetItemBD.is_preview.is_(True))
     if body.mode == "mistakes":
         if body.user_id is None:
             raise HTTPException(400, "Mistake practice requires a user")
@@ -822,6 +835,8 @@ async def create_practice_session(
         ),
         "clientSessionId": body.client_session_id,
         "pausedAt": None,
+        "previewMode": preview_mode,
+        "accessLevel": exercise_set.access_level,
     }
     letter_keys = await _letter_keys_for_set(db, exercise_set.id)
     if letter_keys:

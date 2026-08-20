@@ -196,15 +196,22 @@ function PracticeSettings() {
   }, [parserType, rawText]);
   async function save(item) {
     try {
-      await adminApi(`/exercise-sets/${item.id}/settings`, {
+      const saved = await adminApi(`/exercise-sets/${item.id}/settings`, {
         method: "PATCH",
         body: JSON.stringify({
           session_size: item.sessionSize,
           page_size: item.pageSize,
           prompt_display: item.promptDisplay || "normal",
           show_single_letter_success: Boolean(item.showSingleLetterSuccess),
+          access_level: item.accessLevel || "free",
+          demo_size: item.demoSize || (item.scopeRole === "task" ? 15 : 7),
         }),
       });
+      update(item.id, {
+        ...saved,
+        demoExerciseCount: Math.min(saved.demoSize, item.exerciseCount),
+      });
+      setNotice(`Настройки «${item.title}» сохранены.`);
     } catch (reason) {
       setError(reason.message);
     }
@@ -249,7 +256,15 @@ function PracticeSettings() {
     <section className="practice-form-list">
       {sets.map((item) => <article className={selectedSetId === item.id ? "active" : ""} key={item.id} onClick={() => setSelectedSetId(item.id)}>
         <div><small>Задание {item.taskNumber}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</small>
-          <strong>{item.title}</strong><span>{item.exerciseCount} упражнений · {(item.interactionTypes || []).join(", ")}</span></div>
+          <strong>{item.title}</strong><span>{item.exerciseCount} упражнений · {item.demoExerciseCount || 0} в демо · {(item.interactionTypes || []).join(", ")}</span></div>
+        <label>Доступ<select value={item.accessLevel || "free"}
+          onChange={(event) => update(item.id, { accessLevel: event.target.value })}>
+          <option value="free">Бесплатный</option>
+          <option value="preview">Только демо</option>
+          <option value="premium">Платный + демо</option>
+        </select></label>
+        <label>В демо<input type="number" min="1" max="50" value={item.demoSize || 7}
+          onChange={(event) => update(item.id, { demoSize: Number(event.target.value) })} /></label>
         <label>Всего<input type="number" min="1" max="100" value={item.sessionSize}
           onChange={(event) => update(item.id, { sessionSize: Number(event.target.value) })} /></label>
         <label>В блоке<input type="number" min="1" max="20" value={item.pageSize}

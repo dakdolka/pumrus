@@ -144,6 +144,10 @@ class ExerciseSetBD(TimestampMixin, Base):
             "(exam_task_id IS NOT NULL) OR (topic_id IS NOT NULL)",
             name="ck_exercise_set_has_scope",
         ),
+        CheckConstraint(
+            "access_level IN ('free', 'preview', 'premium')",
+            name="ck_exercise_set_access_level",
+        ),
         UniqueConstraint(
             "source_legacy_task_id",
             name="uq_exercise_set_legacy_task_source",
@@ -164,6 +168,11 @@ class ExerciseSetBD(TimestampMixin, Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(256))
+    access_level: Mapped[str] = mapped_column(
+        String(16),
+        default="free",
+        server_default="free",
+    )
     selection_strategy: Mapped[str] = mapped_column(
         String(64),
         default="all_shuffled",
@@ -194,3 +203,7 @@ class ExerciseSetItemBD(TimestampMixin, Base):
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     weight: Mapped[int] = mapped_column(Integer, default=1)
+    is_preview: Mapped[bool] = mapped_column(
+        default=False,
+        server_default="false",
+    )

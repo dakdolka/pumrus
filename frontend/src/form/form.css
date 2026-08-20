@@ -271,7 +271,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list { display: grid; gap: .55rem; }
 .practice-form-list article {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 6rem 6rem 8rem 7rem auto;
+  grid-template-columns: minmax(190px, 1fr) 8rem 5.5rem 5.5rem 5.5rem 7rem 7rem auto;
   align-items: end;
   gap: .65rem;
   padding: .8rem;
@@ -350,9 +350,11 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .compact-prompt-toggle input { width: auto; }
 .import-error { margin: 0; padding: .55rem .75rem; border-top: 1px solid var(--line); color: var(--danger); font-size: .8rem; }
 .import-button { margin-top: .75rem; }
-@media (max-width: 720px) {
+@media (max-width: 1000px) {
   .practice-form-list article { grid-template-columns: 1fr 1fr; }
   .practice-form-list article > div { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
   .bulk-import-head { display: grid; }
   .bulk-import-head label { min-width: 0; }
   .import-preview-rows > div { grid-template-columns: 2rem 1fr; }
