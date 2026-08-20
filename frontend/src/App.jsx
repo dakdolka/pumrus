@@ -36,19 +36,32 @@ function practiceClientId() {
 }
 
 
-async function openRelatedPractice(taskNumber, navigate, exerciseSetId = null, userId = null) {
+async function openRelatedPractice(
+  taskNumber,
+  navigate,
+  exerciseSetId = null,
+  userId = null,
+  topicId = null,
+) {
   try {
-    const data = await api(`/v2/practice/tasks/${taskNumber}/sets`);
-    const taskSets = data.sets.filter((item) => !item.topicId);
+    const suffix = topicId ? `?topic_id=${topicId}` : "";
+    const data = await api(`/v2/practice/tasks/${taskNumber}/sets${suffix}`);
+    const taskSets = data.sets.filter((item) => item.scopeRole === "task");
     const requestedSet = exerciseSetId
       ? data.sets.find((item) => item.id === Number(exerciseSetId))
       : null;
-    const set = requestedSet || (taskSets.length === 1
+    const set = requestedSet || (topicId && data.sets.length === 1
+      ? data.sets[0]
+      : taskSets.length === 1
       ? taskSets[0]
       : data.sets.length === 1
         ? data.sets[0]
         : null);
-    if (!set) throw new Error("Для задания не настроена единственная общая подборка");
+    if (!set) throw new Error(
+      topicId
+        ? "Для этой темы пока не настроен тренажёр"
+        : "Для задания не настроена общая подборка",
+    );
     const session = await api("/v2/practice/sessions", {
       method: "POST",
       body: JSON.stringify({
@@ -651,12 +664,18 @@ function TopicTheory({ taskNumber, topicId, navigate, userId }) {
         { label: `Задание ${taskNumber}`, number: taskNumber, path: `/theory/tasks/${taskNumber}` },
         { label: state.data?.title || "Тема" },
       ]}
-      contextAction={{
+      contextAction={state.data?.practiceExerciseSetId ? {
         label: "Практика",
         icon: "bookmark",
         active: false,
-        onClick: () => openRelatedPractice(taskNumber, navigate, null, userId),
-      }}
+        onClick: () => openRelatedPractice(
+          taskNumber,
+          navigate,
+          state.data.practiceExerciseSetId,
+          userId,
+          topicId,
+        ),
+      } : null}
     >
       {state.loading && <Loading />}
       {state.error && <ErrorState message={state.error} />}
@@ -706,7 +725,7 @@ function PracticeTask({ taskNumber, navigate, userId }) {
       setAutoStartingSetId(-1);
       reportAppError(error);
     }
-  }, [mistakesMode, navigate, theoryOrigin]);
+  }, [mistakesMode, navigate, theoryOrigin, userId]);
 
   useEffect(() => {
     const onlySet = state.data?.sets?.length === 1
@@ -755,16 +774,22 @@ function PracticeTask({ taskNumber, navigate, userId }) {
           <section className="page-head task-head">
             <p className="eyebrow">Практика · задание {taskNumber}</p>
             <h1>{state.data.task.title}</h1>
-            <p>Выберите подборку. В одну сессию войдёт до 20 случайных упражнений.</p>
+            <p>Выберите всё задание или конкретную тему. Сначала попадутся упражнения, которые вы ещё не решали.</p>
           </section>
           <section className="set-list">
-            {state.data.sets.length ? state.data.sets.map((set) => (
+            {state.data.sets.length ? [...state.data.sets]
+              .sort((left, right) => (
+                (left.scopeRole === "task" ? 0 : 1)
+                - (right.scopeRole === "task" ? 0 : 1)
+                || left.title.localeCompare(right.title, "ru")
+              ))
+              .map((set) => (
               <button
                 className="set-card"
                 key={set.id}
                 onClick={() => startSet(set)}
               >
-                <span className="set-label">{set.topicTitle ? "Тема" : "Задание"}</span>
+                <span className="set-label">{set.scopeRole === "task" ? "Всё задание" : "Тема"}</span>
                 <strong>{set.title}</strong>
                 <small>{set.exerciseCount} упражнений в банке</small>
                 <i><AppIcon type="arrow" /></i>
@@ -783,6 +808,29 @@ function MistakesPractice({ navigate, userId }) {
     () => userId ? api(`/v2/practice/mistakes?user_id=${userId}`) : Promise.resolve({ total: 0, tasks: [] }),
     [userId],
   );
+  const [startingTask, setStartingTask] = useState(null);
+  async function startMistakes(task) {
+    if (!task.exerciseSetId) {
+      navigate(`/practice/tasks/${task.number}?mistakes=1`);
+      return;
+    }
+    setStartingTask(task.number);
+    try {
+      const session = await api("/v2/practice/sessions", {
+        method: "POST",
+        body: JSON.stringify({
+          exercise_set_id: task.exerciseSetId,
+          user_id: userId,
+          client_session_id: practiceClientId(),
+          mode: "mistakes",
+        }),
+      });
+      navigate(`/practice/sessions/${session.id}`);
+    } catch (error) {
+      setStartingTask(null);
+      reportAppError(error);
+    }
+  }
   return (
     <Shell
       navigate={navigate}
@@ -805,11 +853,12 @@ function MistakesPractice({ navigate, userId }) {
             <button
               className="set-card"
               key={task.number}
-              onClick={() => navigate(`/practice/tasks/${task.number}?mistakes=1`)}
+              onClick={() => startMistakes(task)}
+              disabled={startingTask !== null}
             >
               <span className="task-number">{task.number}</span>
               <strong>{task.title}</strong>
-              <small>{task.count} упражнений для повторения</small>
+              <small>{startingTask === task.number ? "Собираем ошибки…" : `${task.count} упражнений для повторения`}</small>
               <i><AppIcon type="arrow" /></i>
             </button>
           ))}
@@ -1035,20 +1084,29 @@ function PracticeSession({ sessionId, navigate }) {
         }] : []),
       ] : [
         { label: "Практика", icon: "practice", path: "/practice" },
-        { label: "Сессия", number: session.context.taskNumber },
+        {
+          label: `Задание ${session.context.taskNumber}`,
+          number: session.context.taskNumber,
+          path: `/practice/tasks/${session.context.taskNumber}`,
+        },
+        ...(session.context.topicId ? [{ label: session.context.topicTitle }] : []),
       ]}
       contextAction={theoryOrigin ? {
         label: "Вернуться к теории",
         icon: "bookmark",
         active: true,
-        onClick: () => navigateFromSession(`/theory/tasks/${session.context.taskNumber}`),
+        onClick: () => navigateFromSession(
+          session.context.topicId
+            ? `/theory/tasks/${session.context.taskNumber}/topics/${session.context.topicId}`
+            : `/theory/tasks/${session.context.taskNumber}`,
+        ),
       } : {
         label: "Открыть теорию",
         icon: "bookmark",
         active: relatedTheoryOpen,
         onClick: () => {
           setRelatedTheoryOpen((open) => !open);
-          setRelatedTheoryTopicId(null);
+          setRelatedTheoryTopicId(session.context.topicId || null);
         },
       }}
     >
@@ -1158,7 +1216,7 @@ function PracticeSession({ sessionId, navigate }) {
               key={link.route}
               onClick={() => {
                 setErrorResult(null);
-                setRelatedTheoryTopicId(null);
+                setRelatedTheoryTopicId(link.topicId || null);
                 setRelatedTheoryOpen(true);
               }}
             >

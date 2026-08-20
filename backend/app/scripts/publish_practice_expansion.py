@@ -32,6 +32,7 @@ from app.scripts.curated_practice_expansion import (
     PRACTICE_SETS,
 )
 from app.scripts.publish_curated_theory import _course_version
+from app.scripts.practice_scope_sync import sync_practice_scopes
 
 
 LEGACY_SET_TITLES = {
@@ -530,6 +531,9 @@ async def publish(course_version_code: str | None, execute: bool) -> None:
             session, tasks_by_number
         )
         await _repair_legacy_data(session, tasks_by_number, counters, now)
+        counters.update(
+            await sync_practice_scopes(session, course_version.id)
+        )
 
         print("Curated practice expansion plan:")
         print(f"  course version: {course_version.code}")

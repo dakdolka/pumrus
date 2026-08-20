@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -762,6 +762,10 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
             .outerjoin(ExerciseSetItemBD, ExerciseSetItemBD.exercise_set_id == ExerciseSetBD.id)
             .outerjoin(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
             .outerjoin(ExerciseVersionBD, ExerciseVersionBD.id == ExerciseBD.published_version_id)
+            .where(or_(
+                ExerciseSetBD.configuration["scopeRole"].astext.is_(None),
+                ExerciseSetBD.configuration["scopeRole"].astext != "source",
+            ))
             .group_by(ExerciseSetBD.id, ExamTaskBD.number, TopicBD.title)
             .order_by(ExamTaskBD.number, ExerciseSetBD.title)
         )
@@ -772,6 +776,10 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
             "title": item.title,
             "taskNumber": task_number,
             "topicTitle": topic_title,
+            "scopeRole": (item.configuration or {}).get(
+                "scopeRole",
+                "topic" if item.topic_id else "task",
+            ),
             "exerciseCount": count,
             "interactionTypes": [value for value in interaction_types if value],
             "sessionSize": int(item.configuration.get("sessionSize", 50)),

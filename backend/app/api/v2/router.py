@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -37,6 +37,12 @@ from app.infra.practice.models import (
 
 router = APIRouter(prefix="/v2", tags=["v2"])
 VISIBLE_TOPIC_STATUSES = ("published", "published_manual")
+HIDDEN_EXERCISE_SET_ROLE = "source"
+
+
+def _public_exercise_set_condition():
+    role = ExerciseSetBD.configuration["scopeRole"].astext
+    return or_(role.is_(None), role != HIDDEN_EXERCISE_SET_ROLE)
 
 
 class SessionCreateIn(BaseModel):
@@ -220,6 +226,7 @@ async def list_exam_tasks(
         .where(
             ExerciseSetBD.exam_task_id == ExamTaskBD.id,
             ExerciseSetBD.status == "published",
+            _public_exercise_set_condition(),
             ExerciseBD.status == "published",
             ExerciseBD.published_version_id.is_not(None),
         )
@@ -236,6 +243,7 @@ async def list_exam_tasks(
         .where(
             ExerciseSetBD.exam_task_id == ExamTaskBD.id,
             ExerciseSetBD.status == "published",
+            _public_exercise_set_condition(),
             ExerciseBD.status == "published",
             ExerciseBD.published_version_id.is_not(None),
         )
@@ -322,9 +330,20 @@ async def get_topic_theory(topic_id: int, db: AsyncSession = Depends(get_db)):
             .order_by(ExamTaskBD.number)
         )
     ).all()
+    practice_set_id = await db.scalar(
+        select(ExerciseSetBD.id)
+        .where(
+            ExerciseSetBD.topic_id == topic.id,
+            ExerciseSetBD.status == "published",
+            ExerciseSetBD.configuration["scopeRole"].astext == "topic",
+        )
+        .order_by(ExerciseSetBD.id)
+        .limit(1)
+    )
     return {
         **_topic_out(topic),
         "taskNumbers": list(task_numbers),
+        "practiceExerciseSetId": practice_set_id,
         "theory": await _published_document(db, topic_id=topic.id),
     }
 
@@ -407,6 +426,7 @@ async def list_exercise_sets(
     conditions = [
         ExerciseSetBD.exam_task_id == task.id,
         ExerciseSetBD.status == "published",
+        _public_exercise_set_condition(),
     ]
     if topic_id is not None:
         conditions.append(ExerciseSetBD.topic_id == topic_id)
@@ -435,6 +455,10 @@ async def list_exercise_sets(
                 "title": exercise_set.title,
                 "topicId": exercise_set.topic_id,
                 "topicTitle": topic_title,
+                "scopeRole": (exercise_set.configuration or {}).get(
+                    "scopeRole",
+                    "topic" if exercise_set.topic_id else "task",
+                ),
                 "exerciseCount": exercise_count,
                 "selectionStrategy": exercise_set.selection_strategy,
                 "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
@@ -464,12 +488,24 @@ async def list_practice_mistakes(
     db: AsyncSession = Depends(get_db),
 ):
     latest = _latest_attempt_ids(user_id)
+    task_set_id = (
+        select(func.min(ExerciseSetBD.id))
+        .where(
+            ExerciseSetBD.exam_task_id == ExamTaskBD.id,
+            ExerciseSetBD.topic_id.is_(None),
+            ExerciseSetBD.status == "published",
+            ExerciseSetBD.configuration["scopeRole"].astext == "task",
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
     rows = (
         await db.execute(
             select(
                 ExamTaskBD.number,
                 ExamTaskBD.title,
                 func.count(func.distinct(ExerciseBD.id)),
+                task_set_id.label("exercise_set_id"),
             )
             .join(
                 ExerciseTaskLinkBD,
@@ -491,10 +527,15 @@ async def list_practice_mistakes(
         )
     ).all()
     return {
-        "total": sum(count for _, _, count in rows),
+        "total": sum(count for _, _, count, _ in rows),
         "tasks": [
-            {"number": number, "title": title, "count": count}
-            for number, title, count in rows
+            {
+                "number": number,
+                "title": title,
+                "count": count,
+                "exerciseSetId": exercise_set_id,
+            }
+            for number, title, count, exercise_set_id in rows
         ],
     }
 
