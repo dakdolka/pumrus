@@ -601,7 +601,7 @@ async def _session_out(
     }
 
 
-async def _vowel_keys_for_set(
+async def _letter_keys_for_set(
     db: AsyncSession,
     exercise_set_id: int,
 ) -> list[str]:
@@ -632,7 +632,10 @@ async def _vowel_keys_for_set(
         for position, character in enumerate(mask):
             if character in {"_", "…"} and position < len(answer):
                 letters.add(answer[position].casefold())
-    preferred_order = "аоеёиыуюяэ"
+    # Legacy ``vowel_fill`` is also used for consonants and hard/soft signs.
+    # Keep the familiar vowels first, then expose every other Russian letter
+    # actually required by this set instead of making those rows impossible.
+    preferred_order = "аоеёиыуюяэбвгджзйклмнпрстфхцчшщъь"
     return [letter for letter in preferred_order if letter in letters]
 
 
@@ -775,9 +778,11 @@ async def create_practice_session(
         "clientSessionId": body.client_session_id,
         "pausedAt": None,
     }
-    vowel_keys = await _vowel_keys_for_set(db, exercise_set.id)
-    if vowel_keys:
-        session_configuration["vowelKeys"] = vowel_keys
+    letter_keys = await _letter_keys_for_set(db, exercise_set.id)
+    if letter_keys:
+        session_configuration["letterKeys"] = letter_keys
+        # Kept during the API transition for already deployed frontend builds.
+        session_configuration["vowelKeys"] = letter_keys
     session = PracticeSessionBD(
         user_id=body.user_id,
         exercise_set_id=exercise_set.id,

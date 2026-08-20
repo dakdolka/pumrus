@@ -1131,7 +1131,7 @@ function PracticeSession({ sessionId, navigate }) {
               item={item}
               response={response}
               setResponse={setResponse}
-              vowelKeys={session.configuration?.vowelKeys}
+              letterKeys={session.configuration?.letterKeys || session.configuration?.vowelKeys}
               disabled={Boolean(errorResult) || submittingId === item.sessionItemId}
               onAnswer={(next) => {
                 setResponse(next);
@@ -1251,12 +1251,22 @@ function revealCorrectChoice(content, correctAnswer) {
   if (/^НН?$/i.test(answer)) {
     return content.replace(/\(Н\/НН\)/gi, answer.toLocaleLowerCase("ru"));
   }
-  if (/^(слитно|раздельно)$/i.test(answer)) {
-    const separated = answer.toLocaleLowerCase("ru") === "раздельно";
+  if (/^(слитно|раздельно|дефис)$/i.test(answer)) {
+    const separator = {
+      слитно: "",
+      раздельно: " ",
+      дефис: "-",
+    }[answer.toLocaleLowerCase("ru")];
     return content.replace(
-      /\((НЕ|НИ)\)\s*/gi,
-      (_, particle) => `${particle}${separated ? " " : ""}`,
-    );
+      /\(([^()]+)\)/g,
+      (match, fragment, offset, source) => {
+        const hasLeftPart = /[а-яёa-z0-9]$/i.test(source.slice(0, offset));
+        const hasRightPart = /^[а-яёa-z0-9]/i.test(
+          source.slice(offset + match.length),
+        );
+        return `${hasLeftPart ? separator : ""}${fragment}${hasRightPart ? separator : ""}`;
+      },
+    ).replace(/--+/g, "-").replace(/ {2,}/g, " ");
   }
   return content;
 }
@@ -1349,7 +1359,7 @@ function AnswerReview({ item, result, showSingleLetterSuccess = false }) {
 }
 
 
-function SharedKeyboard({ item, response, setResponse, vowelKeys, disabled, onAnswer }) {
+function SharedKeyboard({ item, response, setResponse, letterKeys, disabled, onAnswer }) {
   if (item.interactionType === "single_choice") {
     return (
       <div className="shared-keyboard choice-list" aria-label="Варианты ответа">
@@ -1362,9 +1372,9 @@ function SharedKeyboard({ item, response, setResponse, vowelKeys, disabled, onAn
     );
   }
   const { mask, blanks, values } = vowelFillState(item, response);
-  const choose = (vowel) => {
+  const choose = (letter) => {
     if (values.length >= blanks.length) return;
-    const nextValues = [...values, vowel];
+    const nextValues = [...values, letter];
     const text = [...mask].map((character, index) => {
       const slot = blanks.indexOf(index);
       return slot >= 0 ? (nextValues[slot] || "") : character;
@@ -1374,9 +1384,9 @@ function SharedKeyboard({ item, response, setResponse, vowelKeys, disabled, onAn
     if (nextValues.length === blanks.length) onAnswer(next);
   };
   return (
-    <div className="shared-keyboard vowel-keyboard" aria-label="Клавиатура гласных">
-      {(vowelKeys?.length ? vowelKeys : ["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"]).map((vowel) => (
-        <button key={vowel} disabled={disabled} onClick={() => choose(vowel)}>{vowel}</button>
+    <div className="shared-keyboard vowel-keyboard" aria-label="Клавиатура букв">
+      {(letterKeys?.length ? letterKeys : ["а", "о", "е", "ё", "и", "ы", "у", "ю", "я", "э"]).map((letter) => (
+        <button key={letter} disabled={disabled} onClick={() => choose(letter)}>{letter}</button>
       ))}
       <button
         disabled={disabled || !values.length}

@@ -236,7 +236,7 @@ function PracticeSettings() {
   }
   const selectedSet = sets.find((item) => item.id === selectedSetId);
   const hints = {
-    vowel_fill: "кОмпОнент — заглавные гласные станут пропусками; либо к_мп_нент | компонент",
+    vowel_fill: "процентЩик — заглавные буквы станут пропусками; либо процент_ик | процентщик",
     stress_selection: "звонИт — ровно одна ударная гласная заглавная",
     single_choice: "предложение | слитно | слитно,раздельно | пояснение (необязательно)",
     text_input: "Поставьте во множественное число: директор | директора",
@@ -262,7 +262,7 @@ function PracticeSettings() {
         <label className="set-checkbox">
           <input type="checkbox" checked={Boolean(item.showSingleLetterSuccess)}
             onChange={(event) => update(item.id, { showSingleLetterSuccess: event.target.checked })} />
-          «Верно: И/Е»
+          Показывать «Верно: буква»
         </label>
         <button className="button primary" onClick={() => save(item)}>Сохранить</button>
       </article>)}
@@ -272,7 +272,7 @@ function PracticeSettings() {
         <div><span className="overline">Массовое добавление</span>
           <h2>{selectedSet ? selectedSet.title : "Выберите подборку"}</h2></div>
         <label>Формат<select value={parserType} onChange={(event) => setParserType(event.target.value)}>
-          <option value="vowel_fill">Пропущенные гласные</option>
+          <option value="vowel_fill">Пропущенные буквы</option>
           <option value="stress_selection">Постановка ударения</option>
           <option value="single_choice">Выбор варианта</option>
           <option value="text_input">Полный ввод</option>

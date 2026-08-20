@@ -6,6 +6,7 @@ from typing import Any
 
 PARSER_TYPES = {"single_choice", "stress_selection", "vowel_fill", "text_input"}
 VOWELS = set("аеёиоуыэюя")
+RUSSIAN_LETTERS = set("абвгдеёжзийклмнопрстуфхцчшщъыьэюя")
 
 
 def _parts(line: str) -> list[str]:
@@ -56,11 +57,12 @@ def parse_exercises(raw_text: str, parser_type: str) -> dict[str, Any]:
                     marked_positions = {
                         index
                         for index, character in enumerate(parts[0])
-                        if character.isupper() and character.casefold() in VOWELS
+                        if character.isupper()
+                        and character.casefold() in RUSSIAN_LETTERS
                     }
                     if not marked_positions:
                         raise ValueError(
-                            "выделите пропущенные гласные заглавными или укажите маску | ответ"
+                            "выделите пропущенные буквы заглавными или укажите маску | ответ"
                         )
                     mask = "".join(
                         "_" if index in marked_positions else character.casefold()
@@ -71,8 +73,8 @@ def parse_exercises(raw_text: str, parser_type: str) -> dict[str, Any]:
                 gaps = [index for index, character in enumerate(mask) if character in {"_", "…"}]
                 if not gaps:
                     raise ValueError("в маске нет пропусков")
-                if any(answer[index].casefold() not in VOWELS for index in gaps):
-                    raise ValueError("в пропусках должны находиться гласные")
+                if any(answer[index].casefold() not in RUSSIAN_LETTERS for index in gaps):
+                    raise ValueError("в пропусках должны находиться русские буквы")
                 rows.append({
                     "line": line_number,
                     "source": source,

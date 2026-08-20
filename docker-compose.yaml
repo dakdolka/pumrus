@@ -34,7 +34,7 @@ services:
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://bestgreen.ru,https://www.bestgreen.ru,http://localhost:3000,http://127.0.0.1:3000}
     working_dir: /app
-    command: ["sh", "-c", "alembic upgrade head && python -m app.scripts.publish_curated_theory --execute && python -m app.scripts.publish_theory_expansion --execute && python -m app"]
+    command: ["sh", "-c", "alembic upgrade head && python -m app.scripts.publish_curated_theory --execute && python -m app.scripts.publish_theory_expansion --execute && python -m app.scripts.publish_practice_expansion --execute && python -m app"]
     ports:
     - "8000:8000"
     mem_limit: 512m
