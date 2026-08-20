@@ -171,6 +171,15 @@ async def _ensure_set(
         ),
         None,
     )
+    if exercise_set is None and definition.get("reuse_existing_title"):
+        exercise_set = next(
+            (
+                item for item in candidates
+                if item.title == definition["title"]
+                and not (item.configuration or {}).get("curatedCode")
+            ),
+            None,
+        )
     created = exercise_set is None
     if exercise_set is None:
         exercise_set = ExerciseSetBD(

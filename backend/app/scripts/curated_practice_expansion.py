@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.scripts.curated_practice_topups import TASK13_TOPUP, TASK15_TOPUP
 from app.scripts.curated_practice_volume import MORPHOLOGY_VOLUME, PARONYMS_500
 
 
-PRACTICE_REVISION = "umrus-original-practice-2026-v2"
+PRACTICE_REVISION = "umrus-original-practice-2026-v3"
 PRACTICE_REFERENCES = [
     "FIPI EGE 2026 codifier, specification and preparation navigators",
     "FIPI 2026 methodological recommendations for Russian language",
@@ -302,6 +303,8 @@ PRACTICE_SETS = [
     {"task_number": 9, "code": "alternating-roots", "title": "Чередующиеся корни", "items": ALTERNATING_ROOTS},
     {"task_number": 10, "code": "prefixes", "title": "Приставки и разделительные знаки", "items": PREFIXES},
     {"task_number": 12, "code": "participles", "title": "Причастия и деепричастия", "items": PARTICIPLES},
+    {"task_number": 13, "code": "task13-topup", "title": "НЕ с разными частями речи", "items": TASK13_TOPUP, "reuse_existing_title": True},
     {"task_number": 14, "code": "hyphens", "title": "Дефисное написание", "items": HYPHENS},
+    {"task_number": 15, "code": "task15-topup", "title": "Н и НН", "items": TASK15_TOPUP, "reuse_existing_title": True},
     {"task_number": 18, "code": "introductory-context", "title": "Вводные слова в контексте", "items": INTRODUCTORY_CONTEXT},
 ]
