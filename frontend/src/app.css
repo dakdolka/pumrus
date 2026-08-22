@@ -85,7 +85,7 @@ button:disabled { cursor: default; }
 svg { width: 1.2em; height: 1.2em; display: block; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 
-.app-shell { min-height: 100vh; min-height: 100dvh; }
+.app-shell { min-height: 100vh; min-height: 100dvh; overflow-x: clip; }
 main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 
 .topbar {

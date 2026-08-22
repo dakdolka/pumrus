@@ -104,7 +104,7 @@ button { color: inherit; }
 .workspace { min-width: 0; }
 .workspace:has(.edit-pane) { display: grid; grid-template-columns: minmax(600px, 760px) minmax(330px, 440px); justify-content: center; align-items: start; gap: clamp(12px, 1.6vw, 22px); padding: 14px clamp(12px, 2vw, 24px) 40px; }
 .edit-pane { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 62%, var(--bg)); }
-.preview-pane { position: sticky; top: 68px; width: 100%; min-width: 0; max-height: calc(100vh - 82px); padding: 0 4px 24px 0; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; scrollbar-gutter: stable; background: transparent; }
+.preview-pane { position: sticky; top: 68px; width: 100%; min-width: 0; max-height: calc(100vh - 82px); padding: 0 4px 24px 0; overflow-x: clip; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; scrollbar-gutter: stable; background: transparent; }
 .owner-fields { display: grid; gap: 5px; margin-bottom: 10px; }
 .owner-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .owner-meta .overline { margin: 0; }
@@ -181,12 +181,12 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .preview-label { position: sticky; z-index: 3; top: 0; display: flex; justify-content: space-between; align-items: baseline; max-width: 720px; margin: 0 auto 10px; padding: 4px 0 9px; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(10px); }
 .preview-label span { font: 650 11px/1 var(--display-font); text-transform: uppercase; letter-spacing: .08em; }
 .preview-label small { color: var(--text-secondary); }
-.preview-device { width: min(100%, 440px); min-height: calc(100vh - 102px); margin: auto; background: var(--bg); }
+.preview-device { width: min(100%, 390px); min-height: calc(100vh - 102px); margin: auto; overflow-x: clip; background: var(--bg); }
 .preview-device > header { padding: 36px 18px 28px; }
 .preview-device > header span { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .preview-device > header h1 { max-width: 650px; margin: 8px 0 0; font-size: clamp(28px, 3vw, 38px); font-weight: 750; line-height: 1.12; letter-spacing: -.035em; }
 .preview-device > header p { max-width: 610px; margin: 10px 0 0; color: var(--text); line-height: 1.55; opacity: .86; }
-.preview-device .theory-document { width: calc(100% - 36px); margin-inline: auto; padding-inline: 0; }
+.preview-device .theory-document { width: 100%; margin-inline: auto; }
 .welcome { max-width: 520px; margin: 16vh auto; padding: 28px; text-align: center; }
 .welcome .form-logo { display: inline-block; margin-bottom: 32px; font-size: 30px; }
 .welcome h1 { margin: 8px 0 12px; font: 650 clamp(27px, 5vw, 43px)/1.16 var(--display-font); }

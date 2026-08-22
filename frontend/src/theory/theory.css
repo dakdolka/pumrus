@@ -1,10 +1,10 @@
-.theory-document { width: 100%; max-width: var(--reading-max, 760px); padding: 6px 18px 36px; }
+.theory-document { width: 100%; max-width: var(--reading-max, 760px); padding: 6px 18px 36px; container: theory-document / inline-size; overflow: visible; }
 .theory-block { position: relative; }
-.theory-block-main, .theory-block-content { min-width: 0; }
+.theory-block-main, .theory-block-content { min-width: 0; overflow: visible; }
 .theory-block + .theory-block { margin-top: 8px; }
 .theory-block.is-selected > :first-child, .theory-section.is-selected > summary { outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 4px; }
-.theory-document h2 { margin: 19px 0 7px; font-size: clamp(22px, 5vw, 30px); line-height: 1.2; }
-.theory-document h3 { margin: 16px 0 6px; font-size: clamp(18px, 4vw, 23px); line-height: 1.28; }
+.theory-document h2 { margin: 19px 0 7px; font-size: clamp(22px, 5cqi, 30px); line-height: 1.2; }
+.theory-document h3 { margin: 16px 0 6px; font-size: clamp(18px, 4cqi, 23px); line-height: 1.28; }
 .rich-text { color: var(--text); font-size: 15.5px; line-height: 1.58; }
 .rich-text p { margin: 0 0 8px; white-space: normal; }
 .rich-text p:last-child { margin-bottom: 0; }
@@ -77,7 +77,7 @@
   .theory-block.note-below-right > .theory-block-main,
   .theory-block.note-below-left > .theory-block-main,
   .theory-block.note-free > .theory-block-main { position: relative; overflow: visible; }
-  .author-note-free { position: absolute; z-index: 4; top: var(--note-y, 50%); left: var(--note-x, 50%); width: max-content; max-width: min(72%, 300px); margin: 0; justify-content: center; text-align: center; transform: translate(-50%, -50%); }
+  .author-note-free { position: absolute; z-index: 4; top: var(--note-top, var(--note-y, 50%)); left: var(--note-left, var(--note-x, 50%)); width: max-content; max-width: min(72cqi, 300px); margin: 0; justify-content: center; text-align: center; transform: translate(-50%, -50%); }
   .theory-block.note-right-tilted > .theory-block-main > .author-note,
   .theory-block.note-left-tilted > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 50%; width: 132px; margin: 0; transform: translateY(-50%); }
   .theory-block.note-right-tilted > .theory-block-main > .author-note { right: -30px; padding-right: 9px; text-align: right; }
@@ -142,4 +142,3 @@
   .theory-section.note-vertical-right > :where(summary, .theory-section-content) { padding-right: 46px; }
   .theory-section.note-vertical-left > :where(summary, .theory-section-content) { padding-left: 46px; }
 }
-@media (min-width: 900px) { .theory-document { padding-inline: 0; } }

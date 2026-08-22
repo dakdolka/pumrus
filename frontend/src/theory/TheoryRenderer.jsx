@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import "./theory.css";
 import { buildTheoryTree } from "./theoryTree";
 
@@ -131,6 +131,39 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
 
 function AuthorNote({ text, placement, color, rotation, scale, x, y, blockId, onBlockClick, onChange }) {
   const draggable = Boolean(onChange);
+  const noteRef = useRef(null);
+  const [freePosition, setFreePosition] = useState(null);
+
+  useLayoutEffect(() => {
+    if (placement !== "free") {
+      setFreePosition(null);
+      return undefined;
+    }
+
+    const note = noteRef.current;
+    const anchor = note?.closest(".theory-block-main, .theory-section");
+    if (!note || !anchor) return undefined;
+
+    const updatePosition = () => {
+      const anchorWidth = anchor.clientWidth;
+      const anchorHeight = anchor.clientHeight;
+      if (!anchorWidth || !anchorHeight) return;
+
+      const bleed = Math.min(14, anchorWidth * 0.04);
+      const left = boundedNoteCenter(anchorWidth, note.offsetWidth, x, bleed);
+      const top = boundedNoteCenter(anchorHeight, note.offsetHeight, y, bleed);
+      setFreePosition((current) => (
+        current?.left === left && current?.top === top ? current : { left, top }
+      ));
+    };
+
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(anchor);
+    observer.observe(note);
+    return () => observer.disconnect();
+  }, [placement, rotation, scale, text, x, y]);
+
   const setPosition = (clientX, clientY, anchor) => {
     if (!anchor || (!clientX && !clientY)) return;
     const bounds = anchor.getBoundingClientRect();
@@ -168,10 +201,19 @@ function AuthorNote({ text, placement, color, rotation, scale, x, y, blockId, on
   const style = {
     "--note-x": `${x}%`,
     "--note-y": `${y}%`,
+    "--note-left": freePosition ? `${freePosition.left}px` : `${x}%`,
+    "--note-top": freePosition ? `${freePosition.top}px` : `${y}%`,
     "--note-rotation": `${rotation}deg`,
     "--note-font-size": `${20 * (scale / 100)}px`,
   };
-  return <aside className={`author-note author-note-${placement} author-note-tone-${color} ${draggable ? "is-draggable" : ""}`} style={style} aria-label="Комментарий автора" onPointerDown={startDrag} onClick={(event) => draggable && event.stopPropagation()}><span><InlineMarkdown value={text} /></span></aside>;
+  return <aside ref={noteRef} className={`author-note author-note-${placement} author-note-tone-${color} ${draggable ? "is-draggable" : ""}`} style={style} aria-label="Комментарий автора" onPointerDown={startDrag} onClick={(event) => draggable && event.stopPropagation()}><span><InlineMarkdown value={text} /></span></aside>;
+}
+
+function boundedNoteCenter(containerSize, noteSize, percentage, bleed) {
+  const desired = containerSize * (percentage / 100);
+  const minimum = (noteSize / 2) - bleed;
+  const maximum = containerSize - (noteSize / 2) + bleed;
+  return minimum > maximum ? containerSize / 2 : clamp(desired, minimum, maximum);
 }
 
 function numericSetting(settings, key, fallback, min, max) {
