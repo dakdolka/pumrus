@@ -6,15 +6,17 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api.tasks.general.router import router as task_router
-from app.api.tasks.sessions.router import router as task_session_router
-from app.api.theory.router import router as theory_router
-from app.api.user.general.router import router as users_router
-from app.api.user.mistakes.router import router as user_mistakes_router
 from app.api.v2.router import router as v2_router
 from app.api.v2.admin_router import router as v2_admin_router
 from app.api.v2.monetization_admin_router import router as v2_monetization_admin_router
 from app.api.v2.payments_router import router as v2_payments_router
+from app.api.v2.internal_router import router as v2_internal_router
+from app.api.v2.operations_router import (
+    admin_router as v2_operations_admin_router,
+    public_router as v2_operations_public_router,
+)
+from app.core.admin_audit import AdminAuditMiddleware
+from app.core.rate_limit import RateLimitMiddleware
 from app.core.config import settings
 from app.core.db import async_engine
 from app.core.payment_worker import payment_worker
@@ -46,15 +48,13 @@ async def healthcheck():
     return {"status": "ok", "database": "postgresql"}
 
 
-app.include_router(theory_router)
-app.include_router(task_router)
-app.include_router(task_session_router)
-app.include_router(user_mistakes_router)
-app.include_router(users_router)
 app.include_router(v2_router)
 app.include_router(v2_admin_router)
 app.include_router(v2_monetization_admin_router)
 app.include_router(v2_payments_router)
+app.include_router(v2_internal_router)
+app.include_router(v2_operations_public_router)
+app.include_router(v2_operations_admin_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +63,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AdminAuditMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 
 if __name__ == "__main__":

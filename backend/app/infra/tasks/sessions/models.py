@@ -10,16 +10,17 @@ from app.core.db import Base, TimestampMixin
 class TaskSessionBD(TimestampMixin, Base):
     __tablename__="task_session"
     
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, unique=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
     task_id: Mapped[int] = mapped_column(ForeignKey("task.id"))
-    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+    closed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
     user: Mapped["UserBD"] = relationship()
     task: Mapped["TaskBD"] = relationship()
     
     @property
     def is_open(self) -> bool:
         return self.closed_at is None
-    
-    
-    

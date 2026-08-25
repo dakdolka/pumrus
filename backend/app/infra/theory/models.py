@@ -79,7 +79,7 @@ class TheoryBlockBD(TimestampMixin, Base):
 class TaskTheoryGroupBD(TimestampMixin, Base):
     __tablename__ = "task_theory_group"
     
-    id: Mapped[Optional[int]] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str_256]
     is_single: Mapped[bool]
     tasks_theories: Mapped[List["TaskTheoryBD"]] = relationship(back_populates="group")
@@ -88,7 +88,7 @@ class TaskTheoryGroupBD(TimestampMixin, Base):
 class TaskTheoryBD(TimestampMixin, Base):
     __tablename__ = "task_theory"
 
-    id: Mapped[Optional[int]] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str_256]
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_theory_group.id"))
     group: Mapped[Optional["TaskTheoryGroupBD"]] = relationship(back_populates="tasks_theories")

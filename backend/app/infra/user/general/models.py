@@ -1,13 +1,9 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.infra.user.mistakes import UserMistakesBD
 
 from datetime import date, datetime
 from sqlalchemy import Date, DateTime, Boolean, SmallInteger
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import Optional, List
+from sqlalchemy.orm import Mapped, mapped_column
+from typing import Optional
 from app.core.db import Base, str_256, TimestampMixin
 
 
@@ -27,6 +23,7 @@ class UserBD(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)        # бан/мягкое удаление
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    last_active_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # аналитика
-
-    mistakes: Mapped[List["UserMistakesBD"]] = relationship()
+    last_active_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )  # аналитика

@@ -12,7 +12,7 @@ class UserMistakesBD(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     
     user_fk: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    user : Mapped["UserBD"] = relationship(back_populates="mistakes")
+    user : Mapped["UserBD"] = relationship()
     
     mistake_item_fk: Mapped[int] = mapped_column(ForeignKey("task_item.id"))
     mistake_item: Mapped["TaskItemBD"] = relationship()

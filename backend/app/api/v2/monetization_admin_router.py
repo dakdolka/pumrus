@@ -154,6 +154,27 @@ async def _save_product(
             422,
             "Опубликованный продукт должен открывать хотя бы один элемент курса",
         )
+    resource_models = {
+        "course_version": CourseVersionBD,
+        "exam_task": ExamTaskBD,
+        "topic": TopicBD,
+        "exercise_set": ExerciseSetBD,
+    }
+    for resource_type, model in resource_models.items():
+        requested = {
+            resource.resource_id
+            for resource in body.resources
+            if resource.resource_type == resource_type
+        }
+        if not requested:
+            continue
+        existing = set((await db.scalars(select(model.id).where(model.id.in_(requested)))).all())
+        missing = sorted(requested - existing)
+        if missing:
+            raise HTTPException(
+                422,
+                f"Не найдены элементы доступа {resource_type}: {missing}",
+            )
     code = _normalized_code(body.code)
     duplicate = await db.scalar(select(ProductBD.id).where(
         ProductBD.code == code,

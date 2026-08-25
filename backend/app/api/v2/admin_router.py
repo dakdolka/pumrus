@@ -118,16 +118,24 @@ class BulkExerciseImportIn(BaseModel):
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
     expected = settings.admin_token
-    if expected and (
-        not x_admin_key
-        or not secrets.compare_digest(x_admin_key, expected)
-    ):
+    if not expected:
+        if settings.allow_insecure_admin:
+            return
+        raise HTTPException(
+            503,
+            "Форма отключена: задайте ADMIN_TOKEN на сервере",
+        )
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, expected):
         raise HTTPException(401, "Неверный ключ доступа")
 
 
 @router.get("/status")
 async def admin_status():
-    return {"requiresAuth": bool(settings.admin_token)}
+    return {
+        "requiresAuth": bool(settings.admin_token),
+        "configured": bool(settings.admin_token) or settings.allow_insecure_admin,
+        "unsafe": settings.allow_insecure_admin and not bool(settings.admin_token),
+    }
 
 
 def _export_response(payload: dict[str, Any], kind: str) -> JSONResponse:
@@ -787,8 +795,12 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
         {
             "id": item.id,
             "title": item.title,
+            "examTaskId": item.exam_task_id,
             "taskNumber": task_number,
+            "topicId": item.topic_id,
             "topicTitle": topic_title,
+            "status": item.status,
+            "selectionStrategy": item.selection_strategy,
             "scopeRole": (item.configuration or {}).get(
                 "scopeRole",
                 "topic" if item.topic_id else "task",

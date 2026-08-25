@@ -5,11 +5,10 @@ import BrandLogo from "./BrandLogo";
 
 
 async function api(path, options = {}) {
-  const telegramInitData = window.Telegram?.WebApp?.initData;
   const response = await fetch(`/api${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(telegramInitData ? { "X-Telegram-Init-Data": telegramInitData } : {}),
+      ...requestIdentityHeaders(),
       ...(options.headers || {}),
     },
     ...options,
@@ -19,6 +18,15 @@ async function api(path, options = {}) {
     throw new Error(payload?.detail || "Не удалось выполнить запрос");
   }
   return response.json();
+}
+
+
+function requestIdentityHeaders() {
+  const telegramInitData = window.Telegram?.WebApp?.initData;
+  return {
+    ...(telegramInitData ? { "X-Telegram-Init-Data": telegramInitData } : {}),
+    "X-Client-Session-Id": practiceClientId(),
+  };
 }
 
 
@@ -385,22 +393,31 @@ function ErrorState({ message }) {
 
 
 function Home({ navigate }) {
+  const configState = useRemote(() => api("/v2/app-config"), []);
+  const config = configState.data || {
+    homeTitleLine: "Русский язык —", homeTitleAccent: "это легко",
+    theorySubtitle: "Разобраться в правилах", practiceSubtitle: "Проверить себя",
+    footerLabel: "UmRus · подготовка к ЕГЭ", contactUrl: "https://t.me/dak_dolka",
+    projectDescription: "UmRus помогает последовательно изучать правила русского языка и сразу закреплять их на практике.",
+    maintenanceNotice: "",
+  };
   return (
     <Shell navigate={navigate}>
       <div className="home-page">
       <section className="hero">
+        {config.maintenanceNotice && <div className="maintenance-notice">{config.maintenanceNotice}</div>}
         <div className="hero-orbit orbit-one" />
         <div className="hero-orbit orbit-two" />
         <h1>
-          <span>Русский язык —</span>
-          <em>это легко</em>
+          <span>{config.homeTitleLine}</span>
+          <em>{config.homeTitleAccent}</em>
         </h1>
         <div className="mode-grid">
           <button className="mode-card theory-card" onClick={() => navigate("/theory")}>
             <span className="mode-icon"><AppIcon type="theory" /></span>
             <span className="mode-copy">
               <strong>Теория</strong>
-              <span>Разобраться в правилах</span>
+              <span>{config.theorySubtitle}</span>
             </span>
             <i><AppIcon type="arrow" /></i>
           </button>
@@ -408,30 +425,30 @@ function Home({ navigate }) {
             <span className="mode-icon"><AppIcon type="practice" /></span>
             <span className="mode-copy">
               <strong>Практика</strong>
-              <span>Проверить себя</span>
+              <span>{config.practiceSubtitle}</span>
             </span>
             <i><AppIcon type="arrow" /></i>
           </button>
         </div>
       </section>
-      <AppFooter />
+      <AppFooter config={config} />
       </div>
     </Shell>
   );
 }
 
 
-function AppFooter() {
+function AppFooter({ config }) {
   return (
     <footer className="app-footer">
-      <span>UmRus · подготовка к ЕГЭ</span>
+      <span>{config.footerLabel}</span>
       <nav aria-label="Справка и контакты">
-        <a href="https://t.me/dak_dolka" target="_blank" rel="noreferrer">
+        <a href={config.contactUrl} target="_blank" rel="noreferrer">
           Связаться
         </a>
         <InfoButton
           title="О проекте"
-          text="UmRus помогает последовательно изучать правила русского языка и сразу закреплять их на практике."
+          text={config.projectDescription}
           compact
         />
       </nav>
@@ -885,6 +902,35 @@ function MistakesPractice({ navigate, userId }) {
     [userId],
   );
   const [startingTask, setStartingTask] = useState(null);
+  const [managing, setManaging] = useState(false);
+  const [items, setItems] = useState([]);
+  const [itemsLoading, setItemsLoading] = useState(false);
+  const loadItems = useCallback(async () => {
+    if (!userId) return;
+    setItemsLoading(true);
+    try {
+      setItems(await api("/v2/practice/mistakes/items"));
+    } catch (error) {
+      reportAppError(error);
+    } finally {
+      setItemsLoading(false);
+    }
+  }, [userId]);
+  useEffect(() => {
+    if (managing) loadItems();
+  }, [loadItems, managing]);
+  async function changeMistake(item, changes) {
+    try {
+      const saved = await api(`/v2/practice/mistakes/${item.id}`, {
+        method: "PUT",
+        body: JSON.stringify(changes),
+      });
+      if (saved.status === "resolved") setItems((current) => current.filter((entry) => entry.id !== item.id));
+      else setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, ...saved } : entry));
+    } catch (error) {
+      reportAppError(error);
+    }
+  }
   async function startMistakes(task) {
     if (!task.exerciseSetId) {
       navigate(`/practice/tasks/${task.number}?mistakes=1`);
@@ -918,7 +964,8 @@ function MistakesPractice({ navigate, userId }) {
       <section className="page-head task-head">
         <p className="eyebrow">Практика</p>
         <h1>Отработать ошибки</h1>
-        <p>Здесь собраны упражнения, в которых последний ответ был неверным.</p>
+        <p>Здесь хранится ваша очередь повторения. Закрепите сложное слово, чтобы оно не исчезло после успешной тренировки.</p>
+        {userId && <button className="mistake-manage-button" onClick={() => setManaging((value) => !value)}>{managing ? "Скрыть список" : "Управлять списком"}</button>}
       </section>
       {!userId && <EmptyCard text="История ошибок появится после входа через Telegram." />}
       {state.loading && <Loading />}
@@ -940,6 +987,14 @@ function MistakesPractice({ navigate, userId }) {
           ))}
         </section>
       ) : userId && !state.loading ? <EmptyCard text="Активных ошибок пока нет." /> : null}
+      {managing && <section className="mistake-manager">
+        <header><strong>Сохранённые ошибки</strong><span>{items.length}</span></header>
+        {itemsLoading ? <Loading /> : items.length ? items.map((item) => <article key={item.id}>
+          <span><small>Задание {item.taskNumber} · ошибок: {item.failureCount}</small><strong>{item.prompt}</strong></span>
+          <button className={item.pinned ? "active" : ""} onClick={() => changeMistake(item, { pinned: !item.pinned })}>{item.pinned ? "Закреплено" : "Закрепить"}</button>
+          <button className="danger-link" onClick={() => changeMistake(item, { resolved: true })}>Убрать</button>
+        </article>) : <p>Список пуст.</p>}
+      </section>}
     </Shell>
   );
 }
@@ -961,6 +1016,7 @@ function PracticeSession({ sessionId, navigate }) {
   const [activeItemId, setActiveItemId] = useState(null);
   const [relatedTheoryOpen, setRelatedTheoryOpen] = useState(false);
   const [relatedTheoryTopicId, setRelatedTheoryTopicId] = useState(null);
+  const [mistakeReview, setMistakeReview] = useState([]);
 
   useEffect(() => {
     if (!state.data) return;
@@ -983,6 +1039,10 @@ function PracticeSession({ sessionId, navigate }) {
     }
     setResults(savedResults);
     setResponses({ ...drafts, ...savedResponses });
+    setMistakeReview((state.data.mistakeReviewCandidates || []).map((item) => ({
+      ...item,
+      remove: !item.pinned,
+    })));
     const size = state.data.configuration?.pageSize || 5;
     setPage(Math.floor(Math.min(state.data.currentPosition, state.data.items.length - 1) / size));
   }, [state.data]);
@@ -1031,6 +1091,7 @@ function PracticeSession({ sessionId, navigate }) {
     fetch(`/api/v2/practice/sessions/${session.id}/pause`, {
       method: "POST",
       keepalive: true,
+      headers: requestIdentityHeaders(),
     }).catch(() => {});
   }, [session?.id, session?.status]);
 
@@ -1047,6 +1108,7 @@ function PracticeSession({ sessionId, navigate }) {
       fetch(`/api/v2/practice/sessions/${sessionId}/pause`, {
         method: "POST",
         keepalive: true,
+        headers: requestIdentityHeaders(),
       }).catch(() => {});
     };
   }, [session?.id]);
@@ -1103,6 +1165,12 @@ function PracticeSession({ sessionId, navigate }) {
       );
       setResults((current) => ({ ...current, [item.sessionItemId]: answer }));
       setSession((current) => ({ ...current, status: answer.sessionStatus }));
+      if (answer.mistakeReviewCandidates?.length) {
+        setMistakeReview(answer.mistakeReviewCandidates.map((candidate) => ({
+          ...candidate,
+          remove: !candidate.pinned,
+        })));
+      }
       const next = pageItems.find(
         (candidate) => candidate.sessionItemId !== item.sessionItemId
           && candidate.state === "pending"
@@ -1139,6 +1207,21 @@ function PracticeSession({ sessionId, navigate }) {
       await api(`/v2/practice/sessions/${session.id}/reset`, { method: "POST" });
       localStorage.removeItem(`umrus:drafts:${session.id}`);
       navigate(`/practice/tasks/${session.context.taskNumber}`);
+    } catch (error) {
+      reportAppError(error);
+    }
+  }
+
+  async function applyMistakeReview() {
+    try {
+      await api("/v2/practice/mistakes/review", {
+        method: "POST",
+        body: JSON.stringify({
+          resolved_ids: mistakeReview.filter((item) => item.remove).map((item) => item.id),
+          kept_ids: mistakeReview.filter((item) => !item.remove).map((item) => item.id),
+        }),
+      });
+      setMistakeReview([]);
     } catch (error) {
       reportAppError(error);
     }
@@ -1302,6 +1385,20 @@ function PracticeSession({ sessionId, navigate }) {
               <AppIcon type="theory" /> Открыть теорию
             </button>
           ))}
+        </div>
+      )}
+      {!relatedTheoryOpen && !errorResult && mistakeReview.length > 0 && (
+        <div className="mistake-review-backdrop" role="presentation">
+          <section className="mistake-review" role="dialog" aria-modal="true" aria-labelledby="mistake-review-title">
+            <span className="eyebrow">Блок завершён</span>
+            <h2 id="mistake-review-title">Что убрать из ошибок?</h2>
+            <p>Правильно решённые упражнения отмечены. Снимите отметку, если хотите оставить слово для повторения.</p>
+            <div>{mistakeReview.map((item) => <label key={item.id}>
+              <input type="checkbox" checked={item.remove} onChange={(event) => setMistakeReview((current) => current.map((entry) => entry.id === item.id ? { ...entry, remove: event.target.checked } : entry))} />
+              <span><strong>{item.prompt}</strong>{item.pinned && <small>Было закреплено</small>}</span>
+            </label>)}</div>
+            <button className="primary-button" onClick={applyMistakeReview}>Сохранить список</button>
+          </section>
         </div>
       )}
     </Shell>
@@ -1751,19 +1848,9 @@ export default function App() {
 
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    const user = tg?.initDataUnsafe?.user;
-    if (!user?.id) return;
-    api("/users/get-or-create", {
-      method: "POST",
-      body: JSON.stringify({
-        tg_id: String(user.id),
-        name: user.first_name || "Ученик",
-        second_name: user.last_name || "",
-        username: user.username || null,
-        avatar_url: user.photo_url || null,
-      }),
-    }).then((payload) => {
-      const id = Number(payload.user.id);
+    if (!tg?.initData) return;
+    api("/v2/auth/telegram", { method: "POST" }).then((payload) => {
+      const id = Number(payload.id);
       if (!Number.isInteger(id) || id <= 0) return;
       sessionStorage.setItem("umrus:user-id", String(id));
       setUserId(id);

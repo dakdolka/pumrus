@@ -35,6 +35,7 @@ from app.infra.exercises.models import (
 )
 from app.infra.practice.models import (
     AttemptV2BD,
+    MistakeQueueBD,
     PracticeSessionBD,
     PracticeSessionItemBD,
 )
@@ -62,6 +63,36 @@ class SessionCreateIn(BaseModel):
 
 class AnswerIn(BaseModel):
     response: dict[str, Any]
+
+
+class MistakeUpdateIn(BaseModel):
+    pinned: bool | None = None
+    resolved: bool | None = None
+
+
+class MistakeReviewIn(BaseModel):
+    resolved_ids: list[int] = Field(default_factory=list, max_length=100)
+    kept_ids: list[int] = Field(default_factory=list, max_length=100)
+
+
+async def _assert_session_access(
+    request: Request,
+    db: AsyncSession,
+    session: PracticeSessionBD,
+) -> None:
+    authenticated_user = await telegram_user_from_request(
+        request,
+        db,
+        required=False,
+    )
+    if session.user_id is not None:
+        if authenticated_user is None or authenticated_user.id != session.user_id:
+            raise HTTPException(403, "Эта сессия принадлежит другому пользователю")
+        return
+    expected_client = str((session.configuration or {}).get("clientSessionId") or "")
+    received_client = request.headers.get("X-Client-Session-Id", "")
+    if not expected_client or received_client != expected_client:
+        raise HTTPException(403, "Эта анонимная сессия открыта в другом браузере")
 
 
 def _task_out(task: ExamTaskBD, topic_count: int = 0) -> dict[str, Any]:
@@ -496,25 +527,16 @@ async def list_exercise_sets(
     }
 
 
-def _latest_attempt_ids(user_id: int):
-    return (
-        select(func.max(AttemptV2BD.id).label("attempt_id"))
-        .join(
-            ExerciseVersionBD,
-            ExerciseVersionBD.id == AttemptV2BD.exercise_version_id,
-        )
-        .where(AttemptV2BD.user_id == user_id)
-        .group_by(ExerciseVersionBD.exercise_id)
-        .subquery()
-    )
-
-
 @router.get("/practice/mistakes")
 async def list_practice_mistakes(
-    user_id: int = Query(...),
+    request: Request,
+    user_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
-    latest = _latest_attempt_ids(user_id)
+    authenticated_user = await telegram_user_from_request(request, db, required=True)
+    if user_id is not None and user_id != authenticated_user.id:
+        raise HTTPException(403, "Нельзя открыть ошибки другого пользователя")
+    user_id = authenticated_user.id
     task_set_id = (
         select(func.min(ExerciseSetBD.id))
         .where(
@@ -539,16 +561,13 @@ async def list_practice_mistakes(
                 ExerciseTaskLinkBD.exam_task_id == ExamTaskBD.id,
             )
             .join(ExerciseBD, ExerciseBD.id == ExerciseTaskLinkBD.exercise_id)
-            .join(
-                ExerciseVersionBD,
-                ExerciseVersionBD.exercise_id == ExerciseBD.id,
+            .join(MistakeQueueBD, MistakeQueueBD.exercise_id == ExerciseBD.id)
+            .where(
+                MistakeQueueBD.user_id == user_id,
+                MistakeQueueBD.status.in_(("active", "removal_candidate")),
+                ExerciseTaskLinkBD.is_primary.is_(True),
+                ExerciseBD.status == "published",
             )
-            .join(
-                AttemptV2BD,
-                AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
-            )
-            .join(latest, latest.c.attempt_id == AttemptV2BD.id)
-            .where(AttemptV2BD.result_status.in_(("incorrect", "partial")))
             .group_by(ExamTaskBD.id)
             .order_by(ExamTaskBD.number)
         )
@@ -565,6 +584,86 @@ async def list_practice_mistakes(
             for number, title, count, exercise_set_id in rows
         ],
     }
+
+
+def _mistake_prompt(version: ExerciseVersionBD) -> str:
+    data = version.prompt_data or {}
+    return str(data.get("content") or data.get("word") or data.get("markdown") or "Упражнение")
+
+
+@router.get("/practice/mistakes/items")
+async def list_mistake_items(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await telegram_user_from_request(request, db, required=True)
+    rows = (await db.execute(
+        select(MistakeQueueBD, ExerciseVersionBD, ExamTaskBD.number)
+        .join(ExerciseBD, ExerciseBD.id == MistakeQueueBD.exercise_id)
+        .join(ExerciseVersionBD, ExerciseVersionBD.id == ExerciseBD.published_version_id)
+        .join(ExerciseTaskLinkBD, ExerciseTaskLinkBD.exercise_id == ExerciseBD.id)
+        .join(ExamTaskBD, ExamTaskBD.id == ExerciseTaskLinkBD.exam_task_id)
+        .where(
+            MistakeQueueBD.user_id == user.id,
+            MistakeQueueBD.status.in_(("active", "removal_candidate")),
+            ExerciseTaskLinkBD.is_primary.is_(True),
+        )
+        .order_by(ExamTaskBD.number, MistakeQueueBD.pinned.desc(), MistakeQueueBD.last_failed_at.desc())
+    )).all()
+    return [{
+        "id": item.id,
+        "exerciseId": item.exercise_id,
+        "taskNumber": task_number,
+        "prompt": _mistake_prompt(version),
+        "status": item.status,
+        "pinned": item.pinned,
+        "failureCount": item.failure_count,
+        "lastFailedAt": item.last_failed_at,
+    } for item, version, task_number in rows]
+
+
+@router.put("/practice/mistakes/{mistake_id}")
+async def update_mistake_item(
+    mistake_id: int,
+    body: MistakeUpdateIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await telegram_user_from_request(request, db, required=True)
+    item = await db.scalar(select(MistakeQueueBD).where(
+        MistakeQueueBD.id == mistake_id,
+        MistakeQueueBD.user_id == user.id,
+    ))
+    if item is None:
+        raise HTTPException(404, "Ошибка не найдена")
+    if body.pinned is not None:
+        item.pinned = body.pinned
+    if body.resolved is not None:
+        item.status = "resolved" if body.resolved else "active"
+    await db.commit()
+    return {"id": item.id, "status": item.status, "pinned": item.pinned}
+
+
+@router.post("/practice/mistakes/review")
+async def review_mistakes(
+    body: MistakeReviewIn,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    user = await telegram_user_from_request(request, db, required=True)
+    resolved = set(body.resolved_ids)
+    kept = set(body.kept_ids) - resolved
+    target_ids = resolved | kept
+    if target_ids:
+        items = list((await db.scalars(select(MistakeQueueBD).where(
+            MistakeQueueBD.user_id == user.id,
+            MistakeQueueBD.id.in_(target_ids),
+            MistakeQueueBD.status == "removal_candidate",
+        ))).all())
+        found = {item.id for item in items}
+        if found != target_ids:
+            raise HTTPException(409, "Список ошибок изменился; обновите страницу")
+        for item in items:
+            item.status = "resolved" if item.id in resolved else "active"
+    await db.commit()
+    return {"resolved": len(resolved), "kept": len(kept)}
 
 
 def _public_question(
@@ -670,6 +769,11 @@ async def _session_out(
             _public_question(item, version, latest_attempts.get(item.id))
             for item, version in rows
         ],
+        "mistakeReviewCandidates": (
+            await _mistake_review_candidates(db, session)
+            if session.status == "completed" and session.mode == "mistakes"
+            else []
+        ),
     }
 
 
@@ -730,6 +834,9 @@ async def create_practice_session(
         db,
         required=False,
     )
+    resolved_user_id = authenticated_user.id if authenticated_user else None
+    if resolved_user_id is None and not body.client_session_id:
+        raise HTTPException(422, "Для анонимной сессии нужен идентификатор браузера")
     has_full_access = await user_has_exercise_set_access(
         db,
         authenticated_user.id if authenticated_user else None,
@@ -744,12 +851,12 @@ async def create_practice_session(
     page_size = min(page_size, limit)
     now = datetime.now(timezone.utc)
     owner_condition = (
-        PracticeSessionBD.user_id == body.user_id
-        if body.user_id is not None
+        PracticeSessionBD.user_id == resolved_user_id
+        if resolved_user_id is not None
         else PracticeSessionBD.configuration["clientSessionId"].astext
         == body.client_session_id
     )
-    if body.user_id is not None or body.client_session_id:
+    if resolved_user_id is not None or body.client_session_id:
         previous_sessions = list(
             (
                 await db.scalars(
@@ -800,20 +907,20 @@ async def create_practice_session(
     if preview_mode:
         query = query.where(ExerciseSetItemBD.is_preview.is_(True))
     if body.mode == "mistakes":
-        if body.user_id is None:
+        if resolved_user_id is None:
             raise HTTPException(400, "Mistake practice requires a user")
-        latest = _latest_attempt_ids(body.user_id)
         mistake_exercises = (
-            select(ExerciseVersionBD.exercise_id)
-            .join(
-                AttemptV2BD,
-                AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
+            select(MistakeQueueBD.exercise_id)
+            .where(
+                MistakeQueueBD.user_id == resolved_user_id,
+                MistakeQueueBD.status.in_(("active", "removal_candidate")),
             )
-            .join(latest, latest.c.attempt_id == AttemptV2BD.id)
-            .where(AttemptV2BD.result_status.in_(("incorrect", "partial")))
         )
         query = query.where(ExerciseBD.id.in_(mistake_exercises))
-    if body.user_id is not None or body.client_session_id:
+    if (
+        exercise_set.selection_strategy == "least_seen_first"
+        and (resolved_user_id is not None or body.client_session_id)
+    ):
         seen_query = (
             select(
                 ExerciseVersionBD.exercise_id.label("exercise_id"),
@@ -825,8 +932,8 @@ async def create_practice_session(
                 AttemptV2BD.exercise_version_id == ExerciseVersionBD.id,
             )
         )
-        if body.user_id is not None:
-            seen_query = seen_query.where(AttemptV2BD.user_id == body.user_id)
+        if resolved_user_id is not None:
+            seen_query = seen_query.where(AttemptV2BD.user_id == resolved_user_id)
         else:
             seen_query = (
                 seen_query
@@ -856,6 +963,8 @@ async def create_practice_session(
                 func.random(),
             )
         )
+    elif exercise_set.selection_strategy == "ordered":
+        query = query.order_by(ExerciseSetItemBD.sort_order, ExerciseSetItemBD.id)
     else:
         query = query.order_by(func.random())
     version_ids = list((await db.scalars(query.limit(limit))).all())
@@ -884,7 +993,7 @@ async def create_practice_session(
         # Kept during the API transition for already deployed frontend builds.
         session_configuration["vowelKeys"] = letter_keys
     session = PracticeSessionBD(
-        user_id=body.user_id,
+        user_id=resolved_user_id,
         exercise_set_id=exercise_set.id,
         mode=body.mode,
         status="active",
@@ -910,11 +1019,13 @@ async def create_practice_session(
 @router.get("/practice/sessions/{session_id}")
 async def get_practice_session(
     session_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     session = await db.get(PracticeSessionBD, session_id)
     if session is None:
         raise HTTPException(404, "Practice session not found")
+    await _assert_session_access(request, db, session)
     paused_at_raw = (session.configuration or {}).get("pausedAt")
     if session.status == "active" and paused_at_raw:
         now = datetime.now(timezone.utc)
@@ -1034,11 +1145,77 @@ async def _theory_links(
     ]
 
 
+async def _update_mistake_queue(
+    db: AsyncSession,
+    session: PracticeSessionBD,
+    version: ExerciseVersionBD,
+    status: str,
+    now: datetime,
+) -> None:
+    if session.user_id is None:
+        return
+    item = await db.scalar(
+        select(MistakeQueueBD)
+        .where(
+            MistakeQueueBD.user_id == session.user_id,
+            MistakeQueueBD.exercise_id == version.exercise_id,
+        )
+        .with_for_update()
+    )
+    if status in {"incorrect", "partial"}:
+        if item is None:
+            db.add(MistakeQueueBD(
+                user_id=session.user_id,
+                exercise_id=version.exercise_id,
+                status="active",
+                pinned=False,
+                failure_count=1,
+                first_failed_at=now,
+                last_failed_at=now,
+            ))
+        else:
+            item.status = "active"
+            item.failure_count += 1
+            item.last_failed_at = now
+        return
+    if status == "correct" and session.mode == "mistakes" and item is not None:
+        item.status = "removal_candidate"
+        item.last_correct_at = now
+
+
+async def _mistake_review_candidates(
+    db: AsyncSession,
+    session: PracticeSessionBD,
+) -> list[dict[str, Any]]:
+    if session.user_id is None or session.mode != "mistakes":
+        return []
+    rows = (await db.execute(
+        select(MistakeQueueBD, ExerciseVersionBD)
+        .join(ExerciseVersionBD, ExerciseVersionBD.exercise_id == MistakeQueueBD.exercise_id)
+        .join(
+            PracticeSessionItemBD,
+            PracticeSessionItemBD.exercise_version_id == ExerciseVersionBD.id,
+        )
+        .where(
+            MistakeQueueBD.user_id == session.user_id,
+            MistakeQueueBD.status == "removal_candidate",
+            PracticeSessionItemBD.session_id == session.id,
+        )
+        .order_by(MistakeQueueBD.pinned.desc(), MistakeQueueBD.id)
+    )).all()
+    return [{
+        "id": item.id,
+        "prompt": _mistake_prompt(version),
+        "pinned": item.pinned,
+    } for item, version in rows]
+
+
 @router.post("/practice/sessions/{session_id}/items/{item_id}/attempts")
 async def submit_attempt(
     session_id: int,
     item_id: int,
     body: AnswerIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     row = (
@@ -1056,13 +1233,17 @@ async def submit_attempt(
                 PracticeSessionBD.id == session_id,
                 PracticeSessionItemBD.id == item_id,
             )
+            .with_for_update()
         )
     ).one_or_none()
     if row is None:
         raise HTTPException(404, "Practice item not found")
     session, item, version = row
+    await _assert_session_access(request, db, session)
     if session.status != "active":
         raise HTTPException(409, "Practice session is not active")
+    if item.state != "pending":
+        raise HTTPException(409, "Ответ на это упражнение уже сохранён")
 
     status, score, normalized = _check_answer(version, body.response)
     now = datetime.now(timezone.utc)
@@ -1080,6 +1261,7 @@ async def submit_attempt(
     )
     db.add(attempt)
     item.state = status
+    await _update_mistake_queue(db, session, version, status, now)
     session.current_position = max(session.current_position, item.position + 1)
     session.last_activity_at = now
     session.configuration = {
@@ -1096,6 +1278,12 @@ async def submit_attempt(
     if pending_count == 0:
         session.status = "completed"
         session.completed_at = now
+    await db.flush()
+    review_candidates = (
+        await _mistake_review_candidates(db, session)
+        if session.status == "completed"
+        else []
+    )
     await db.commit()
     return {
         "attemptId": attempt.id,
@@ -1125,17 +1313,20 @@ async def submit_attempt(
             "theoryLinks": await _theory_links(db, version),
         },
         "sessionStatus": session.status,
+        "mistakeReviewCandidates": review_candidates,
     }
 
 
 @router.post("/practice/sessions/{session_id}/close")
 async def close_practice_session(
     session_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     session = await db.get(PracticeSessionBD, session_id)
     if session is None:
         raise HTTPException(404, "Practice session not found")
+    await _assert_session_access(request, db, session)
     if session.status == "active":
         now = datetime.now(timezone.utc)
         session.status = "closed"
@@ -1148,11 +1339,13 @@ async def close_practice_session(
 @router.post("/practice/sessions/{session_id}/pause")
 async def pause_practice_session(
     session_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     session = await db.get(PracticeSessionBD, session_id)
     if session is None:
         raise HTTPException(404, "Practice session not found")
+    await _assert_session_access(request, db, session)
     if session.status == "active":
         now = datetime.now(timezone.utc)
         session.configuration = {
@@ -1167,11 +1360,13 @@ async def pause_practice_session(
 @router.post("/practice/sessions/{session_id}/reset")
 async def reset_practice_session(
     session_id: int,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     session = await db.get(PracticeSessionBD, session_id)
     if session is None:
         raise HTTPException(404, "Practice session not found")
+    await _assert_session_access(request, db, session)
     if session.status == "active":
         now = datetime.now(timezone.utc)
         session.status = "reset"

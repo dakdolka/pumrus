@@ -42,6 +42,7 @@ async def apply_succeeded_payment(
             EntitlementBD.user_id == order.user_id,
             EntitlementBD.access_policy_id == product.access_policy_id,
             EntitlementBD.status == "active",
+            EntitlementBD.source_type == "payment",
         ).order_by(EntitlementBD.id.desc()))
         period_start = (
             existing_entitlement.ends_at
@@ -73,12 +74,14 @@ async def apply_succeeded_payment(
         EntitlementBD.user_id == order.user_id,
         EntitlementBD.access_policy_id == product.access_policy_id,
         EntitlementBD.status == "active",
+        EntitlementBD.source_type == "payment",
     ).order_by(EntitlementBD.id.desc()))
     if entitlement is None:
         entitlement = EntitlementBD(
             user_id=order.user_id,
             access_policy_id=product.access_policy_id,
             source_order_id=order.id,
+            source_type="payment",
             status="active",
             starts_at=now,
             ends_at=period_end,

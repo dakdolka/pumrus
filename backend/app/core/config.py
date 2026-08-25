@@ -10,6 +10,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 class Settings(BaseSettings):
     database_url: str = Field(alias="DATABASE_URL")
     admin_token: str | None = Field(default=None, alias="ADMIN_TOKEN")
+    backend_internal_token: str | None = Field(
+        default=None,
+        alias="BACKEND_INTERNAL_TOKEN",
+    )
+    allow_insecure_admin: bool = Field(
+        default=False,
+        alias="ALLOW_INSECURE_ADMIN",
+    )
+    media_root: Path = Field(
+        default=BASE_DIR.parent / "media",
+        alias="MEDIA_ROOT",
+    )
+    media_max_bytes: int = Field(
+        default=8 * 1024 * 1024,
+        alias="MEDIA_MAX_BYTES",
+    )
     payment_mode: str = Field(default="disabled", alias="PAYMENT_MODE")
     telegram_bot_token: str | None = Field(
         default=None,

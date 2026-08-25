@@ -1,3 +1,5 @@
+import os
+
 import aiohttp
 from config import settings
 
@@ -5,6 +7,7 @@ from config import settings
 class BackendClient:
     def __init__(self):
         self.base_url = settings.API_URL
+        self.internal_token = os.getenv("BACKEND_INTERNAL_TOKEN", "")
 
     async def get_or_create_user(
         self,
@@ -15,16 +18,17 @@ class BackendClient:
         avatar_url: str | None = None,
     ) -> dict:
         payload = {
-            "tg_id": tg_id,
-            "name": name,
-            "second_name": second_name,
+            "telegram_id": tg_id,
+            "first_name": name,
+            "last_name": second_name or "",
             "username": username,
             "avatar_url": avatar_url,
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"{self.base_url}/users/get-or-create",
+                f"{self.base_url}/v2/internal/telegram-users",
                 json=payload,
+                headers={"X-Internal-Key": self.internal_token},
             ) as response:
                 response.raise_for_status()
                 return await response.json()

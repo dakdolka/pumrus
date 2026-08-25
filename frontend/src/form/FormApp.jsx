@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TheoryDocument } from "../theory/TheoryRenderer";
 import { buildTheoryTree } from "../theory/theoryTree";
 import BrandLogo from "../BrandLogo";
@@ -16,9 +16,10 @@ const CALLOUTS = [
 
 async function adminApi(path, options = {}) {
   const token = sessionStorage.getItem("umrus:admin-key") || "";
+  const isFormData = options.body instanceof FormData;
   const response = await fetch(`/api/v2/admin${path}`, {
     ...options,
-    headers: { "Content-Type": "application/json", ...(token ? { "X-Admin-Key": token } : {}), ...(options.headers || {}) },
+    headers: { ...(!isFormData ? { "Content-Type": "application/json" } : {}), ...(token ? { "X-Admin-Key": token } : {}), ...(options.headers || {}) },
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -48,6 +49,17 @@ async function downloadAdminExport(kind) {
   document.body.append(link);
   link.click();
   link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadOperationsExport() {
+  const token = sessionStorage.getItem("umrus:admin-key") || "";
+  const response = await fetch("/api/v2/admin/operations/export", { headers: token ? { "X-Admin-Key": token } : {} });
+  if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail || "Не удалось подготовить настройки");
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "umrus-settings.json";
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a"); link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -115,6 +127,7 @@ export default function FormApp() {
     if (key !== null) sessionStorage.setItem("umrus:admin-key", key);
     try {
       const status = await adminApi("/status");
+      if (!status.configured) throw new Error("Форма отключена: задайте ADMIN_TOKEN на сервере");
       if (status.requiresAuth) await adminApi("/catalog");
       setAccess({ loading: false, allowed: true, required: status.requiresAuth, error: "" });
     } catch (error) {
@@ -139,34 +152,182 @@ export default function FormApp() {
 }
 
 function FormWorkspace() {
-  const [mode, setMode] = useState("theory");
+  const [mode, setMode] = useState("dashboard");
   const [exporting, setExporting] = useState("");
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [mode]);
   async function download(kind) {
     if (exporting) return;
     setExporting(kind);
     try {
-      await downloadAdminExport(kind);
+      if (kind === "settings") await downloadOperationsExport();
+      else await downloadAdminExport(kind);
     } catch (error) {
       window.alert(error.message);
     } finally {
       setExporting("");
     }
   }
+  function signOut() {
+    sessionStorage.removeItem("umrus:admin-key");
+    window.location.reload();
+  }
   return <>
     <nav className="form-mode-tabs">
+      <button className={mode === "dashboard" ? "active" : ""} onClick={() => setMode("dashboard")}>Обзор</button>
       <button className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
       <button className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
       <button className={mode === "access" ? "active" : ""} onClick={() => setMode("access")}>Доступ</button>
+      <button className={mode === "settings" ? "active" : ""} onClick={() => setMode("settings")}>Настройки</button>
       <span className="form-mode-divider" aria-hidden="true" />
-      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("theory")} title="Скачать всю теорию со всеми версиями и блоками">{exporting === "theory" ? "…" : "↓ Т"}</button>
-      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("practice")} title="Скачать всю практику со всеми упражнениями и ответами">{exporting === "practice" ? "…" : "↓ П"}</button>
+      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("theory")} title="Скачать текущую опубликованную теорию со всеми блоками">{exporting === "theory" ? "…" : "↓ Т"}</button>
+      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("practice")} title="Скачать текущую практику со всеми упражнениями и ответами">{exporting === "practice" ? "…" : "↓ П"}</button>
+      <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("settings")} title="Скачать настройки, цены и структуру доступов">{exporting === "settings" ? "…" : "↓ Н"}</button>
+      <button className="export-button sign-out-button" onClick={signOut} title="Закрыть доступ к форме в этом окне">Выйти</button>
     </nav>
-    {mode === "theory" ? <PocketEditor /> : mode === "practice" ? <PracticeSettings /> : <MonetizationSettings />}
+    {mode === "dashboard" ? <OperationsDashboard /> : mode === "theory" ? <PocketEditor /> : mode === "practice" ? <PracticeSettings /> : mode === "access" ? <MonetizationSettings /> : <ApplicationSettings />}
   </>;
+}
+
+function formatMoment(value) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatBytes(value) {
+  if (value < 1024) return `${value} Б`;
+  if (value < 1024 * 1024) return `${Math.round(value / 1024)} КБ`;
+  return `${(value / 1024 / 1024).toFixed(1)} МБ`;
+}
+
+function OperationsDashboard() {
+  const [dashboard, setDashboard] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [payments, setPayments] = useState({ orders: [], entitlements: [] });
+  const [products, setProducts] = useState([]);
+  const [audit, setAudit] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [grant, setGrant] = useState({ userId: "", productId: "", endsAt: "", note: "Выдано владельцем" });
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [nextDashboard, nextUsers, nextPayments, nextProducts, nextAudit] = await Promise.all([
+        adminApi("/operations/dashboard"),
+        adminApi("/operations/users"),
+        adminApi("/operations/payments"),
+        adminApi("/monetization/products"),
+        adminApi("/operations/audit?limit=50"),
+      ]);
+      setDashboard(nextDashboard); setUsers(nextUsers); setPayments(nextPayments); setProducts(nextProducts); setAudit(nextAudit);
+    } catch (reason) { setError(reason.message); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function issueAccess() {
+    if (!grant.userId || !grant.productId) { setError("Выберите пользователя и продукт"); return; }
+    setBusy(true); setError("");
+    try {
+      await adminApi("/operations/entitlements", { method: "POST", body: JSON.stringify({
+        user_id: Number(grant.userId), product_id: Number(grant.productId),
+        ends_at: grant.endsAt ? new Date(`${grant.endsAt}T23:59:59`).toISOString() : null,
+        note: grant.note,
+      }) });
+      setNotice("Доступ выдан."); await load();
+    } catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  const visibleUsers = users.filter((user) => `${user.name} ${user.username || ""} ${user.telegramId}`.toLocaleLowerCase("ru").includes(userSearch.toLocaleLowerCase("ru")));
+  if (!dashboard && !error) return <main className="operations-page"><p>Проверяем проект…</p></main>;
+  return <main className="operations-page">
+    <header><span className="overline">Состояние проекта</span><h1>Панель владельца</h1><p>Контент, ученики, оплаты и технические предупреждения в одном месте.</p></header>
+    {error && <button className="global-error inline" onClick={() => setError("")}>{error}</button>}{notice && <p className="form-notice">{notice}</p>}
+    {dashboard && <>
+      <section className="metric-grid">
+        <article><small>Теория</small><strong>{dashboard.content.topics}</strong><span>тем · {dashboard.content.theoryBlocks} блоков</span></article>
+        <article><small>Практика</small><strong>{dashboard.content.exercises}</strong><span>упражнений · {dashboard.content.exerciseSets} подборок</span></article>
+        <article><small>Ученики</small><strong>{dashboard.activity.users}</strong><span>{dashboard.activity.attempts} ответов</span></article>
+        <article><small>Оплаты</small><strong>{dashboard.payments.paidOrders}</strong><span>{dashboard.payments.activeSubscriptions} активных подписок</span></article>
+      </section>
+      {(dashboard.warnings.emptyExerciseSets || dashboard.warnings.unpublishedTheoryDocuments || dashboard.warnings.adminWithoutToken || dashboard.warnings.internalApiWithoutToken) ? <section className="health-warnings"><h2>Нужно проверить</h2>
+        {Boolean(dashboard.warnings.adminWithoutToken) && <p>К форме не задан ADMIN_TOKEN. Не публикуйте её в интернет в таком состоянии.</p>}
+        {Boolean(dashboard.warnings.internalApiWithoutToken) && <p>Не задан BACKEND_INTERNAL_TOKEN: бот не сможет безопасно синхронизировать учеников.</p>}
+        {Boolean(dashboard.warnings.emptyExerciseSets) && <p>Пустых подборок практики: {dashboard.warnings.emptyExerciseSets}.</p>}
+        {Boolean(dashboard.warnings.unpublishedTheoryDocuments) && <p>Неопубликованных документов теории: {dashboard.warnings.unpublishedTheoryDocuments}.</p>}
+      </section> : <p className="health-ok">Критичных проблем целостности не найдено.</p>}
+    </>}
+    <section className="owner-grid">
+      <article className="owner-panel"><header><div><span className="overline">Ученики</span><h2>Пользователи</h2></div><input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Имя, @username или Telegram ID" /></header>
+        <div className="owner-table user-table">{visibleUsers.slice(0, 100).map((user) => <div key={user.id}><span><strong>{user.name || "Без имени"}</strong><small>{user.username ? `@${user.username}` : user.telegramId} · доступов: {user.activeAccessCount}</small></span><button className={user.isActive ? "status-pill active" : "status-pill"} onClick={async () => { try { await adminApi(`/operations/users/${user.id}/status`, { method: "PUT", body: JSON.stringify({ is_active: !user.isActive }) }); setUsers((items) => items.map((item) => item.id === user.id ? { ...item, isActive: !user.isActive } : item)); } catch (reason) { setError(reason.message); } }}>{user.isActive ? "Активен" : "Заблокирован"}</button></div>)}</div>
+      </article>
+      <article className="owner-panel grant-panel"><span className="overline">Ручной доступ</span><h2>Открыть продукт ученику</h2>
+        <label>Пользователь<select value={grant.userId} onChange={(event) => setGrant({ ...grant, userId: event.target.value })}><option value="">Выберите ученика</option>{users.map((user) => <option key={user.id} value={user.id}>{user.name || user.telegramId} {user.username ? `(@${user.username})` : ""}</option>)}</select></label>
+        <label>Продукт<select value={grant.productId} onChange={(event) => setGrant({ ...grant, productId: event.target.value })}><option value="">Выберите доступ</option>{products.filter((item) => item.status !== "archived").map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label>Действует до · необязательно<input type="date" value={grant.endsAt} onChange={(event) => setGrant({ ...grant, endsAt: event.target.value })} /></label>
+        <label>Комментарий<input value={grant.note} onChange={(event) => setGrant({ ...grant, note: event.target.value })} /></label>
+        <button className="button primary" disabled={busy} onClick={issueAccess}>{busy ? "Выдаём…" : "Выдать доступ"}</button>
+      </article>
+    </section>
+    <section className="owner-panel"><header><div><span className="overline">Доступы</span><h2>Выданные права</h2></div></header><div className="owner-table">{payments.entitlements.slice(0, 100).map((item) => <div key={item.id}><span><strong>{item.title}</strong><small>Telegram {item.telegramId} · {item.sourceType === "manual" ? "вручную" : "оплата"} · до {formatMoment(item.endsAt)}</small></span><button className={`status-pill ${item.status === "active" ? "active" : ""}`} disabled={item.status !== "active"} onClick={async () => { if (!window.confirm("Отозвать этот доступ?")) return; try { await adminApi(`/operations/entitlements/${item.id}/revoke`, { method: "POST" }); await load(); } catch (reason) { setError(reason.message); } }}>{item.status === "active" ? "Отозвать" : item.status}</button></div>)}</div></section>
+    <section className="owner-grid">
+      <article className="owner-panel"><header><div><span className="overline">Транзакции</span><h2>Последние заказы</h2></div></header><div className="owner-table">{payments.orders.slice(0, 50).map((item) => <div key={item.id}><span><strong>{item.productTitle}</strong><small>Telegram {item.telegramId} · {formatMoment(item.createdAt)}</small></span><b>{(item.amount / 100).toLocaleString("ru-RU")} ₽ · {item.status}</b></div>)}</div></article>
+      <article className="owner-panel"><header><div><span className="overline">Безопасность</span><h2>Журнал изменений</h2></div></header><div className="owner-table audit-table">{audit.map((item) => <div key={item.id}><span><strong>{item.method} {item.path.replace("/api/v2/admin", "")}</strong><small>{formatMoment(item.createdAt)}</small></span><b className={item.statusCode < 400 ? "ok" : "bad"}>{item.statusCode}</b></div>)}</div></article>
+    </section>
+  </main>;
+}
+
+function ApplicationSettings() {
+  const [draft, setDraft] = useState(null);
+  const [media, setMedia] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [exporting, setExporting] = useState("");
+  const loadMedia = useCallback(() => adminApi("/operations/media").then(setMedia).catch((reason) => setError(reason.message)), []);
+  useEffect(() => {
+    adminApi("/operations/settings").then(setDraft).catch((reason) => setError(reason.message));
+    loadMedia();
+  }, [loadMedia]);
+  async function save() {
+    setBusy(true); setError("");
+    try {
+      const saved = await adminApi("/operations/settings", { method: "PUT", body: JSON.stringify({
+        home_title_line: draft.homeTitleLine, home_title_accent: draft.homeTitleAccent,
+        theory_subtitle: draft.theorySubtitle, practice_subtitle: draft.practiceSubtitle,
+        footer_label: draft.footerLabel, contact_url: draft.contactUrl,
+        project_description: draft.projectDescription, maintenance_notice: draft.maintenanceNotice || "",
+      }) });
+      setDraft(saved); setNotice("Настройки опубликованы.");
+    } catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  async function upload(file) {
+    if (!file) return;
+    setBusy(true); setError("");
+    try { const data = new FormData(); data.append("file", file); await adminApi("/operations/media", { method: "POST", body: data }); await loadMedia(); setNotice("Изображение загружено."); }
+    catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  async function exportData(kind, includeHistory = false) {
+    setExporting(`${kind}:${includeHistory}`); setError("");
+    try {
+      await downloadAdminExport(`${kind}${includeHistory ? "?include_history=true" : ""}`);
+      setNotice(includeHistory ? "Архивная выгрузка готова." : "Текущая выгрузка готова.");
+    } catch (reason) { setError(reason.message); } finally { setExporting(""); }
+  }
+  if (!draft) return <main className="operations-page"><p>{error || "Загружаем настройки…"}</p></main>;
+  const field = (key, labelText) => <label>{labelText}<input value={draft[key] || ""} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} /></label>;
+  return <main className="operations-page settings-page"><header><span className="overline">Без правки кода</span><h1>Настройки приложения</h1><p>Тексты главной страницы, контакты и медиатека применяются после сохранения.</p></header>
+    {error && <p className="form-error">{error}</p>}{notice && <p className="form-notice">{notice}</p>}
+    <section className="owner-panel settings-fields"><h2>Главная и контакты</h2><div>{field("homeTitleLine", "Первая строка заголовка")}{field("homeTitleAccent", "Акцентная строка")}{field("theorySubtitle", "Подпись теории")}{field("practiceSubtitle", "Подпись практики")}{field("footerLabel", "Подпись в подвале")}{field("contactUrl", "Ссылка для связи")}</div><label>Описание проекта<textarea rows="4" value={draft.projectDescription || ""} onChange={(event) => setDraft({ ...draft, projectDescription: event.target.value })} /></label><label>Сервисное сообщение · пусто, если всё работает<textarea rows="2" value={draft.maintenanceNotice || ""} onChange={(event) => setDraft({ ...draft, maintenanceNotice: event.target.value })} /></label><button className="button primary" disabled={busy} onClick={save}>{busy ? "Сохраняем…" : "Опубликовать настройки"}</button></section>
+    <section className="owner-panel export-library"><header><div><span className="overline">Резервная копия контента</span><h2>Выгрузки</h2></div></header><p>Обычная выгрузка содержит только актуальные опубликованные данные. История нужна для архива и восстановления старых версий.</p><div><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("theory")}>{exporting === "theory:false" ? "Готовим…" : "Текущая теория"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("practice")}>{exporting === "practice:false" ? "Готовим…" : "Текущая практика"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("theory", true)}>{exporting === "theory:true" ? "Готовим…" : "Теория с историей"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("practice", true)}>{exporting === "practice:true" ? "Готовим…" : "Практика с историей"}</button></div></section>
+    <section className="owner-panel media-library"><header><div><span className="overline">Файлы теории</span><h2>Медиатека</h2></div><label className="button primary">+ Изображение<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { upload(event.target.files?.[0]); event.target.value = ""; }} /></label></header><p>Загрузите изображение один раз, затем скопируйте ссылку в блок «Изображение».</p><div className="media-grid">{media.map((item) => <article key={item.id}><img src={item.url} alt={item.altText || ""} /><span><strong>{item.name}</strong><small>{formatBytes(item.sizeBytes)}</small></span><div><button className="button" onClick={() => navigator.clipboard.writeText(item.url).then(() => setNotice("Ссылка скопирована."))}>Копировать ссылку</button><button className="danger" onClick={async () => { if (!window.confirm("Убрать файл из медиатеки? Существующие страницы с этой ссылкой перестанут показывать изображение.")) return; try { await adminApi(`/operations/media/${item.id}`, { method: "DELETE" }); await loadMedia(); } catch (reason) { setError(reason.message); } }}>Архив</button></div></article>)}</div></section>
+  </main>;
 }
 
 function PracticeSettings() {
   const [sets, setSets] = useState([]);
+  const [catalog, setCatalog] = useState(null);
   const [error, setError] = useState("");
   const [selectedSetId, setSelectedSetId] = useState(null);
   const [parserType, setParserType] = useState("vowel_fill");
@@ -174,15 +335,22 @@ function PracticeSettings() {
   const [preview, setPreview] = useState({ rows: [], errors: [] });
   const [compactLines, setCompactLines] = useState([]);
   const [importing, setImporting] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [demoEditor, setDemoEditor] = useState(null);
   const [demoFilter, setDemoFilter] = useState("");
-  useEffect(() => {
-    adminApi("/exercise-sets").then((items) => {
-      setSets(items);
-      setSelectedSetId(items[0]?.id || null);
-    }).catch((reason) => setError(reason.message));
+  const [creating, setCreating] = useState(false);
+  const [newSet, setNewSet] = useState({ title: "Новая подборка", examTaskId: "", topicId: "", status: "draft", selectionStrategy: "least_seen_first", sessionSize: 50, pageSize: 5 });
+  const [exerciseEditor, setExerciseEditor] = useState(null);
+  const refreshSets = useCallback(async () => {
+    const items = await adminApi("/exercise-sets");
+    setSets(items);
+    setSelectedSetId((current) => current || items[0]?.id || null);
+    return items;
   }, []);
+  useEffect(() => {
+    Promise.all([refreshSets(), adminApi("/catalog")]).then(([, nextCatalog]) => setCatalog(nextCatalog)).catch((reason) => setError(reason.message));
+  }, [refreshSets]);
   useEffect(() => {
     setCompactLines([]);
     if (!rawText.trim()) {
@@ -237,13 +405,34 @@ function PracticeSettings() {
       });
       setNotice(`Добавлено: ${result.created}. Дубликатов пропущено: ${result.skippedDuplicates}.`);
       setRawText("");
-      const items = await adminApi("/exercise-sets");
-      setSets(items);
+      await refreshSets();
     } catch (reason) {
       setError(reason.message);
     } finally {
       setImporting(false);
     }
+  }
+  async function createSet() {
+    if (!newSet.examTaskId || !newSet.title.trim()) { setError("Выберите задание и укажите название"); return; }
+    setBusy(true); setError("");
+    try {
+      const created = await adminApi("/operations/exercise-sets", { method: "POST", body: JSON.stringify({
+        title: newSet.title, exam_task_id: Number(newSet.examTaskId), topic_id: newSet.topicId ? Number(newSet.topicId) : null,
+        status: newSet.status, access_level: "free", selection_strategy: newSet.selectionStrategy,
+        session_size: Number(newSet.sessionSize), page_size: Number(newSet.pageSize),
+      }) });
+      await refreshSets(); setSelectedSetId(created.id); setCreating(false); setNotice("Подборка создана.");
+    } catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  async function saveMetadata(item) {
+    setBusy(true); setError("");
+    try {
+      await adminApi(`/operations/exercise-sets/${item.id}`, { method: "PUT", body: JSON.stringify({
+        title: item.title, topic_id: item.topicId || null, status: item.status || "published",
+        access_level: item.accessLevel || "free", selection_strategy: item.selectionStrategy || "least_seen_first",
+      }) });
+      await save(item); await refreshSets(); setNotice("Подборка сохранена.");
+    } catch (reason) { setError(reason.message); } finally { setBusy(false); }
   }
   const selectedSet = sets.find((item) => item.id === selectedSetId);
   const hints = {
@@ -253,14 +442,17 @@ function PracticeSettings() {
     text_input: "Поставьте во множественное число: директор | директора",
   };
   return <main className="practice-form">
-    <header><span className="overline">Карманная форма</span><h1>Практика</h1>
-      <p>Выберите подборку, настройте сессию или опубликуйте сразу несколько упражнений.</p></header>
+    <header className="practice-heading"><div><span className="overline">Карманная форма</span><h1>Практика</h1>
+      <p>Создавайте подборки, исправляйте отдельные упражнения и публикуйте материалы без скриптов.</p></div><button className="button primary" onClick={() => setCreating((value) => !value)}>+ Подборка</button></header>
     {error && <p className="form-error">{error}</p>}
     {notice && <p className="form-notice">{notice}</p>}
+    {creating && <section className="create-set-panel"><h2>Новая подборка</h2><div><label>Название<input value={newSet.title} onChange={(event) => setNewSet({ ...newSet, title: event.target.value })} /></label><label>Задание<select value={newSet.examTaskId} onChange={(event) => setNewSet({ ...newSet, examTaskId: event.target.value, topicId: "" })}><option value="">Выберите</option>{catalog?.tasks?.map((task) => <option key={task.id} value={task.id}>Задание {task.number} · {task.title}</option>)}</select></label><label>Тема · необязательно<select value={newSet.topicId} onChange={(event) => setNewSet({ ...newSet, topicId: event.target.value })}><option value="">Всё задание</option>{catalog?.tasks?.find((task) => task.id === Number(newSet.examTaskId))?.topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label><label>Публикация<select value={newSet.status} onChange={(event) => setNewSet({ ...newSet, status: event.target.value })}><option value="draft">Скрыта</option><option value="published">Опубликована</option></select></label><label>Порядок<select value={newSet.selectionStrategy} onChange={(event) => setNewSet({ ...newSet, selectionStrategy: event.target.value })}><option value="least_seen_first">Сначала реже встречавшиеся</option><option value="all_shuffled">Случайно без повторов</option><option value="ordered">По порядку</option></select></label></div><footer><button className="button" onClick={() => setCreating(false)}>Отмена</button><button className="button primary" disabled={busy} onClick={createSet}>Создать</button></footer></section>}
     <section className="practice-form-list">
       {sets.map((item) => <article className={selectedSetId === item.id ? "active" : ""} key={item.id} onClick={() => setSelectedSetId(item.id)}>
         <div><small>Задание {item.taskNumber}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</small>
-          <strong>{item.title}</strong><span>{item.exerciseCount} упражнений · {item.demoExerciseCount || 0} в демо · {(item.interactionTypes || []).join(", ")}</span></div>
+          <input className="set-title-input" value={item.title} onChange={(event) => update(item.id, { title: event.target.value })} /><span>{item.exerciseCount} упражнений · {item.demoExerciseCount || 0} в демо · {(item.interactionTypes || []).join(", ")}</span></div>
+        <label>Показывать<select value={item.status || "published"} onChange={(event) => update(item.id, { status: event.target.value })}><option value="draft">Скрыта</option><option value="published">Опубликована</option><option value="archived">Архив</option></select></label>
+        <label>Выбор заданий<select value={item.selectionStrategy || "least_seen_first"} onChange={(event) => update(item.id, { selectionStrategy: event.target.value })}><option value="least_seen_first">Реже встречавшиеся</option><option value="all_shuffled">Случайно без повторов</option><option value="ordered">По порядку</option></select></label>
         <label>Доступ<select value={item.accessLevel || "free"}
           onChange={(event) => update(item.id, { accessLevel: event.target.value })}>
           <option value="free">Бесплатный</option>
@@ -285,6 +477,7 @@ function PracticeSettings() {
           Показывать «Верно: буква»
         </label>
         <div className="set-actions">
+          <button className="button" onClick={(event) => { event.stopPropagation(); setExerciseEditor({ setId: item.id, title: item.title }); }}>Упражнения</button>
           <button className="button" onClick={async (event) => {
             event.stopPropagation();
             setDemoFilter("");
@@ -294,10 +487,12 @@ function PracticeSettings() {
               setDemoEditor({ setId: item.id, title: item.title, loading: false, items: data.items });
             } catch (reason) { setError(reason.message); setDemoEditor(null); }
           }}>Состав демо</button>
-          <button className="button primary" onClick={() => save(item)}>Сохранить</button>
+          <button className="button primary" disabled={busy} onClick={() => saveMetadata(item)}>Сохранить</button>
+          <button className="danger" onClick={async (event) => { event.stopPropagation(); if (!window.confirm(`Убрать подборку «${item.title}» в архив?`)) return; try { await adminApi(`/operations/exercise-sets/${item.id}`, { method: "DELETE" }); await refreshSets(); setNotice("Подборка отправлена в архив."); } catch (reason) { setError(reason.message); } }}>В архив</button>
         </div>
       </article>)}
     </section>
+    {exerciseEditor && <ExerciseManager setInfo={exerciseEditor} catalog={catalog} close={() => { setExerciseEditor(null); refreshSets(); }} reportError={setError} reportNotice={setNotice} />}
     {demoEditor && <section className="demo-membership-editor">
       <header><div><span className="overline">Демоверсия</span><h2>{demoEditor.title}</h2></div><button className="demo-close" onClick={() => setDemoEditor(null)}>×</button></header>
       {demoEditor.loading ? <p>Загружаем упражнения…</p> : <>
@@ -372,6 +567,80 @@ function PracticeSettings() {
   </main>;
 }
 
+function prettyJson(value) {
+  return JSON.stringify(value || {}, null, 2);
+}
+
+function ExerciseManager({ setInfo, catalog, close, reportError, reportNotice }) {
+  const [data, setData] = useState({ items: [], total: 0, offset: 0, limit: 50 });
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [advanced, setAdvanced] = useState(false);
+  const [jsonDraft, setJsonDraft] = useState({ interaction: "{}", answer: "{}", checker: "{}", feedback: "{}" });
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async (offset = 0, needle = search) => {
+    try {
+      const next = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items?offset=${offset}&limit=50&search=${encodeURIComponent(needle)}`);
+      setData(next);
+      if (selectedId && !next.items.some((item) => item.exerciseId === selectedId)) { setSelectedId(null); setDraft(null); }
+    } catch (reason) { reportError(reason.message); }
+  }, [reportError, search, selectedId, setInfo.setId]);
+  useEffect(() => { const timeout = window.setTimeout(() => load(0, search), 220); return () => window.clearTimeout(timeout); }, [search, setInfo.setId]);
+  function choose(item) {
+    const copy = structuredClone(item);
+    setSelectedId(item.exerciseId); setDraft(copy); setAdvanced(false);
+    setJsonDraft({ interaction: prettyJson(copy.interactionConfig), answer: prettyJson(copy.answerConfig), checker: prettyJson(copy.checkerConfig), feedback: prettyJson(copy.feedbackData) });
+  }
+  function patchPrompt(content) { setDraft((item) => ({ ...item, promptData: { ...(item.promptData || {}), content, ...(item.promptData?.word != null ? { word: content } : {}) } })); }
+  function changeType(type) {
+    const defaults = {
+      single_choice: { interactionConfig: { options: [{ key: "option-0", label: "Вариант 1" }, { key: "option-1", label: "Вариант 2" }] }, answerConfig: { correctOptionKey: "option-0" }, checkerType: "exact_option", checkerConfig: {} },
+      multiple_choice: { interactionConfig: { options: [{ key: "option-0", label: "Вариант 1" }, { key: "option-1", label: "Вариант 2" }] }, answerConfig: { correctOptionKeys: ["option-0"] }, checkerType: "set_equality", checkerConfig: {} },
+      stress_selection: { interactionConfig: { selectablePositions: [] }, answerConfig: { correctCharacterIndex: 0 }, checkerType: "exact_position", checkerConfig: {} },
+      vowel_fill: { interactionConfig: { variant: "masked_letters", mask: draft.promptData?.content || "" }, answerConfig: { acceptedAnswers: [""] }, checkerType: "normalized_text", checkerConfig: { trim: true, caseInsensitive: true, yoPolicy: "distinct" } },
+      text_input: { interactionConfig: {}, answerConfig: { acceptedAnswers: [""] }, checkerType: "normalized_text", checkerConfig: { trim: true, caseInsensitive: true, yoPolicy: "distinct" } },
+    }[type];
+    setDraft({ ...draft, interactionType: type, ...defaults });
+    setJsonDraft({ interaction: prettyJson(defaults.interactionConfig), answer: prettyJson(defaults.answerConfig), checker: prettyJson(defaults.checkerConfig), feedback: prettyJson(draft.feedbackData) });
+  }
+  function parseAdvanced() {
+    try {
+      return { interaction_config: JSON.parse(jsonDraft.interaction), answer_config: JSON.parse(jsonDraft.answer), checker_config: JSON.parse(jsonDraft.checker), feedback_data: JSON.parse(jsonDraft.feedback) };
+    } catch { throw new Error("В расширенных настройках есть некорректный JSON"); }
+  }
+  async function saveExercise() {
+    if (!draft) return;
+    setBusy(true);
+    try {
+      const advancedPayload = advanced ? parseAdvanced() : {};
+      const saved = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${draft.exerciseId}`, { method: "PUT", body: JSON.stringify({
+        interaction_type: draft.interactionType, prompt_data: draft.promptData || {}, interaction_config: draft.interactionConfig || {},
+        answer_config: draft.answerConfig || {}, checker_type: draft.checkerType, checker_config: draft.checkerConfig || {},
+        feedback_data: draft.feedbackData || {}, difficulty: draft.difficulty || null, source: draft.source || null, ...advancedPayload,
+        exam_task_ids: draft.examTaskIds || [], topic_ids: draft.topicIds || [],
+      }) });
+      setDraft(saved); setData((current) => ({ ...current, items: current.items.map((item) => item.exerciseId === saved.exerciseId ? saved : item) })); reportNotice("Упражнение опубликовано новой версией.");
+    } catch (reason) { reportError(reason.message); } finally { setBusy(false); }
+  }
+  const answerText = draft?.answerConfig?.acceptedAnswers?.join("\n") || "";
+  return <div className="exercise-manager-backdrop"><section className="exercise-manager">
+    <header><div><span className="overline">Банк упражнений</span><h2>{setInfo.title}</h2><p>{data.total} упражнений. Исправление публикуется новой версией — история не теряется.</p></div><button className="demo-close" onClick={close}>×</button></header>
+    <div className="exercise-manager-layout"><aside><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по условию" /><div>{data.items.map((item) => <button key={item.exerciseId} className={selectedId === item.exerciseId ? "active" : ""} onClick={() => choose(item)}><small>#{item.exerciseId} · {item.interactionType}</small><strong>{item.promptData?.content || item.promptData?.word || "Без условия"}</strong></button>)}</div><footer><button disabled={data.offset === 0} onClick={() => load(Math.max(0, data.offset - data.limit))}>Назад</button><span>{data.offset + 1}–{Math.min(data.offset + data.limit, data.total)}</span><button disabled={data.offset + data.limit >= data.total} onClick={() => load(data.offset + data.limit)}>Дальше</button></footer></aside>
+      {draft ? <main className="exercise-inspector"><div className="exercise-basic-grid"><label className="wide">Условие<textarea rows="4" value={draft.promptData?.content || ""} onChange={(event) => patchPrompt(event.target.value)} /></label><label>Формат<select value={draft.interactionType} onChange={(event) => changeType(event.target.value)}><option value="vowel_fill">Вставить буквы</option><option value="stress_selection">Выбрать ударение</option><option value="single_choice">Один вариант</option><option value="multiple_choice">Несколько вариантов</option><option value="text_input">Ввести ответ</option></select></label><label>Сложность<select value={draft.difficulty || ""} onChange={(event) => setDraft({ ...draft, difficulty: Number(event.target.value) || null })}><option value="">Не указана</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label className="wide">Источник<input value={draft.source || ""} onChange={(event) => setDraft({ ...draft, source: event.target.value })} placeholder="Авторское / название источника" /></label></div>
+        {["vowel_fill", "text_input"].includes(draft.interactionType) && <label>Допустимые ответы · один на строку<textarea rows="3" value={answerText} onChange={(event) => setDraft({ ...draft, answerConfig: { ...draft.answerConfig, acceptedAnswers: event.target.value.split("\n").filter(Boolean) } })} /></label>}
+        {draft.interactionType === "stress_selection" && <label>Индекс ударной буквы · отсчёт с нуля<input type="number" min="0" value={draft.answerConfig?.correctCharacterIndex ?? 0} onChange={(event) => setDraft({ ...draft, answerConfig: { correctCharacterIndex: Number(event.target.value) } })} /></label>}
+        {["single_choice", "multiple_choice"].includes(draft.interactionType) && <div className="choice-editor"><label>Варианты · один на строку<textarea rows="5" value={(draft.interactionConfig?.options || []).map((item) => item.label).join("\n")} onChange={(event) => { const options = event.target.value.split("\n").map((label, index) => ({ key: `option-${index}`, label })); setDraft({ ...draft, interactionConfig: { ...draft.interactionConfig, options } }); }} /></label><label>Правильный номер / номера через запятую<input value={draft.interactionType === "multiple_choice" ? (draft.answerConfig?.correctOptionKeys || []).map((key) => Number(String(key).split("-").pop()) + 1).join(",") : Number(String(draft.answerConfig?.correctOptionKey || "option-0").split("-").pop()) + 1} onChange={(event) => { const indexes = event.target.value.split(",").map((value) => Math.max(0, Number(value.trim()) - 1)).filter(Number.isFinite); setDraft({ ...draft, answerConfig: draft.interactionType === "multiple_choice" ? { correctOptionKeys: indexes.map((index) => `option-${index}`) } : { correctOptionKey: `option-${indexes[0] || 0}` } }); }} /></label></div>}
+        <label>Связанная теория<select value={draft.topicIds?.[0] || ""} onChange={(event) => { const topicId = Number(event.target.value) || null; const task = catalog?.tasks?.find((item) => item.topics.some((topic) => topic.id === topicId)); setDraft({ ...draft, topicIds: topicId ? [topicId] : [], examTaskIds: task ? [task.id] : draft.examTaskIds }); }}><option value="">Теория задания целиком</option>{catalog?.tasks?.flatMap((task) => task.topics.map((topic) => <option key={topic.id} value={topic.id}>Задание {task.number} · {topic.title}</option>))}</select></label>
+        <label>Пояснение после ответа<textarea rows="4" value={draft.feedbackData?.incorrect || draft.feedbackData?.correct || ""} onChange={(event) => setDraft({ ...draft, feedbackData: { ...draft.feedbackData, correct: event.target.value, incorrect: event.target.value } })} /></label>
+        <button className="advanced-toggle" onClick={() => setAdvanced((value) => { if (!value) setJsonDraft({ interaction: prettyJson(draft.interactionConfig), answer: prettyJson(draft.answerConfig), checker: prettyJson(draft.checkerConfig), feedback: prettyJson(draft.feedbackData) }); return !value; })}>{advanced ? "Скрыть технические поля" : "Расширенные настройки"}</button>
+        {advanced && <div className="advanced-json"><label>Интерфейс<textarea value={jsonDraft.interaction} onChange={(event) => setJsonDraft({ ...jsonDraft, interaction: event.target.value })} /></label><label>Правильный ответ<textarea value={jsonDraft.answer} onChange={(event) => setJsonDraft({ ...jsonDraft, answer: event.target.value })} /></label><label>Проверка<textarea value={jsonDraft.checker} onChange={(event) => setJsonDraft({ ...jsonDraft, checker: event.target.value })} /></label><label>Обратная связь и ссылки на теорию<textarea value={jsonDraft.feedback} onChange={(event) => setJsonDraft({ ...jsonDraft, feedback: event.target.value })} /></label></div>}
+        <footer><button className="danger" onClick={async () => { if (!window.confirm("Убрать упражнение из этой подборки?")) return; try { await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${draft.exerciseId}`, { method: "DELETE" }); setDraft(null); setSelectedId(null); await load(data.offset); reportNotice("Упражнение убрано из подборки."); } catch (reason) { reportError(reason.message); } }}>Убрать из подборки</button><button className="button primary" disabled={busy} onClick={saveExercise}>{busy ? "Публикуем…" : "Опубликовать исправление"}</button></footer>
+      </main> : <main className="exercise-empty"><p>Выберите упражнение слева, чтобы исправить условие, ответ или пояснение.</p></main>}
+    </div>
+  </section></div>;
+}
+
 function MonetizationSettings() {
   const emptyProduct = () => ({ id: null, code: `access-${Date.now().toString(36)}`, title: "Новый доступ", description: "", billingType: "one_time", status: "draft", amount: 29900, resources: [] });
   const [products, setProducts] = useState([]);
@@ -443,7 +712,7 @@ function MonetizationSettings() {
 function AccessGate({ access, verify }) {
   const [key, setKey] = useState("");
   if (access.loading) return <main className="form-gate"><p>Открываем редактор…</p></main>;
-  return <main className="form-gate"><section><Logo /><p className="overline">Редактор контента</p><h1>Вход в форму</h1><p>Введите ключ, заданный в <code>ADMIN_TOKEN</code>.</p><input autoFocus type="password" value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && verify(key)} placeholder="Ключ доступа" />{access.error && <p className="form-error">{access.error}</p>}<button className="button primary" onClick={() => verify(key)}>Войти</button></section></main>;
+  return <main className="form-gate"><section><Logo /><p className="overline">Редактор контента</p><h1>Вход в форму</h1><p>Введите ключ владельца из настройки <code>ADMIN_TOKEN</code>.</p><input autoFocus type="password" value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && verify(key)} placeholder="Ключ доступа" />{access.error && <p className="form-error">{access.error}</p>}<button className="button primary" onClick={() => verify(key)}>Войти</button></section></main>;
 }
 
 function PocketEditor() {
@@ -829,7 +1098,7 @@ function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
     };
     return <label>Таблица · Enter — новая строка, Shift+Enter — перенос в ячейке, ячейки через |<textarea className="markdown-editor short" value={value} onChange={(event) => change(event.target.value)} onKeyDown={handleKeyDown} /></label>;
   }
-  if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
+  if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label className="inline-upload button">Загрузить изображение<input hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { const data = new FormData(); data.append("file", file); const uploaded = await adminApi("/operations/media", { method: "POST", body: data }); setData({ url: uploaded.url, alt: block.data?.alt || file.name.replace(/\.[^.]+$/, "") }); } catch (reason) { window.alert(reason.message); } }} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
   if (block.type === "practice_link") return <div className="field-stack"><label>Текст · Markdown<textarea className="markdown-editor short" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="А это лучше отработать в нашем тренажёре" /></label><label>Связанный тренажёр<select value={Number(block.data?.exerciseSetId) || ""} onChange={(e) => { const selectedSet = exerciseSets.find((item) => item.id === Number(e.target.value)); setData({ exerciseSetId: selectedSet?.id || null, taskNumber: selectedSet?.taskNumber || Number(currentOwner?.taskNumber) || null }); }}><option value="">Автоматически · задание {block.data?.taskNumber || currentOwner?.taskNumber}</option>{exerciseSets.map((item) => <option key={item.id} value={item.id}>Задание {item.taskNumber} · {item.title}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</option>)}</select></label><label>Текст кнопки<input value={block.data?.buttonLabel || ""} onChange={(e) => setData({ buttonLabel: e.target.value })} placeholder="Перейти к тренажёру" /></label></div>;
   return <label>Ссылка на видео<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label>;
 }

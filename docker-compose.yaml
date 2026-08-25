@@ -15,6 +15,51 @@ services:
     restart: unless-stopped
     networks:
       - appnet
+    security_opt:
+      - no-new-privileges:true
+
+  postgres_backup:
+    image: postgres:17-alpine
+    environment:
+      - PGHOST=postgres
+      - PGDATABASE=${POSTGRES_DB:-pumrus}
+      - PGUSER=${POSTGRES_USER:-pumrus}
+      - PGPASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/backup.sh:/ops/backup.sh:ro
+      - ./backups/postgres:/backups
+    command: ["/bin/sh", "/ops/backup.sh"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - appnet
+    security_opt:
+      - no-new-privileges:true
+
+  media_backup:
+    image: alpine:3.22
+    environment:
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./ops/media-backup.sh:/ops/media-backup.sh:ro
+      - media_data:/media:ro
+      - ./backups/media:/backups
+    command: ["/bin/sh", "/ops/media-backup.sh"]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  media_init:
+    image: alpine:3.22
+    command: ["sh", "-c", "chown -R 10001:10001 /media"]
+    volumes:
+      - media_data:/media
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
 
   frontend:
     build:
@@ -32,6 +77,9 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-pumrus}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-pumrus}
       - ADMIN_TOKEN=${ADMIN_TOKEN:-}
+      - BACKEND_INTERNAL_TOKEN=${BACKEND_INTERNAL_TOKEN:-}
+      - ALLOW_INSECURE_ADMIN=${ALLOW_INSECURE_ADMIN:-false}
+      - MEDIA_ROOT=/app/media
       - PAYMENT_MODE=${PAYMENT_MODE:-disabled}
       - TELEGRAM_BOT_TOKEN=${TOKEN:-}
       - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
@@ -41,17 +89,31 @@ services:
       - PAYMENT_SUPPORT_URL=${PAYMENT_SUPPORT_URL:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-https://bestgreen.ru,https://www.bestgreen.ru,http://localhost:3000,http://127.0.0.1:3000}
     working_dir: /app
-    command: ["sh", "-c", "alembic upgrade head && python -m app.scripts.publish_curated_theory --execute && python -m app.scripts.publish_theory_expansion --execute && python -m app.scripts.publish_practice_expansion --execute && python -m app"]
+    volumes:
+      - media_data:/app/media
+    command: ["sh", "-c", "alembic upgrade head && python -m app"]
+    restart: unless-stopped
     ports:
-    - "8000:8000"
+    - "127.0.0.1:8000:8000"
     mem_limit: 512m
     depends_on:
       postgres:
         condition: service_healthy
+      media_init:
+        condition: service_completed_successfully
     extra_hosts:
       - "host.docker.internal:172.17.0.1"
     networks:
       - appnet
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 
   tg_bot:
@@ -62,6 +124,7 @@ services:
       - TOKEN=${TOKEN}
       - WEB_APP_URL=${WEB_APP_URL}
       - API_URL=http://backend:8000/api
+      - BACKEND_INTERNAL_TOKEN=${BACKEND_INTERNAL_TOKEN:-}
       - TG_PROXY=${TG_PROXY}
       - BOT_MODE=${BOT_MODE:-polling}
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
@@ -82,9 +145,18 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${WEBHOOK_PORT:-8080}:8080"
+      - "127.0.0.1:${WEBHOOK_PORT:-8080}:8080"
     networks:
       - appnet
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     
   sing-box:
     image: ghcr.io/sagernet/sing-box:v1.13.12
@@ -100,6 +172,15 @@ services:
       - sing_box_data:/var/lib/sing-box
     networks:
       - appnet
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test:
         - CMD
@@ -111,19 +192,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   sing_box_data:
   postgres_data:
+  media_data:
 
 networks:
   appnet:

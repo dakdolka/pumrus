@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -92,3 +92,30 @@ class AttemptV2BD(TimestampMixin, Base):
     session_item: Mapped["PracticeSessionItemBD"] = relationship(
         back_populates="attempts"
     )
+
+
+class MistakeQueueBD(TimestampMixin, Base):
+    __tablename__ = "mistake_queue"
+    __table_args__ = (
+        UniqueConstraint("user_id", "exercise_id", name="uq_mistake_queue_user_exercise"),
+        CheckConstraint(
+            "status IN ('active', 'removal_candidate', 'resolved')",
+            name="ck_mistake_queue_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("user.id", ondelete="CASCADE"),
+        index=True,
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("exercise.id", ondelete="CASCADE"),
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    failure_count: Mapped[int] = mapped_column(Integer, default=1)
+    first_failed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_failed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_correct_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

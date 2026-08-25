@@ -112,7 +112,7 @@ class PaymentOrderBD(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    public_id: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    public_id: Mapped[str] = mapped_column(String(36), unique=True)
     user_id: Mapped[int] = mapped_column(
         ForeignKey("user.id", ondelete="RESTRICT"),
         index=True,
@@ -177,7 +177,7 @@ class EntitlementBD(TimestampMixin, Base):
             "user_id",
             "access_policy_id",
             "source_order_id",
-            name="uq_entitlement_source",
+            name="uq_entitlement_payment_source",
         ),
     )
 
@@ -190,10 +190,13 @@ class EntitlementBD(TimestampMixin, Base):
         ForeignKey("access_policy.id", ondelete="RESTRICT"),
         index=True,
     )
-    source_order_id: Mapped[int] = mapped_column(
+    source_order_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("payment_order.id", ondelete="RESTRICT"),
         index=True,
+        nullable=True,
     )
+    source_type: Mapped[str] = mapped_column(String(16), default="payment")
+    source_note: Mapped[Optional[str]] = mapped_column(String(512))
     status: Mapped[str] = mapped_column(String(16), default="active", index=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))

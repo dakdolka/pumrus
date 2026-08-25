@@ -24,15 +24,35 @@ import app.infra.content
 import app.infra.exercises
 import app.infra.practice
 import app.infra.monetization
+import app.infra.system
 
 target_metadata = Base.metadata
+
+LEGACY_ENUM_COLUMNS = {
+    ("task", "trainer_type"),
+    ("theory_block", "type"),
+    ("theory_type", "name"),
+}
+
+
+def compare_column_types(
+    _context,
+    inspected_column,
+    metadata_column,
+    _inspected_type,
+    _metadata_type,
+):
+    """Keep legacy varchar-backed enums out of new autogeneration noise."""
+    if (metadata_column.table.name, metadata_column.name) in LEGACY_ENUM_COLUMNS:
+        return False
+    return None
 
 
 def do_run_migrations(connection):
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,
+        compare_type=compare_column_types,
     )
     with context.begin_transaction():  # ← синхронный, внутри run_sync
         context.run_migrations()

@@ -7,10 +7,14 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Устанавливаем зависимости
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && useradd --create-home --uid 10001 appuser
 
 # Копируем код приложения
-COPY . .
+COPY --chown=appuser:appuser . .
+RUN mkdir -p /app/media && chown -R appuser:appuser /app/media
+
+USER appuser
 
 EXPOSE 8000
 
