@@ -3,12 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.monetization import (
+    product_offer_for_exercise_set,
+    telegram_user_from_request,
+    user_has_exercise_set_access,
+)
 from app.infra.catalog.models import (
     CourseVersionBD,
     ExamTaskBD,
@@ -410,6 +415,7 @@ async def get_deprecated_theory(version_id: int, db: AsyncSession = Depends(get_
 @router.get("/practice/tasks/{task_number}/sets")
 async def list_exercise_sets(
     task_number: int,
+    request: Request,
     topic_id: int | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
@@ -451,27 +457,42 @@ async def list_exercise_sets(
             .order_by(ExerciseSetBD.id)
         )
     ).all()
+    authenticated_user = await telegram_user_from_request(
+        request,
+        db,
+        required=False,
+    )
+    serialized_sets = []
+    for exercise_set, topic_title, exercise_count, preview_count in rows:
+        has_full_access = await user_has_exercise_set_access(
+            db,
+            authenticated_user.id if authenticated_user else None,
+            exercise_set,
+        )
+        serialized_sets.append({
+            "id": exercise_set.id,
+            "title": exercise_set.title,
+            "topicId": exercise_set.topic_id,
+            "topicTitle": topic_title,
+            "scopeRole": (exercise_set.configuration or {}).get(
+                "scopeRole",
+                "topic" if exercise_set.topic_id else "task",
+            ),
+            "accessLevel": exercise_set.access_level,
+            "hasFullAccess": has_full_access,
+            "offer": (
+                None if has_full_access
+                else await product_offer_for_exercise_set(db, exercise_set)
+            ),
+            "exerciseCount": exercise_count,
+            "demoExerciseCount": preview_count,
+            "selectionStrategy": exercise_set.selection_strategy,
+            "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
+            "pageSize": int(exercise_set.configuration.get("pageSize", 5)),
+        })
     return {
         "task": _task_out(task),
-        "sets": [
-            {
-                "id": exercise_set.id,
-                "title": exercise_set.title,
-                "topicId": exercise_set.topic_id,
-                "topicTitle": topic_title,
-                "scopeRole": (exercise_set.configuration or {}).get(
-                    "scopeRole",
-                    "topic" if exercise_set.topic_id else "task",
-                ),
-                "accessLevel": exercise_set.access_level,
-                "exerciseCount": exercise_count,
-                "demoExerciseCount": preview_count,
-                "selectionStrategy": exercise_set.selection_strategy,
-                "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
-                "pageSize": int(exercise_set.configuration.get("pageSize", 5)),
-            }
-            for exercise_set, topic_title, exercise_count, preview_count in rows
-        ],
+        "sets": serialized_sets,
     }
 
 
@@ -693,6 +714,7 @@ async def _letter_keys_for_set(
 @router.post("/practice/sessions", status_code=201)
 async def create_practice_session(
     body: SessionCreateIn,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     exercise_set = await db.scalar(
@@ -703,7 +725,20 @@ async def create_practice_session(
     )
     if exercise_set is None:
         raise HTTPException(404, "Exercise set not found")
-    preview_mode = body.preview or exercise_set.access_level in {"preview", "premium"}
+    authenticated_user = await telegram_user_from_request(
+        request,
+        db,
+        required=False,
+    )
+    has_full_access = await user_has_exercise_set_access(
+        db,
+        authenticated_user.id if authenticated_user else None,
+        exercise_set,
+    )
+    preview_mode = body.preview or (
+        exercise_set.access_level == "preview"
+        or (exercise_set.access_level == "premium" and not has_full_access)
+    )
     limit = body.limit or int(exercise_set.configuration.get("sessionSize", 50))
     page_size = body.page_size or int(exercise_set.configuration.get("pageSize", 5))
     page_size = min(page_size, limit)
@@ -837,6 +872,11 @@ async def create_practice_session(
         "pausedAt": None,
         "previewMode": preview_mode,
         "accessLevel": exercise_set.access_level,
+        "hasFullAccess": has_full_access,
+        "offer": (
+            None if has_full_access
+            else await product_offer_for_exercise_set(db, exercise_set)
+        ),
     }
     letter_keys = await _letter_keys_for_set(db, exercise_set.id)
     if letter_keys:

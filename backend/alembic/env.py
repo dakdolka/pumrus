@@ -23,6 +23,7 @@ import app.infra.catalog
 import app.infra.content
 import app.infra.exercises
 import app.infra.practice
+import app.infra.monetization
 
 target_metadata = Base.metadata
 

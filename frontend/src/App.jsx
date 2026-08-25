@@ -5,8 +5,13 @@ import BrandLogo from "./BrandLogo";
 
 
 async function api(path, options = {}) {
+  const telegramInitData = window.Telegram?.WebApp?.initData;
   const response = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(telegramInitData ? { "X-Telegram-Init-Data": telegramInitData } : {}),
+      ...(options.headers || {}),
+    },
     ...options,
   });
   if (!response.ok) {
@@ -14,6 +19,73 @@ async function api(path, options = {}) {
     throw new Error(payload?.detail || "Не удалось выполнить запрос");
   }
   return response.json();
+}
+
+
+function formatPrice(offer) {
+  if (!offer) return "";
+  const value = new Intl.NumberFormat("ru-RU", {
+    style: "currency",
+    currency: offer.currency || "RUB",
+    maximumFractionDigits: 0,
+  }).format((offer.amount || 0) / 100);
+  return offer.billingType === "monthly" ? `${value} / месяц` : value;
+}
+
+
+async function openCheckout(offer) {
+  if (!offer) throw new Error("Для этого материала пока не настроена цена");
+  if (!offer.checkoutEnabled) {
+    throw new Error("Оплата ещё не включена. Демоверсия уже доступна.");
+  }
+  if (!window.Telegram?.WebApp?.initData) {
+    throw new Error("Для покупки откройте UmRus через Telegram");
+  }
+  const checkout = await api("/v2/payments/checkout", {
+    method: "POST",
+    body: JSON.stringify({ price_id: offer.priceId }),
+  });
+  const tg = window.Telegram?.WebApp;
+  if (tg?.openLink) tg.openLink(checkout.confirmationUrl);
+  else window.location.assign(checkout.confirmationUrl);
+}
+
+
+function UnlockCard({ offer, compact = false }) {
+  const [busy, setBusy] = useState(false);
+  if (!offer) return null;
+  const buy = async () => {
+    setBusy(true);
+    try {
+      await openCheckout(offer);
+    } catch (error) {
+      reportAppError(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (compact) {
+    return (
+      <button className="set-unlock" onClick={buy} disabled={busy}>
+        <span>{busy ? "Открываем…" : "Открыть полностью"}</span>
+        <strong>{formatPrice(offer)}</strong>
+      </button>
+    );
+  }
+  return (
+    <section className="unlock-card">
+      <span className="eyebrow">Полная версия</span>
+      <h2>{offer.title}</h2>
+      {offer.description && <p>{offer.description}</p>}
+      <div>
+        <strong>{formatPrice(offer)}</strong>
+        <button className="primary-button" onClick={buy} disabled={busy}>
+          {busy ? "Открываем оплату…" : "Получить доступ"}
+        </button>
+      </div>
+      {!offer.checkoutEnabled && <small>Оплата пока выключена — можно пройти демоверсию.</small>}
+    </section>
+  );
 }
 
 
@@ -784,21 +856,20 @@ function PracticeTask({ taskNumber, navigate, userId }) {
                 || left.title.localeCompare(right.title, "ru")
               ))
               .map((set) => (
-              <button
-                className="set-card"
-                key={set.id}
-                onClick={() => startSet(set)}
-              >
-                <span className="set-label">
-                  {set.scopeRole === "task" ? "Всё задание" : "Тема"}
-                  {set.accessLevel && set.accessLevel !== "free" ? " · Демо" : ""}
-                </span>
-                <strong>{set.title}</strong>
-                <small>{set.accessLevel && set.accessLevel !== "free"
-                  ? `${set.demoExerciseCount} упражнений в демо`
-                  : `${set.exerciseCount} упражнений в банке`}</small>
-                <i><AppIcon type="arrow" /></i>
-              </button>
+              <article className="set-card-shell" key={set.id}>
+                <button className="set-card" onClick={() => startSet(set)}>
+                  <span className="set-label">
+                    {set.scopeRole === "task" ? "Всё задание" : "Тема"}
+                    {!set.hasFullAccess ? " · Демо" : ""}
+                  </span>
+                  <strong>{set.title}</strong>
+                  <small>{!set.hasFullAccess
+                    ? `${set.demoExerciseCount} упражнений в демо`
+                    : `${set.exerciseCount} упражнений в банке`}</small>
+                  <i><AppIcon type="arrow" /></i>
+                </button>
+                {!set.hasFullAccess && <UnlockCard offer={set.offer} compact />}
+              </article>
             )) : <EmptyCard text="Для этого раздела пока нет опубликованных тренажёров." />}
           </section>
         </>
@@ -1205,8 +1276,11 @@ function PracticeSession({ sessionId, navigate }) {
           );
         })()}
 
+        {finished && session.configuration?.previewMode && !session.configuration?.hasFullAccess
+          ? <UnlockCard offer={session.configuration?.offer} />
+          : null}
         {finished ? (
-          <button className="primary-button" onClick={() => navigate("/practice")}>
+          <button className={session.configuration?.previewMode ? "secondary-button" : "primary-button"} onClick={() => navigate("/practice")}>
             Завершить тренировку
           </button>
         ) : null}
@@ -1597,6 +1671,20 @@ function NotFound({ navigate }) {
 }
 
 
+function PaymentReturn({ navigate }) {
+  return (
+    <Shell navigate={navigate}>
+      <div className="state-card payment-return">
+        <span className="payment-return-mark"><AppIcon type="check" /></span>
+        <h1>Оплата обрабатывается</h1>
+        <p>Вернитесь в UmRus: доступ появится автоматически после подтверждения платежа.</p>
+        <button className="primary-button" onClick={() => navigate("/practice")}>К практике</button>
+      </div>
+    </Shell>
+  );
+}
+
+
 function resolveRoute(path) {
   let match;
   if (path === "/") return { screen: "home" };
@@ -1604,6 +1692,7 @@ function resolveRoute(path) {
   if (path === "/theory/deprecated") return { screen: "deprecatedTheory" };
   if (path === "/practice") return { screen: "catalog", mode: "practice" };
   if (path === "/practice/mistakes") return { screen: "mistakesPractice" };
+  if (path === "/payment/return") return { screen: "paymentReturn" };
   match = path.match(/^\/theory\/tasks\/(\d+)\/topics\/(\d+)$/);
   if (match) return { screen: "topicTheory", taskNumber: +match[1], topicId: +match[2] };
   match = path.match(/^\/theory\/tasks\/(\d+)$/);
@@ -1699,6 +1788,9 @@ export default function App() {
   }
   if (route.screen === "mistakesPractice") {
     return <MistakesPractice navigate={navigate} userId={userId} />;
+  }
+  if (route.screen === "paymentReturn") {
+    return <PaymentReturn navigate={navigate} />;
   }
   if (route.screen === "session") {
     return <PracticeSession sessionId={route.sessionId} navigate={navigate} />;

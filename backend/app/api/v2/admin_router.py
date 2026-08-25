@@ -103,6 +103,11 @@ class ExerciseSetSettingsIn(BaseModel):
     show_single_letter_success: bool = False
     access_level: Literal["free", "preview", "premium"] = "free"
     demo_size: int = Field(default=7, ge=1, le=50)
+    demo_selection_mode: Literal["auto", "manual"] = "auto"
+
+
+class PreviewMembershipIn(BaseModel):
+    exercise_ids: list[int] = Field(min_length=1, max_length=50)
 
 
 class BulkExerciseImportIn(BaseModel):
@@ -795,6 +800,10 @@ async def admin_exercise_sets(db: AsyncSession = Depends(get_db)):
                 "demoSize",
                 15 if item.topic_id is None else 7,
             )),
+            "demoSelectionMode": (item.configuration or {}).get(
+                "demoSelectionMode",
+                "auto",
+            ),
             "interactionTypes": [value for value in interaction_types if value],
             "sessionSize": int(item.configuration.get("sessionSize", 50)),
             "pageSize": int(item.configuration.get("pageSize", 5)),
@@ -825,9 +834,11 @@ async def update_exercise_set_settings(
         "promptDisplay": body.prompt_display,
         "showSingleLetterSuccess": body.show_single_letter_success,
         "demoSize": body.demo_size,
+        "demoSelectionMode": body.demo_selection_mode,
     }
     item.access_level = body.access_level
-    await sync_preview_membership(db, item)
+    if body.demo_selection_mode == "auto":
+        await sync_preview_membership(db, item)
     await db.commit()
     return {
         "sessionSize": body.session_size,
@@ -836,6 +847,95 @@ async def update_exercise_set_settings(
         "showSingleLetterSuccess": body.show_single_letter_success,
         "accessLevel": body.access_level,
         "demoSize": body.demo_size,
+        "demoSelectionMode": body.demo_selection_mode,
+    }
+
+
+def _preview_prompt(version: ExerciseVersionBD | None) -> str:
+    if version is None:
+        return "Упражнение без опубликованной версии"
+    prompt = version.prompt_data or {}
+    return str(
+        prompt.get("content")
+        or prompt.get("word")
+        or prompt.get("text")
+        or "Упражнение"
+    )
+
+
+@router.get(
+    "/exercise-sets/{exercise_set_id}/preview-items",
+    dependencies=[Depends(require_admin)],
+)
+async def exercise_set_preview_items(
+    exercise_set_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    exercise_set = await db.get(ExerciseSetBD, exercise_set_id)
+    if exercise_set is None:
+        raise HTTPException(404, "Exercise set not found")
+    rows = (
+        await db.execute(
+            select(ExerciseSetItemBD, ExerciseBD, ExerciseVersionBD)
+            .join(ExerciseBD, ExerciseBD.id == ExerciseSetItemBD.exercise_id)
+            .outerjoin(
+                ExerciseVersionBD,
+                ExerciseVersionBD.id == ExerciseBD.published_version_id,
+            )
+            .where(ExerciseSetItemBD.exercise_set_id == exercise_set_id)
+            .order_by(ExerciseSetItemBD.sort_order, ExerciseSetItemBD.id)
+        )
+    ).all()
+    return {
+        "exerciseSetId": exercise_set.id,
+        "selectionMode": (exercise_set.configuration or {}).get(
+            "demoSelectionMode",
+            "auto",
+        ),
+        "items": [
+            {
+                "exerciseId": exercise.id,
+                "isPreview": item.is_preview,
+                "prompt": _preview_prompt(version),
+                "interactionType": version.interaction_type if version else None,
+            }
+            for item, exercise, version in rows
+        ],
+    }
+
+
+@router.put(
+    "/exercise-sets/{exercise_set_id}/preview-items",
+    dependencies=[Depends(require_admin)],
+)
+async def update_exercise_set_preview_items(
+    exercise_set_id: int,
+    body: PreviewMembershipIn,
+    db: AsyncSession = Depends(get_db),
+):
+    exercise_set = await db.get(ExerciseSetBD, exercise_set_id)
+    if exercise_set is None:
+        raise HTTPException(404, "Exercise set not found")
+    items = list((await db.scalars(select(ExerciseSetItemBD).where(
+        ExerciseSetItemBD.exercise_set_id == exercise_set_id
+    ))).all())
+    available_ids = {item.exercise_id for item in items}
+    requested_ids = set(body.exercise_ids)
+    missing = requested_ids - available_ids
+    if missing:
+        raise HTTPException(422, "В демо попали упражнения не из этой подборки")
+    for item in items:
+        item.is_preview = item.exercise_id in requested_ids
+    exercise_set.configuration = {
+        **(exercise_set.configuration or {}),
+        "demoSelectionMode": "manual",
+        "demoSize": len(requested_ids),
+    }
+    await db.commit()
+    return {
+        "exerciseSetId": exercise_set.id,
+        "selectionMode": "manual",
+        "demoSize": len(requested_ids),
     }
 
 

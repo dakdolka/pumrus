@@ -156,11 +156,12 @@ function FormWorkspace() {
     <nav className="form-mode-tabs">
       <button className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
       <button className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
+      <button className={mode === "access" ? "active" : ""} onClick={() => setMode("access")}>Доступ</button>
       <span className="form-mode-divider" aria-hidden="true" />
       <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("theory")} title="Скачать всю теорию со всеми версиями и блоками">{exporting === "theory" ? "…" : "↓ Т"}</button>
       <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("practice")} title="Скачать всю практику со всеми упражнениями и ответами">{exporting === "practice" ? "…" : "↓ П"}</button>
     </nav>
-    {mode === "theory" ? <PocketEditor /> : <PracticeSettings />}
+    {mode === "theory" ? <PocketEditor /> : mode === "practice" ? <PracticeSettings /> : <MonetizationSettings />}
   </>;
 }
 
@@ -174,6 +175,8 @@ function PracticeSettings() {
   const [compactLines, setCompactLines] = useState([]);
   const [importing, setImporting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [demoEditor, setDemoEditor] = useState(null);
+  const [demoFilter, setDemoFilter] = useState("");
   useEffect(() => {
     adminApi("/exercise-sets").then((items) => {
       setSets(items);
@@ -205,6 +208,7 @@ function PracticeSettings() {
           show_single_letter_success: Boolean(item.showSingleLetterSuccess),
           access_level: item.accessLevel || "free",
           demo_size: item.demoSize || (item.scopeRole === "task" ? 15 : 7),
+          demo_selection_mode: item.demoSelectionMode || "auto",
         }),
       });
       update(item.id, {
@@ -264,6 +268,7 @@ function PracticeSettings() {
           <option value="premium">Платный + демо</option>
         </select></label>
         <label>В демо<input type="number" min="1" max="50" value={item.demoSize || 7}
+          disabled={item.demoSelectionMode === "manual"}
           onChange={(event) => update(item.id, { demoSize: Number(event.target.value) })} /></label>
         <label>Всего<input type="number" min="1" max="100" value={item.sessionSize}
           onChange={(event) => update(item.id, { sessionSize: Number(event.target.value) })} /></label>
@@ -279,9 +284,45 @@ function PracticeSettings() {
             onChange={(event) => update(item.id, { showSingleLetterSuccess: event.target.checked })} />
           Показывать «Верно: буква»
         </label>
-        <button className="button primary" onClick={() => save(item)}>Сохранить</button>
+        <div className="set-actions">
+          <button className="button" onClick={async (event) => {
+            event.stopPropagation();
+            setDemoFilter("");
+            setDemoEditor({ setId: item.id, title: item.title, loading: true, items: [] });
+            try {
+              const data = await adminApi(`/exercise-sets/${item.id}/preview-items`);
+              setDemoEditor({ setId: item.id, title: item.title, loading: false, items: data.items });
+            } catch (reason) { setError(reason.message); setDemoEditor(null); }
+          }}>Состав демо</button>
+          <button className="button primary" onClick={() => save(item)}>Сохранить</button>
+        </div>
       </article>)}
     </section>
+    {demoEditor && <section className="demo-membership-editor">
+      <header><div><span className="overline">Демоверсия</span><h2>{demoEditor.title}</h2></div><button className="demo-close" onClick={() => setDemoEditor(null)}>×</button></header>
+      {demoEditor.loading ? <p>Загружаем упражнения…</p> : <>
+        <div className="demo-toolbar"><input value={demoFilter} onChange={(event) => setDemoFilter(event.target.value)} placeholder="Найти упражнение" /><span>{demoEditor.items.filter((item) => item.isPreview).length} выбрано</span></div>
+        <div className="demo-items">{demoEditor.items
+          .filter((item) => item.prompt.toLocaleLowerCase("ru").includes(demoFilter.toLocaleLowerCase("ru")))
+          .map((item) => <label key={item.exerciseId} className={item.isPreview ? "selected" : ""}>
+            <input type="checkbox" checked={item.isPreview} onChange={(event) => setDemoEditor((current) => ({ ...current, items: current.items.map((candidate) => candidate.exerciseId === item.exerciseId ? { ...candidate, isPreview: event.target.checked } : candidate) }))} />
+            <span>{item.prompt}</span><small>{item.interactionType}</small>
+          </label>)}</div>
+        <footer><button className="button" onClick={() => {
+          const set = sets.find((item) => item.id === demoEditor.setId);
+          if (set) { update(set.id, { demoSelectionMode: "auto" }); save({ ...set, demoSelectionMode: "auto" }); }
+          setDemoEditor(null);
+        }}>Собрать автоматически</button><button className="button primary" onClick={async () => {
+          const chosen = demoEditor.items.filter((item) => item.isPreview).map((item) => item.exerciseId);
+          if (!chosen.length) { setError("Выберите хотя бы одно упражнение для демо"); return; }
+          try {
+            const saved = await adminApi(`/exercise-sets/${demoEditor.setId}/preview-items`, { method: "PUT", body: JSON.stringify({ exercise_ids: chosen }) });
+            update(demoEditor.setId, { demoSelectionMode: "manual", demoSize: saved.demoSize, demoExerciseCount: saved.demoSize });
+            setNotice("Состав демоверсии сохранён."); setDemoEditor(null);
+          } catch (reason) { setError(reason.message); }
+        }}>Сохранить демо</button></footer>
+      </>}
+    </section>}
     <section className="bulk-import">
       <div className="bulk-import-head">
         <div><span className="overline">Массовое добавление</span>
@@ -328,6 +369,74 @@ function PracticeSettings() {
         {importing ? "Публикуем…" : `Опубликовать ${preview.rows.length || ""} упражнений`}
       </button>
     </section>
+  </main>;
+}
+
+function MonetizationSettings() {
+  const emptyProduct = () => ({ id: null, code: `access-${Date.now().toString(36)}`, title: "Новый доступ", description: "", billingType: "one_time", status: "draft", amount: 29900, resources: [] });
+  const [products, setProducts] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    Promise.all([
+      adminApi("/monetization/products"),
+      adminApi("/monetization/resources"),
+    ]).then(([nextProducts, nextResources]) => {
+      setProducts(nextProducts); setResources(nextResources);
+      if (nextProducts[0]) { setSelectedId(nextProducts[0].id); setDraft(nextProducts[0]); }
+    }).catch((reason) => setError(reason.message));
+  }, []);
+  const selectProduct = (product) => { setSelectedId(product.id); setDraft({ ...product, resources: [...product.resources] }); setError(""); };
+  const selectedKeys = new Set((draft?.resources || []).map((item) => `${item.resourceType}:${item.resourceId}`));
+  const groups = [...new Set(resources.map((item) => item.group))];
+  const toggleResource = (resource) => {
+    const key = `${resource.resourceType}:${resource.resourceId}`;
+    setDraft((current) => ({
+      ...current,
+      resources: selectedKeys.has(key)
+        ? current.resources.filter((item) => `${item.resourceType}:${item.resourceId}` !== key)
+        : [...current.resources, { resourceType: resource.resourceType, resourceId: resource.resourceId }],
+    }));
+  };
+  async function saveProduct() {
+    if (!draft) return;
+    if (draft.status === "active" && !draft.resources.length) { setError("Для опубликованного продукта выберите хотя бы один элемент курса"); return; }
+    if (!Number.isInteger(Number(draft.amount)) || Number(draft.amount) < 100) { setError("Укажите цену не меньше 1 ₽"); return; }
+    setBusy(true); setError(""); setNotice("");
+    const payload = {
+      code: draft.code,
+      title: draft.title,
+      description: draft.description || "",
+      billing_type: draft.billingType,
+      status: draft.status,
+      amount: Number(draft.amount),
+      resources: draft.resources.map((item) => ({ resource_type: item.resourceType, resource_id: item.resourceId })),
+    };
+    try {
+      const saved = await adminApi(draft.id ? `/monetization/products/${draft.id}` : "/monetization/products", { method: draft.id ? "PUT" : "POST", body: JSON.stringify(payload) });
+      setProducts((items) => draft.id ? items.map((item) => item.id === saved.id ? saved : item) : [...items, saved]);
+      setSelectedId(saved.id); setDraft(saved); setNotice("Настройки доступа сохранены.");
+    } catch (reason) { setError(reason.message); } finally { setBusy(false); }
+  }
+  return <main className="monetization-form">
+    <header><span className="overline">Карманная форма</span><h1>Доступ и цены</h1><p>Соберите продукты из любых частей курса. Пока продукт в черновике, он не показывается ученикам.</p></header>
+    {error && <p className="form-error">{error}</p>}{notice && <p className="form-notice">{notice}</p>}
+    <div className="monetization-layout">
+      <aside className="product-list"><button className="button primary" onClick={() => { const created = emptyProduct(); setSelectedId("new"); setDraft(created); }}>+ Продукт</button>
+        {products.map((product) => <button key={product.id} className={selectedId === product.id ? "active" : ""} onClick={() => selectProduct(product)}><span>{product.status === "active" ? "Опубликован" : product.status === "archived" ? "Архив" : "Черновик"}</span><strong>{product.title}</strong><small>{(product.amount / 100).toLocaleString("ru-RU")} ₽{product.billingType === "monthly" ? " / месяц" : ""}</small></button>)}</aside>
+      {draft ? <section className="product-editor">
+        <div className="product-fields"><label>Название<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label><label>Код<input value={draft.code} onChange={(event) => setDraft({ ...draft, code: event.target.value })} placeholder="ege-full" /></label><label className="wide">Описание<textarea rows="3" value={draft.description || ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label><label>Тип<select value={draft.billingType} onChange={(event) => setDraft({ ...draft, billingType: event.target.value })}><option value="one_time">Разовая покупка</option><option value="monthly">Подписка на месяц</option></select></label><label>Цена, ₽<input type="number" min="1" step="1" value={draft.amount / 100} onChange={(event) => setDraft({ ...draft, amount: Math.round(Number(event.target.value) * 100) })} /></label><label>Состояние<select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}><option value="draft">Черновик</option><option value="active">Опубликован</option><option value="archived">Архив</option></select></label></div>
+        <div className="resource-picker"><header><div><span className="overline">Что открывает продукт</span><strong>{draft.resources.length} элементов</strong></div><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Поиск" /></header>
+          {groups.map((group) => { const items = resources.filter((item) => item.group === group && item.label.toLocaleLowerCase("ru").includes(filter.toLocaleLowerCase("ru"))); return items.length ? <details key={group} open={group === "Весь курс"}><summary>{group}<span>{items.filter((item) => selectedKeys.has(`${item.resourceType}:${item.resourceId}`)).length}</span></summary><div>{items.map((resource) => { const key = `${resource.resourceType}:${resource.resourceId}`; return <label key={key} className={selectedKeys.has(key) ? "selected" : ""}><input type="checkbox" checked={selectedKeys.has(key)} onChange={() => toggleResource(resource)} /><span>{resource.label}</span></label>; })}</div></details> : null; })}
+        </div>
+        <footer><p>Для платного тренажёра ученику показывается состав демо, заданный во вкладке «Практика».</p><button className="button primary" disabled={busy} onClick={saveProduct}>{busy ? "Сохраняем…" : "Сохранить продукт"}</button></footer>
+      </section> : <section className="product-empty">Создайте продукт или выберите существующий.</section>}
+    </div>
   </main>;
 }
 

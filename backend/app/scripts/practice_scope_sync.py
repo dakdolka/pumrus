@@ -460,10 +460,11 @@ async def sync_practice_scopes(
         )
         added, removed = await _sync_membership(session, selected, target_ids)
         await session.flush()
-        stats["preview_items_updated"] += await sync_preview_membership(
-            session,
-            selected,
-        )
+        if (selected.configuration or {}).get("demoSelectionMode") != "manual":
+            stats["preview_items_updated"] += await sync_preview_membership(
+                session,
+                selected,
+            )
         if added or removed:
             stats["scope_sets_updated"] += 1
             stats["scope_items_added"] += added
