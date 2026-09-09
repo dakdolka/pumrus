@@ -33,6 +33,16 @@ docker compose logs --tail=200 backend tg_bot postgres_backup media_backup
   another machine or object storage: a backup on the same server is only the
   first line of defence.
 
+Verify a fresh database backup by restoring it into an isolated temporary
+database (the script removes that database when the check finishes):
+
+```bash
+docker compose run --rm \
+  -v ./ops/verify-backup.sh:/ops/verify-backup.sh:ro \
+  postgres_backup /bin/sh /ops/verify-backup.sh \
+  /backups/<backup-file>.sql.gz
+```
+
 ## Rollback
 
 Roll back the application image or commit normally. Do not blindly run Alembic

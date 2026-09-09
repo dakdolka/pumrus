@@ -11,3 +11,4 @@ alembic.ini
 !backend/alembic.ini
 backend/app/core/tasks/parsers/data/test.json
 /backups/
+/deploy/
