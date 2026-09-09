@@ -66,6 +66,10 @@ services:
       context: ./frontend
     volumes:
       - ./frontend:/app
+      # Keep dependencies installed for the container platform. Without this
+      # volume the source bind mount hides /app/node_modules from the image and
+      # Rollup tries to use an incomplete or host-platform installation.
+      - /app/node_modules
     networks:
       - appnet
     
