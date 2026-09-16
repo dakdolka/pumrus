@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import difflib
+import json
 from copy import deepcopy
 from datetime import datetime, timezone
 
@@ -211,6 +213,56 @@ TARGETS = [
 ]
 
 
+def _show_difference(before: dict, after: dict | None, label: str) -> None:
+    old_lines = json.dumps(before, ensure_ascii=False, indent=2, sort_keys=True).splitlines()
+    new_lines = (
+        json.dumps(after, ensure_ascii=False, indent=2, sort_keys=True).splitlines()
+        if after is not None else []
+    )
+    print(f"  {label}")
+    for line in difflib.unified_diff(
+        old_lines, new_lines, fromfile="сейчас", tofile="после", lineterm=""
+    ):
+        print(f"    {line}")
+
+
+def _show_plan(owner: str, key: str | int, document: TheoryDocumentBD,
+               current: TheoryDocumentVersionBD, entity: ExamTaskBD | TopicBD,
+               source_blocks: list[TheoryBlockV2BD], blocks: list[dict],
+               changes: list[str]) -> None:
+    print(f"\n=== {owner} {key!r}: {entity.title} ===")
+    print(f"Документ #{document.id}, опубликованная версия {current.version_number}")
+    for change in changes:
+        print(f"Причина: {change}")
+    updated = {block["id"]: block for block in blocks}
+    altered = 0
+    removed = 0
+    for source in source_blocks:
+        replacement = updated.get(source.id)
+        if replacement is None:
+            removed += 1
+            _show_difference(source.data, None, f"УДАЛИТЬ блок #{source.id} ({source.block_type})")
+        elif source.data != replacement["data"]:
+            altered += 1
+            _show_difference(
+                source.data, replacement["data"],
+                f"ИЗМЕНИТЬ блок #{source.id} ({source.block_type})",
+            )
+    if (owner, key) == ("task", 7):
+        print(f"  ПЕРЕИМЕНОВАТЬ задание: {entity.title!r} → 'Задание 7. Грамматические нормы'")
+        print(f"  ИЗМЕНИТЬ описание: {entity.short_description!r} → "
+              "'Словообразование, формы слов и грамматическая связь слов'")
+    elif (owner, key) == ("topic", "task-26-grammar"):
+        print(f"  ПЕРЕИМЕНОВАТЬ тему и документ: {entity.title!r} → "
+              "'Что не засчитывается в задании 26'")
+        print(f"  ИЗМЕНИТЬ описание: {entity.short_description!r} → "
+              "'Отличайте общую связность текста от проверяемого средства связи'")
+    if not altered and not removed:
+        raise RuntimeError(f"No actual block changes for {owner} {key!r}")
+    print(f"Итого: изменится {altered}, удалится {removed}, "
+          f"без изменений {len(source_blocks) - altered - removed} блоков")
+
+
 async def run(execute: bool) -> None:
     async with async_session_factory() as db:
         version = await db.scalar(select(CourseVersionBD).where(CourseVersionBD.is_active.is_(True)))
@@ -267,11 +319,10 @@ async def run(execute: bool) -> None:
                 or document.title != "Грамматические и синтаксические средства"
             ):
                 raise ValueError("Task 26 topic metadata changed; refusing to overwrite it")
+            _show_plan(owner, key, document, current, entity, source_blocks, blocks, changes)
             plans.append((document, current, blocks, changes, entity, (owner, key)))
-            for change in changes:
-                print(f"would publish: {change} (current version {current.version_number})")
         if not execute:
-            print(f"Dry run: {len(plans)} documents; no records written")
+            print(f"\nПредпросмотр: {len(plans)} документов. Ничего не записано и не опубликовано.")
             return
         for document, current, blocks, changes, entity, target in plans:
             next_number = await db.scalar(select(func.max(TheoryDocumentVersionBD.version_number)).where(
