@@ -17,12 +17,14 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 
 from app.core.db import async_session_factory
-from app.infra.catalog.models import CourseVersionBD, ExamTaskBD, TopicBD
+from app.infra.catalog.models import CourseVersionBD, ExamTaskBD, ExamTaskTopicBD, TopicBD
 from app.infra.content.models import (
     TheoryBlockV2BD,
     TheoryDocumentBD,
     TheoryDocumentVersionBD,
 )
+from app.infra.exercises.models import ExerciseSetBD, ExerciseTopicLinkBD
+from app.infra.monetization.models import AccessPolicyResourceBD
 
 
 REVISION = "ege-2026-editorial-corrections-v1"
@@ -212,6 +214,142 @@ TARGETS = [
     ("topic", "task-26-grammar"),
 ]
 
+VISIBLE_STATUSES = frozenset({"published", "published_manual"})
+
+
+async def report_cleanup(show_content: bool = False) -> None:
+    """Read-only inventory before any proposal to physically delete stale topics.
+
+    Removing a topic cascades to its theory and exercise-topic links. It can
+    also cascade to exercise sets and their items, or be blocked by sessions.
+    This report deliberately does not perform that deletion or restore topics.
+    """
+    async with async_session_factory() as db:
+        active = await db.scalar(select(CourseVersionBD).where(CourseVersionBD.is_active.is_(True)))
+        if active is None:
+            raise RuntimeError("No active course version")
+        tasks = list((await db.scalars(select(ExamTaskBD).where(
+            ExamTaskBD.course_version_id == active.id
+        ).order_by(ExamTaskBD.number))).all())
+        topics = list((await db.scalars(select(TopicBD).where(
+            TopicBD.course_version_id == active.id
+        ).order_by(TopicBD.id))).all())
+        task_ids = {task.id for task in tasks}
+        topic_ids = {topic.id for topic in topics}
+        links = list((await db.scalars(select(ExamTaskTopicBD).where(
+            ExamTaskTopicBD.exam_task_id.in_(task_ids)
+        ))).all())
+        docs = list((await db.scalars(select(TheoryDocumentBD).where(
+            (TheoryDocumentBD.exam_task_id.in_(task_ids))
+            | (TheoryDocumentBD.topic_id.in_(topic_ids))
+        ))).all())
+        doc_by_task = {doc.exam_task_id: doc for doc in docs if doc.exam_task_id is not None}
+        doc_by_topic = {doc.topic_id: doc for doc in docs if doc.topic_id is not None}
+        document_ids = {doc.id for doc in docs}
+        version_counts = dict((await db.execute(select(
+            TheoryDocumentVersionBD.document_id, func.count(TheoryDocumentVersionBD.id)
+        ).where(TheoryDocumentVersionBD.document_id.in_(document_ids))
+            .group_by(TheoryDocumentVersionBD.document_id))).all())
+        published_version_ids = {
+            doc.published_version_id for doc in docs if doc.published_version_id is not None
+        }
+        block_counts = dict((await db.execute(select(
+            TheoryBlockV2BD.document_version_id, func.count(TheoryBlockV2BD.id)
+        ).where(TheoryBlockV2BD.document_version_id.in_(published_version_ids))
+            .group_by(TheoryBlockV2BD.document_version_id))).all())
+        blocks_by_version: dict[int, list[TheoryBlockV2BD]] = {}
+        if show_content:
+            block_rows = (await db.scalars(select(TheoryBlockV2BD).where(
+                TheoryBlockV2BD.document_version_id.in_(published_version_ids)
+            ).order_by(TheoryBlockV2BD.document_version_id,
+                       TheoryBlockV2BD.sort_order, TheoryBlockV2BD.id))).all()
+            for block in block_rows:
+                blocks_by_version.setdefault(block.document_version_id, []).append(block)
+        exercise_link_counts = dict((await db.execute(select(
+            ExerciseTopicLinkBD.topic_id, func.count(ExerciseTopicLinkBD.exercise_id)
+        ).where(ExerciseTopicLinkBD.topic_id.in_(topic_ids))
+            .group_by(ExerciseTopicLinkBD.topic_id))).all())
+        set_rows = list((await db.scalars(select(ExerciseSetBD).where(
+            ExerciseSetBD.topic_id.in_(topic_ids)
+        ).order_by(ExerciseSetBD.topic_id, ExerciseSetBD.id))).all())
+        sets_by_topic: dict[int, list[ExerciseSetBD]] = {}
+        for exercise_set in set_rows:
+            sets_by_topic.setdefault(exercise_set.topic_id, []).append(exercise_set)
+        policy_counts = dict((await db.execute(select(
+            AccessPolicyResourceBD.resource_id, func.count(AccessPolicyResourceBD.id)
+        ).where(
+            AccessPolicyResourceBD.resource_type == "topic",
+            AccessPolicyResourceBD.resource_id.in_(topic_ids),
+        ).group_by(AccessPolicyResourceBD.resource_id))).all())
+        topics_by_id = {topic.id: topic for topic in topics}
+        links_by_task: dict[int, list[int]] = {}
+        task_numbers_by_topic: dict[int, list[int]] = {}
+        task_number_by_id = {task.id: task.number for task in tasks}
+        for link in links:
+            links_by_task.setdefault(link.exam_task_id, []).append(link.topic_id)
+            task_numbers_by_topic.setdefault(link.topic_id, []).append(
+                task_number_by_id[link.exam_task_id]
+            )
+
+        print(f"Активная версия курса: {active.code}")
+        print("Покрытие заданий — опубликованный вводный документ и видимые темы:")
+        for task in tasks:
+            doc = doc_by_task.get(task.id)
+            intro_blocks = block_counts.get(doc.published_version_id, 0) if doc else 0
+            visible = [topic for id in links_by_task.get(task.id, [])
+                       if (topic := topics_by_id.get(id)) is not None
+                       and topic.status in VISIBLE_STATUSES]
+            flag = "  ← НУЖНА ВИДИМАЯ ТЕМА" if not visible else ""
+            print(f"  {task.number:02d}: вводных блоков {intro_blocks}, "
+                  f"видимых тем {len(visible)}{flag}")
+        stale = [topic for topic in topics if topic.status not in VISIBLE_STATUSES]
+        status_counts: dict[str, int] = {}
+        for topic in stale:
+            status_counts[topic.status] = status_counts.get(topic.status, 0) + 1
+        print(f"\nНевидимых тем: {len(stale)}; по статусам: {status_counts}")
+        safe_count = 0
+        blocked_count = 0
+        for topic in stale:
+            exercise_links = exercise_link_counts.get(topic.id, 0)
+            exercise_sets = sets_by_topic.get(topic.id, [])
+            policy_links = policy_counts.get(topic.id, 0)
+            has_live_links = bool(exercise_links or exercise_sets or policy_links)
+            blocked_count += int(has_live_links)
+            safe_count += int(not has_live_links)
+            task_numbers = sorted(set(task_numbers_by_topic.get(topic.id, [])))
+            doc = doc_by_topic.get(topic.id)
+            blocks = block_counts.get(doc.published_version_id, 0) if doc else 0
+            same_title = sorted({candidate.id for task in tasks if task.number in task_numbers
+                for id in links_by_task.get(task.id, [])
+                if (candidate := topics_by_id.get(id)) is not None
+                and candidate.status in VISIBLE_STATUSES
+                and candidate.title.casefold().strip() == topic.title.casefold().strip()})
+            if not has_live_links:
+                action = "ПРЕДЛОЖЕНИЕ: удалить вместе с историей теории"
+            elif len(same_title) == 1:
+                action = (f"ПРЕДЛОЖЕНИЕ: проверить перенос практики на тему "
+                          f"#{same_title[0]}, затем удалить старую")
+            else:
+                action = ("ТРЕБУЕТ РЕШЕНИЯ: новая актуальная тема либо точное "
+                          "соответствие; удаление пока запрещено")
+            print(f"  #{topic.id} [{topic.status}] {topic.title!r}; "
+                f"задания={task_numbers}, блоков={blocks}, "
+                  f"версий={version_counts.get(doc.id, 0) if doc else 0}, "
+                  f"связей упражнений={exercise_links}, "
+                  f"наборов={len(exercise_sets)}, политик={policy_links}; "
+                  f"одноимённая видимая тема={same_title or 'нет'}; {action}")
+            for exercise_set in exercise_sets:
+                print(f"      набор #{exercise_set.id} {exercise_set.title!r} "
+                      f"[{exercise_set.status}], задание #{exercise_set.exam_task_id}")
+            if show_content and doc and doc.published_version_id:
+                for block in blocks_by_version.get(doc.published_version_id, []):
+                    data = json.dumps(block.data, ensure_ascii=False, sort_keys=True)
+                    print(f"      блок #{block.id} {block.block_type} "
+                          f"(родитель={block.parent_block_id}, порядок={block.sort_order}): {data}")
+        print(f"\nИтог: {safe_count} тем без ссылок практики/доступа; "
+              f"{blocked_count} тем нельзя удалять до переноса связей.")
+        print("Это только предпросмотр. Темы, документы и практика не изменены.")
+
 
 def _show_difference(before: dict, after: dict | None, label: str) -> None:
     old_lines = json.dumps(before, ensure_ascii=False, indent=2, sort_keys=True).splitlines()
@@ -376,9 +514,17 @@ async def run(execute: bool) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--execute", action="store_true", help="Publish reviewed changes")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--execute", action="store_true", help="Publish reviewed editorial changes")
+    mode.add_argument("--cleanup-report", action="store_true", help="Audit stale topics and practice references without changing data")
+    parser.add_argument("--show-content", action="store_true", help="With --cleanup-report, include current block contents of stale topics")
     args = parser.parse_args()
-    asyncio.run(run(args.execute))
+    if args.show_content and not args.cleanup_report:
+        parser.error("--show-content requires --cleanup-report")
+    if args.cleanup_report:
+        asyncio.run(report_cleanup(args.show_content))
+    else:
+        asyncio.run(run(args.execute))
 
 
 if __name__ == "__main__":

@@ -214,7 +214,7 @@ async def list_exam_tasks(
         .correlate(ExamTaskBD)
         .scalar_subquery()
     )
-    theory_block_count = (
+    topic_theory_block_count = (
         select(func.count(TheoryBlockV2BD.id))
         .join(
             TheoryDocumentVersionBD,
@@ -228,8 +228,29 @@ async def list_exam_tasks(
             ExamTaskTopicBD,
             ExamTaskTopicBD.topic_id == TheoryDocumentBD.topic_id,
         )
+        .join(TopicBD, TopicBD.id == TheoryDocumentBD.topic_id)
         .where(
             ExamTaskTopicBD.exam_task_id == ExamTaskBD.id,
+            TopicBD.status.in_(VISIBLE_TOPIC_STATUSES),
+            TheoryDocumentBD.status == "published",
+            TheoryDocumentBD.published_version_id == TheoryDocumentVersionBD.id,
+            TheoryDocumentVersionBD.status == "published",
+        )
+        .correlate(ExamTaskBD)
+        .scalar_subquery()
+    )
+    task_theory_block_count = (
+        select(func.count(TheoryBlockV2BD.id))
+        .join(
+            TheoryDocumentVersionBD,
+            TheoryDocumentVersionBD.id == TheoryBlockV2BD.document_version_id,
+        )
+        .join(
+            TheoryDocumentBD,
+            TheoryDocumentBD.id == TheoryDocumentVersionBD.document_id,
+        )
+        .where(
+            TheoryDocumentBD.exam_task_id == ExamTaskBD.id,
             TheoryDocumentBD.status == "published",
             TheoryDocumentBD.published_version_id == TheoryDocumentVersionBD.id,
             TheoryDocumentVersionBD.status == "published",
@@ -292,7 +313,7 @@ async def list_exam_tasks(
         CourseVersionBD.is_active.is_(True),
     ]
     if mode == "theory":
-        conditions.extend((topic_count > 0, theory_block_count > 0))
+        conditions.append(or_(task_theory_block_count > 0, topic_theory_block_count > 0))
     elif mode == "practice":
         conditions.append(exercise_count > 0)
     rows = (
