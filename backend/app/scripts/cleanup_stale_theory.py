@@ -88,6 +88,7 @@ async def cleanup(execute: bool, backup_confirmed: bool) -> None:
             ExerciseSetBD.exam_task_id.in_(task_ids),
             ExerciseSetBD.topic_id.is_(None),
             ExerciseSetBD.status == "published",
+            ExerciseSetBD.configuration["scopeRole"].astext == "task",
         ))).all())
         by_task: dict[int, list[ExerciseSetBD]] = {}
         for item in task_sets:
@@ -104,7 +105,9 @@ async def cleanup(execute: bool, backup_confirmed: bool) -> None:
         for old in stale_sets:
             candidates = by_task.get(old.exam_task_id, [])
             require(len(candidates) == 1,
-                    f"Set {old.id}: expected exactly one published task-level set, found {len(candidates)}")
+                    f"Set {old.id}: expected exactly one published task-scope set, "
+                    f"found {len(candidates)}: "
+                    f"{[(item.id, item.title, item.access_level) for item in candidates]}")
             target = candidates[0]
             missing = exercises_by_set.get(old.id, set()) - exercises_by_set.get(target.id, set())
             require(not missing, f"Set {old.id}: {len(missing)} exercises absent from task set {target.id}")
