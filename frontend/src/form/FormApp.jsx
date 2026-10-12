@@ -152,11 +152,22 @@ export default function FormApp() {
 }
 
 function FormWorkspace() {
-  const [mode, setMode] = useState("dashboard");
+  const [mode, setMode] = useState(() => localStorage.getItem("umrus:form-mode") || "dashboard");
   const [exporting, setExporting] = useState("");
   useEffect(() => {
+    localStorage.setItem("umrus:form-mode", mode);
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [mode]);
+  useEffect(() => {
+    const modes = ["dashboard", "theory", "practice", "access", "settings"];
+    const navigate = (event) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) return;
+      const index = Number(event.key) - 1;
+      if (modes[index]) { event.preventDefault(); setMode(modes[index]); }
+    };
+    window.addEventListener("keydown", navigate);
+    return () => window.removeEventListener("keydown", navigate);
+  }, []);
   async function download(kind) {
     if (exporting) return;
     setExporting(kind);
@@ -175,11 +186,11 @@ function FormWorkspace() {
   }
   return <>
     <nav className="form-mode-tabs">
-      <button className={mode === "dashboard" ? "active" : ""} onClick={() => setMode("dashboard")}>Обзор</button>
-      <button className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
-      <button className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
-      <button className={mode === "access" ? "active" : ""} onClick={() => setMode("access")}>Доступ</button>
-      <button className={mode === "settings" ? "active" : ""} onClick={() => setMode("settings")}>Настройки</button>
+      <button title="Alt+1" className={mode === "dashboard" ? "active" : ""} onClick={() => setMode("dashboard")}>Обзор</button>
+      <button title="Alt+2" className={mode === "theory" ? "active" : ""} onClick={() => setMode("theory")}>Теория</button>
+      <button title="Alt+3" className={mode === "practice" ? "active" : ""} onClick={() => setMode("practice")}>Практика</button>
+      <button title="Alt+4" className={mode === "access" ? "active" : ""} onClick={() => setMode("access")}>Доступ</button>
+      <button title="Alt+5" className={mode === "settings" ? "active" : ""} onClick={() => setMode("settings")}>Настройки</button>
       <span className="form-mode-divider" aria-hidden="true" />
       <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("theory")} title="Скачать текущую опубликованную теорию со всеми блоками">{exporting === "theory" ? "…" : "↓ Т"}</button>
       <button className="export-button" disabled={Boolean(exporting)} onClick={() => download("practice")} title="Скачать текущую практику со всеми упражнениями и ответами">{exporting === "practice" ? "…" : "↓ П"}</button>
@@ -280,6 +291,7 @@ function OperationsDashboard() {
 
 function ApplicationSettings() {
   const [draft, setDraft] = useState(null);
+  const [settingsBaseline, setSettingsBaseline] = useState("");
   const [media, setMedia] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -287,9 +299,16 @@ function ApplicationSettings() {
   const [exporting, setExporting] = useState("");
   const loadMedia = useCallback(() => adminApi("/operations/media").then(setMedia).catch((reason) => setError(reason.message)), []);
   useEffect(() => {
-    adminApi("/operations/settings").then(setDraft).catch((reason) => setError(reason.message));
+    adminApi("/operations/settings").then((saved) => { setDraft(saved); setSettingsBaseline(signature(saved)); }).catch((reason) => setError(reason.message));
     loadMedia();
   }, [loadMedia]);
+  const settingsDirty = Boolean(draft) && signature(draft) !== settingsBaseline;
+  useEffect(() => {
+    const stop = (event) => { if (settingsDirty) { event.preventDefault(); event.returnValue = ""; } };
+    const saveShortcut = (event) => { if (settingsDirty && (event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "s") { event.preventDefault(); document.querySelector("[data-save-settings]")?.click(); } };
+    window.addEventListener("beforeunload", stop); window.addEventListener("keydown", saveShortcut);
+    return () => { window.removeEventListener("beforeunload", stop); window.removeEventListener("keydown", saveShortcut); };
+  }, [settingsDirty]);
   async function save() {
     setBusy(true); setError("");
     try {
@@ -299,7 +318,7 @@ function ApplicationSettings() {
         footer_label: draft.footerLabel, contact_url: draft.contactUrl,
         project_description: draft.projectDescription, maintenance_notice: draft.maintenanceNotice || "",
       }) });
-      setDraft(saved); setNotice("Настройки опубликованы.");
+      setDraft(saved); setSettingsBaseline(signature(saved)); setNotice("Настройки опубликованы.");
     } catch (reason) { setError(reason.message); } finally { setBusy(false); }
   }
   async function upload(file) {
@@ -319,7 +338,7 @@ function ApplicationSettings() {
   const field = (key, labelText) => <label>{labelText}<input value={draft[key] || ""} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} /></label>;
   return <main className="operations-page settings-page"><header><span className="overline">Без правки кода</span><h1>Настройки приложения</h1><p>Тексты главной страницы, контакты и медиатека применяются после сохранения.</p></header>
     {error && <p className="form-error">{error}</p>}{notice && <p className="form-notice">{notice}</p>}
-    <section className="owner-panel settings-fields"><h2>Главная и контакты</h2><div>{field("homeTitleLine", "Первая строка заголовка")}{field("homeTitleAccent", "Акцентная строка")}{field("theorySubtitle", "Подпись теории")}{field("practiceSubtitle", "Подпись практики")}{field("footerLabel", "Подпись в подвале")}{field("contactUrl", "Ссылка для связи")}</div><label>Описание проекта<textarea rows="4" value={draft.projectDescription || ""} onChange={(event) => setDraft({ ...draft, projectDescription: event.target.value })} /></label><label>Сервисное сообщение · пусто, если всё работает<textarea rows="2" value={draft.maintenanceNotice || ""} onChange={(event) => setDraft({ ...draft, maintenanceNotice: event.target.value })} /></label><button className="button primary" disabled={busy} onClick={save}>{busy ? "Сохраняем…" : "Опубликовать настройки"}</button></section>
+    <section className="owner-panel settings-fields"><header><h2>Главная и контакты{settingsDirty && <i className="editor-dirty-dot" title="Есть несохранённые изменения" />}</h2><small>Ctrl+S — сохранить</small></header><div>{field("homeTitleLine", "Первая строка заголовка")}{field("homeTitleAccent", "Акцентная строка")}{field("theorySubtitle", "Подпись теории")}{field("practiceSubtitle", "Подпись практики")}{field("footerLabel", "Подпись в подвале")}{field("contactUrl", "Ссылка для связи")}</div><label>Описание проекта<textarea rows="4" value={draft.projectDescription || ""} onChange={(event) => setDraft({ ...draft, projectDescription: event.target.value })} /></label><label>Сервисное сообщение · пусто, если всё работает<textarea rows="2" value={draft.maintenanceNotice || ""} onChange={(event) => setDraft({ ...draft, maintenanceNotice: event.target.value })} /></label><footer className="settings-actions"><button className="button" disabled={!settingsDirty || busy} onClick={() => setDraft(JSON.parse(settingsBaseline))}>Отменить изменения</button><button data-save-settings className="button primary" disabled={busy || !settingsDirty} onClick={save}>{busy ? "Сохраняем…" : settingsDirty ? "Опубликовать настройки" : "Настройки сохранены"}</button></footer></section>
     <section className="owner-panel export-library"><header><div><span className="overline">Резервная копия контента</span><h2>Выгрузки</h2></div></header><p>Обычная выгрузка содержит только актуальные опубликованные данные. История нужна для архива и восстановления старых версий.</p><div><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("theory")}>{exporting === "theory:false" ? "Готовим…" : "Текущая теория"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("practice")}>{exporting === "practice:false" ? "Готовим…" : "Текущая практика"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("theory", true)}>{exporting === "theory:true" ? "Готовим…" : "Теория с историей"}</button><button className="button" disabled={Boolean(exporting)} onClick={() => exportData("practice", true)}>{exporting === "practice:true" ? "Готовим…" : "Практика с историей"}</button></div></section>
     <section className="owner-panel media-library"><header><div><span className="overline">Файлы теории</span><h2>Медиатека</h2></div><label className="button primary">+ Изображение<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { upload(event.target.files?.[0]); event.target.value = ""; }} /></label></header><p>Загрузите изображение один раз, затем скопируйте ссылку в блок «Изображение».</p><div className="media-grid">{media.map((item) => <article key={item.id}><img src={item.url} alt={item.altText || ""} /><span><strong>{item.name}</strong><small>{formatBytes(item.sizeBytes)}</small></span><div><button className="button" onClick={() => navigator.clipboard.writeText(item.url).then(() => setNotice("Ссылка скопирована."))}>Копировать ссылку</button><button className="danger" onClick={async () => { if (!window.confirm("Убрать файл из медиатеки? Существующие страницы с этой ссылкой перестанут показывать изображение.")) return; try { await adminApi(`/operations/media/${item.id}`, { method: "DELETE" }); await loadMedia(); } catch (reason) { setError(reason.message); } }}>Архив</button></div></article>)}</div></section>
   </main>;
@@ -342,6 +361,10 @@ function PracticeSettings() {
   const [creating, setCreating] = useState(false);
   const [newSet, setNewSet] = useState({ title: "Новая подборка", examTaskId: "", topicId: "", status: "draft", selectionStrategy: "least_seen_first", sessionSize: 50, pageSize: 5 });
   const [exerciseEditor, setExerciseEditor] = useState(null);
+  const [setSearch, setSetSearch] = useState("");
+  const [setStatus, setSetStatus] = useState("active");
+  const [taskFilter, setTaskFilter] = useState("");
+  const [dirtySetIds, setDirtySetIds] = useState(() => new Set());
   const refreshSets = useCallback(async () => {
     const items = await adminApi("/exercise-sets");
     setSets(items);
@@ -351,6 +374,11 @@ function PracticeSettings() {
   useEffect(() => {
     Promise.all([refreshSets(), adminApi("/catalog")]).then(([, nextCatalog]) => setCatalog(nextCatalog)).catch((reason) => setError(reason.message));
   }, [refreshSets]);
+  useEffect(() => {
+    const stop = (event) => { if (dirtySetIds.size || rawText.trim()) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", stop);
+    return () => window.removeEventListener("beforeunload", stop);
+  }, [dirtySetIds, rawText]);
   useEffect(() => {
     setCompactLines([]);
     if (!rawText.trim()) {
@@ -382,14 +410,17 @@ function PracticeSettings() {
       update(item.id, {
         ...saved,
         demoExerciseCount: Math.min(saved.demoSize, item.exerciseCount),
-      });
+      }, false);
       setNotice(`Настройки «${item.title}» сохранены.`);
+      return true;
     } catch (reason) {
       setError(reason.message);
+      return false;
     }
   }
-  function update(id, patch) {
+  function update(id, patch, markDirty = true) {
     setSets((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item));
+    if (markDirty) setDirtySetIds((current) => new Set(current).add(id));
   }
   async function importExercises() {
     if (!selectedSetId || !preview.rows.length || preview.errors.length) return;
@@ -431,7 +462,9 @@ function PracticeSettings() {
         title: item.title, topic_id: item.topicId || null, status: item.status || "published",
         access_level: item.accessLevel || "free", selection_strategy: item.selectionStrategy || "least_seen_first",
       }) });
-      await save(item); await refreshSets(); setNotice("Подборка сохранена.");
+      if (!await save(item)) return;
+      await refreshSets(); setNotice("Подборка сохранена.");
+      setDirtySetIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
     } catch (reason) { setError(reason.message); } finally { setBusy(false); }
   }
   const selectedSet = sets.find((item) => item.id === selectedSetId);
@@ -441,14 +474,34 @@ function PracticeSettings() {
     single_choice: "предложение | слитно | слитно,раздельно | пояснение (необязательно)",
     text_input: "Поставьте во множественное число: директор | директора",
   };
+  const importExamples = {
+    vowel_fill: "процентЩик\nзаг_реть | загореть",
+    stress_selection: "звонИт\nкрасИвее",
+    single_choice: "Как пишется слово? | впоследствии | в последствии,впоследствии | Наречие пишется слитно",
+    text_input: "Поставьте во множественное число: директор | директора",
+  };
+  const taskNumbers = [...new Set(sets.map((item) => item.taskNumber))].sort((a, b) => a - b);
+  const visibleSets = sets.filter((item) => {
+    const needle = setSearch.trim().toLocaleLowerCase("ru");
+    const matchesSearch = !needle || `${item.title} ${item.topicTitle || ""} ${item.taskNumber}`.toLocaleLowerCase("ru").includes(needle);
+    const matchesStatus = setStatus === "all" || (setStatus === "active" ? item.status !== "archived" : item.status === setStatus);
+    return matchesSearch && matchesStatus && (!taskFilter || item.taskNumber === Number(taskFilter));
+  });
   return <main className="practice-form">
     <header className="practice-heading"><div><span className="overline">Карманная форма</span><h1>Практика</h1>
       <p>Создавайте подборки, исправляйте отдельные упражнения и публикуйте материалы без скриптов.</p></div><button className="button primary" onClick={() => setCreating((value) => !value)}>+ Подборка</button></header>
     {error && <p className="form-error">{error}</p>}
     {notice && <p className="form-notice">{notice}</p>}
+    <section className="practice-summary">
+      <span><strong>{sets.filter((item) => item.status !== "archived").length}</strong> тренажёров</span>
+      <span><strong>{sets.reduce((sum, item) => sum + item.exerciseCount, 0)}</strong> упражнений</span>
+      <span><strong>{sets.filter((item) => item.status === "draft").length}</strong> скрыто</span>
+      {dirtySetIds.size > 0 && <span className="unsaved"><strong>{dirtySetIds.size}</strong> не сохранено</span>}
+    </section>
     {creating && <section className="create-set-panel"><h2>Новая подборка</h2><div><label>Название<input value={newSet.title} onChange={(event) => setNewSet({ ...newSet, title: event.target.value })} /></label><label>Задание<select value={newSet.examTaskId} onChange={(event) => setNewSet({ ...newSet, examTaskId: event.target.value, topicId: "" })}><option value="">Выберите</option>{catalog?.tasks?.map((task) => <option key={task.id} value={task.id}>Задание {task.number} · {task.title}</option>)}</select></label><label>Тема · необязательно<select value={newSet.topicId} onChange={(event) => setNewSet({ ...newSet, topicId: event.target.value })}><option value="">Всё задание</option>{catalog?.tasks?.find((task) => task.id === Number(newSet.examTaskId))?.topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}</select></label><label>Публикация<select value={newSet.status} onChange={(event) => setNewSet({ ...newSet, status: event.target.value })}><option value="draft">Скрыта</option><option value="published">Опубликована</option></select></label><label>Порядок<select value={newSet.selectionStrategy} onChange={(event) => setNewSet({ ...newSet, selectionStrategy: event.target.value })}><option value="least_seen_first">Сначала реже встречавшиеся</option><option value="all_shuffled">Случайно без повторов</option><option value="ordered">По порядку</option></select></label></div><footer><button className="button" onClick={() => setCreating(false)}>Отмена</button><button className="button primary" disabled={busy} onClick={createSet}>Создать</button></footer></section>}
+    <section className="practice-toolbar"><input value={setSearch} onChange={(event) => setSetSearch(event.target.value)} placeholder="Найти тренажёр или тему" /><select value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}><option value="">Все задания</option>{taskNumbers.map((number) => <option key={number} value={number}>Задание {number}</option>)}</select><select value={setStatus} onChange={(event) => setSetStatus(event.target.value)}><option value="active">Без архива</option><option value="published">Опубликованные</option><option value="draft">Скрытые</option><option value="archived">Архив</option><option value="all">Все</option></select></section>
     <section className="practice-form-list">
-      {sets.map((item) => <article className={selectedSetId === item.id ? "active" : ""} key={item.id} onClick={() => setSelectedSetId(item.id)}>
+      {visibleSets.map((item) => <article className={`${selectedSetId === item.id ? "active" : ""} ${dirtySetIds.has(item.id) ? "dirty" : ""}`} key={item.id} onClick={() => setSelectedSetId(item.id)}>
         <div><small>Задание {item.taskNumber}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</small>
           <input className="set-title-input" value={item.title} onChange={(event) => update(item.id, { title: event.target.value })} /><span>{item.exerciseCount} упражнений · {item.demoExerciseCount || 0} в демо · {(item.interactionTypes || []).join(", ")}</span></div>
         <label>Показывать<select value={item.status || "published"} onChange={(event) => update(item.id, { status: event.target.value })}><option value="draft">Скрыта</option><option value="published">Опубликована</option><option value="archived">Архив</option></select></label>
@@ -477,7 +530,7 @@ function PracticeSettings() {
           Показывать «Верно: буква»
         </label>
         <div className="set-actions">
-          <button className="button" onClick={(event) => { event.stopPropagation(); setExerciseEditor({ setId: item.id, title: item.title }); }}>Упражнения</button>
+          <button className="button" onClick={(event) => { event.stopPropagation(); setExerciseEditor({ setId: item.id, title: item.title, examTaskId: item.examTaskId, topicId: item.topicId }); }}>Упражнения</button>
           <button className="button" onClick={async (event) => {
             event.stopPropagation();
             setDemoFilter("");
@@ -487,12 +540,13 @@ function PracticeSettings() {
               setDemoEditor({ setId: item.id, title: item.title, loading: false, items: data.items });
             } catch (reason) { setError(reason.message); setDemoEditor(null); }
           }}>Состав демо</button>
-          <button className="button primary" disabled={busy} onClick={() => saveMetadata(item)}>Сохранить</button>
+          <button className="button primary" disabled={busy || !dirtySetIds.has(item.id)} onClick={() => saveMetadata(item)}>{dirtySetIds.has(item.id) ? "Сохранить" : "Сохранено"}</button>
           <button className="danger" onClick={async (event) => { event.stopPropagation(); if (!window.confirm(`Убрать подборку «${item.title}» в архив?`)) return; try { await adminApi(`/operations/exercise-sets/${item.id}`, { method: "DELETE" }); await refreshSets(); setNotice("Подборка отправлена в архив."); } catch (reason) { setError(reason.message); } }}>В архив</button>
         </div>
       </article>)}
+      {!visibleSets.length && <p className="empty-filter">По этим условиям тренажёров не найдено.</p>}
     </section>
-    {exerciseEditor && <ExerciseManager setInfo={exerciseEditor} catalog={catalog} close={() => { setExerciseEditor(null); refreshSets(); }} reportError={setError} reportNotice={setNotice} />}
+    {exerciseEditor && <ExerciseManager setInfo={exerciseEditor} sets={sets} catalog={catalog} close={() => { setExerciseEditor(null); refreshSets(); }} reportError={setError} reportNotice={setNotice} />}
     {demoEditor && <section className="demo-membership-editor">
       <header><div><span className="overline">Демоверсия</span><h2>{demoEditor.title}</h2></div><button className="demo-close" onClick={() => setDemoEditor(null)}>×</button></header>
       {demoEditor.loading ? <p>Загружаем упражнения…</p> : <>
@@ -505,14 +559,14 @@ function PracticeSettings() {
           </label>)}</div>
         <footer><button className="button" onClick={() => {
           const set = sets.find((item) => item.id === demoEditor.setId);
-          if (set) { update(set.id, { demoSelectionMode: "auto" }); save({ ...set, demoSelectionMode: "auto" }); }
+          if (set) { update(set.id, { demoSelectionMode: "auto" }, false); save({ ...set, demoSelectionMode: "auto" }); }
           setDemoEditor(null);
         }}>Собрать автоматически</button><button className="button primary" onClick={async () => {
           const chosen = demoEditor.items.filter((item) => item.isPreview).map((item) => item.exerciseId);
           if (!chosen.length) { setError("Выберите хотя бы одно упражнение для демо"); return; }
           try {
             const saved = await adminApi(`/exercise-sets/${demoEditor.setId}/preview-items`, { method: "PUT", body: JSON.stringify({ exercise_ids: chosen }) });
-            update(demoEditor.setId, { demoSelectionMode: "manual", demoSize: saved.demoSize, demoExerciseCount: saved.demoSize });
+            update(demoEditor.setId, { demoSelectionMode: "manual", demoSize: saved.demoSize, demoExerciseCount: saved.demoSize }, false);
             setNotice("Состав демоверсии сохранён."); setDemoEditor(null);
           } catch (reason) { setError(reason.message); }
         }}>Сохранить демо</button></footer>
@@ -530,14 +584,24 @@ function PracticeSettings() {
         </select></label>
       </div>
       <p className="import-hint">{hints[parserType]}. Одна строка — одно упражнение; пустые строки и строки с # игнорируются.</p>
+      <details className="import-guide">
+        <summary>Как подготовить файл</summary>
+        <ol>
+          <li>Сохраните данные в TXT, CSV или TSV в кодировке UTF-8.</li>
+          <li>Размещайте каждое упражнение на отдельной строке; поля разделяйте символом <code>|</code>, <code>=&gt;</code> или табуляцией.</li>
+          <li>Строки, начинающиеся с <code>#</code>, считаются комментариями. Пустые строки пропускаются.</li>
+          <li>Проверьте предпросмотр: публикация доступна только когда все строки разобраны без ошибок.</li>
+        </ol>
+      </details>
       <div className="import-source">
         <textarea value={rawText} onChange={(event) => setRawText(event.target.value)} placeholder={`${hints[parserType]}\n${hints[parserType]}`} />
-        <label className="file-picker">Загрузить TXT<input type="file" accept=".txt,text/plain" onChange={async (event) => {
+        <label className="file-picker">Загрузить файл<input type="file" accept=".txt,.csv,.tsv,text/plain,text/csv,text/tab-separated-values" onChange={async (event) => {
           const file = event.target.files?.[0];
           if (file) setRawText(await file.text());
           event.target.value = "";
         }} /></label>
       </div>
+      <div className="import-quick-actions"><button className="button" onClick={() => setRawText(importExamples[parserType])}>Вставить пример</button><button className="button" disabled={!rawText} onClick={() => setRawText("")}>Очистить</button><span>{rawText.split("\n").filter((line) => line.trim() && !line.trim().startsWith("#")).length} строк с данными</span></div>
       {(preview.rows.length > 0 || preview.errors.length > 0) && <div className="import-preview">
         <header><strong>Предпросмотр</strong><span>{preview.rows.length} готово · {preview.errors.length} с ошибками</span></header>
         {preview.errors.map((item) => <p className="import-error" key={`error-${item.line}`}><b>Строка {item.line}:</b> {item.message}</p>)}
@@ -571,7 +635,7 @@ function prettyJson(value) {
   return JSON.stringify(value || {}, null, 2);
 }
 
-function ExerciseManager({ setInfo, catalog, close, reportError, reportNotice }) {
+function ExerciseManager({ setInfo, sets, catalog, close, reportError, reportNotice }) {
   const [data, setData] = useState({ items: [], total: 0, offset: 0, limit: 50 });
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
@@ -579,6 +643,10 @@ function ExerciseManager({ setInfo, catalog, close, reportError, reportNotice })
   const [advanced, setAdvanced] = useState(false);
   const [jsonDraft, setJsonDraft] = useState({ interaction: "{}", answer: "{}", checker: "{}", feedback: "{}" });
   const [busy, setBusy] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [targetSetId, setTargetSetId] = useState("");
+  const [editorBaseline, setEditorBaseline] = useState("");
+  const targetSets = sets.filter((item) => item.id !== setInfo.setId && item.examTaskId === setInfo.examTaskId && item.topicId && item.status !== "archived");
   const load = useCallback(async (offset = 0, needle = search) => {
     try {
       const next = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items?offset=${offset}&limit=50&search=${encodeURIComponent(needle)}`);
@@ -587,10 +655,31 @@ function ExerciseManager({ setInfo, catalog, close, reportError, reportNotice })
     } catch (reason) { reportError(reason.message); }
   }, [reportError, search, selectedId, setInfo.setId]);
   useEffect(() => { const timeout = window.setTimeout(() => load(0, search), 220); return () => window.clearTimeout(timeout); }, [search, setInfo.setId]);
+  useEffect(() => {
+    if (!contextMenu) return undefined;
+    const dismiss = () => setContextMenu(null);
+    window.addEventListener("click", dismiss);
+    return () => window.removeEventListener("click", dismiss);
+  }, [contextMenu]);
   function choose(item) {
     const copy = structuredClone(item);
     setSelectedId(item.exerciseId); setDraft(copy); setAdvanced(false);
+    setEditorBaseline(signature(copy));
     setJsonDraft({ interaction: prettyJson(copy.interactionConfig), answer: prettyJson(copy.answerConfig), checker: prettyJson(copy.checkerConfig), feedback: prettyJson(copy.feedbackData) });
+  }
+  function createDraft() {
+    const task = catalog?.tasks?.find((item) => item.id === setInfo.examTaskId);
+    const next = {
+      exerciseId: null, interactionType: "text_input",
+      promptData: { content: "", format: "plain_text" }, interactionConfig: {},
+      answerConfig: { acceptedAnswers: [""] }, checkerType: "normalized_text",
+      checkerConfig: { trim: true, caseInsensitive: true, yoPolicy: "distinct" },
+      feedbackData: {}, difficulty: null, source: "",
+      examTaskIds: task ? [task.id] : [], topicIds: setInfo.topicId ? [setInfo.topicId] : [],
+    };
+    setSelectedId(null); setDraft(next); setAdvanced(false);
+    setEditorBaseline("");
+    setJsonDraft({ interaction: "{}", answer: prettyJson(next.answerConfig), checker: prettyJson(next.checkerConfig), feedback: "{}" });
   }
   function patchPrompt(content) { setDraft((item) => ({ ...item, promptData: { ...(item.promptData || {}), content, ...(item.promptData?.word != null ? { word: content } : {}) } })); }
   function changeType(type) {
@@ -614,30 +703,61 @@ function ExerciseManager({ setInfo, catalog, close, reportError, reportNotice })
     setBusy(true);
     try {
       const advancedPayload = advanced ? parseAdvanced() : {};
-      const saved = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${draft.exerciseId}`, { method: "PUT", body: JSON.stringify({
+      const creating = !draft.exerciseId;
+      const saved = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items${creating ? "" : `/${draft.exerciseId}`}`, { method: creating ? "POST" : "PUT", body: JSON.stringify({
         interaction_type: draft.interactionType, prompt_data: draft.promptData || {}, interaction_config: draft.interactionConfig || {},
         answer_config: draft.answerConfig || {}, checker_type: draft.checkerType, checker_config: draft.checkerConfig || {},
         feedback_data: draft.feedbackData || {}, difficulty: draft.difficulty || null, source: draft.source || null, ...advancedPayload,
         exam_task_ids: draft.examTaskIds || [], topic_ids: draft.topicIds || [],
       }) });
-      setDraft(saved); setData((current) => ({ ...current, items: current.items.map((item) => item.exerciseId === saved.exerciseId ? saved : item) })); reportNotice("Упражнение опубликовано новой версией.");
+      setDraft(saved); setSelectedId(saved.exerciseId); setEditorBaseline(signature(saved)); await load(0, "");
+      reportNotice(creating ? "Упражнение добавлено в подборку." : "Упражнение опубликовано новой версией.");
     } catch (reason) { reportError(reason.message); } finally { setBusy(false); }
   }
+  async function copyToSet() {
+    if (!contextMenu?.exerciseId || !targetSetId) return;
+    setBusy(true);
+    try {
+      const result = await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${contextMenu.exerciseId}/copy`, {
+        method: "POST", body: JSON.stringify({ target_set_id: Number(targetSetId) }),
+      });
+      const target = targetSets.find((item) => item.id === Number(targetSetId));
+      reportNotice(result.alreadyAdded ? `Упражнение уже есть в «${target?.title}».` : `Упражнение добавлено в «${target?.title}».`);
+      setContextMenu(null); setTargetSetId("");
+    } catch (reason) { reportError(reason.message); } finally { setBusy(false); }
+  }
+  const editorDirty = Boolean(draft) && signature(draft) !== editorBaseline;
+  function requestClose() {
+    if (editorDirty && !window.confirm("Закрыть редактор и потерять несохранённые изменения?")) return;
+    close();
+  }
+  useEffect(() => {
+    const shortcuts = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLocaleLowerCase() === "s") { event.preventDefault(); saveExercise(); }
+      if (event.key === "Escape") contextMenu ? setContextMenu(null) : requestClose();
+    };
+    window.addEventListener("keydown", shortcuts);
+    return () => window.removeEventListener("keydown", shortcuts);
+  });
   const answerText = draft?.answerConfig?.acceptedAnswers?.join("\n") || "";
   return <div className="exercise-manager-backdrop"><section className="exercise-manager">
-    <header><div><span className="overline">Банк упражнений</span><h2>{setInfo.title}</h2><p>{data.total} упражнений. Исправление публикуется новой версией — история не теряется.</p></div><button className="demo-close" onClick={close}>×</button></header>
-    <div className="exercise-manager-layout"><aside><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по условию" /><div>{data.items.map((item) => <button key={item.exerciseId} className={selectedId === item.exerciseId ? "active" : ""} onClick={() => choose(item)}><small>#{item.exerciseId} · {item.interactionType}</small><strong>{item.promptData?.content || item.promptData?.word || "Без условия"}</strong></button>)}</div><footer><button disabled={data.offset === 0} onClick={() => load(Math.max(0, data.offset - data.limit))}>Назад</button><span>{data.offset + 1}–{Math.min(data.offset + data.limit, data.total)}</span><button disabled={data.offset + data.limit >= data.total} onClick={() => load(data.offset + data.limit)}>Дальше</button></footer></aside>
+    <header><div><span className="overline">Банк упражнений</span><h2>{setInfo.title}{editorDirty && <i className="editor-dirty-dot" title="Есть несохранённые изменения" />}</h2><p>{data.total} упражнений · Ctrl+S — сохранить · ПКМ — добавить в другую тему.</p></div><button className="demo-close" onClick={requestClose}>×</button></header>
+    <div className="exercise-manager-layout"><aside><button className="button primary add-exercise-button" onClick={createDraft}>+ Добавить упражнение</button><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по условию" /><div>{data.items.map((item) => <button key={item.exerciseId} className={selectedId === item.exerciseId ? "active" : ""} onClick={() => choose(item)} onContextMenu={(event) => { event.preventDefault(); setTargetSetId(""); setContextMenu({ exerciseId: item.exerciseId, x: event.clientX, y: event.clientY }); }} title="Нажмите правой кнопкой, чтобы добавить в другую тему"><small>#{item.exerciseId} · {item.interactionType}</small><strong>{item.promptData?.content || item.promptData?.word || "Без условия"}</strong></button>)}</div><footer><button disabled={data.offset === 0} onClick={() => load(Math.max(0, data.offset - data.limit))}>Назад</button><span>{data.total ? `${data.offset + 1}–${Math.min(data.offset + data.limit, data.total)}` : "0"}</span><button disabled={data.offset + data.limit >= data.total} onClick={() => load(data.offset + data.limit)}>Дальше</button></footer></aside>
       {draft ? <main className="exercise-inspector"><div className="exercise-basic-grid"><label className="wide">Условие<textarea rows="4" value={draft.promptData?.content || ""} onChange={(event) => patchPrompt(event.target.value)} /></label><label>Формат<select value={draft.interactionType} onChange={(event) => changeType(event.target.value)}><option value="vowel_fill">Вставить буквы</option><option value="stress_selection">Выбрать ударение</option><option value="single_choice">Один вариант</option><option value="multiple_choice">Несколько вариантов</option><option value="text_input">Ввести ответ</option></select></label><label>Сложность<select value={draft.difficulty || ""} onChange={(event) => setDraft({ ...draft, difficulty: Number(event.target.value) || null })}><option value="">Не указана</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label className="wide">Источник<input value={draft.source || ""} onChange={(event) => setDraft({ ...draft, source: event.target.value })} placeholder="Авторское / название источника" /></label></div>
         {["vowel_fill", "text_input"].includes(draft.interactionType) && <label>Допустимые ответы · один на строку<textarea rows="3" value={answerText} onChange={(event) => setDraft({ ...draft, answerConfig: { ...draft.answerConfig, acceptedAnswers: event.target.value.split("\n").filter(Boolean) } })} /></label>}
         {draft.interactionType === "stress_selection" && <label>Индекс ударной буквы · отсчёт с нуля<input type="number" min="0" value={draft.answerConfig?.correctCharacterIndex ?? 0} onChange={(event) => setDraft({ ...draft, answerConfig: { correctCharacterIndex: Number(event.target.value) } })} /></label>}
         {["single_choice", "multiple_choice"].includes(draft.interactionType) && <div className="choice-editor"><label>Варианты · один на строку<textarea rows="5" value={(draft.interactionConfig?.options || []).map((item) => item.label).join("\n")} onChange={(event) => { const options = event.target.value.split("\n").map((label, index) => ({ key: `option-${index}`, label })); setDraft({ ...draft, interactionConfig: { ...draft.interactionConfig, options } }); }} /></label><label>Правильный номер / номера через запятую<input value={draft.interactionType === "multiple_choice" ? (draft.answerConfig?.correctOptionKeys || []).map((key) => Number(String(key).split("-").pop()) + 1).join(",") : Number(String(draft.answerConfig?.correctOptionKey || "option-0").split("-").pop()) + 1} onChange={(event) => { const indexes = event.target.value.split(",").map((value) => Math.max(0, Number(value.trim()) - 1)).filter(Number.isFinite); setDraft({ ...draft, answerConfig: draft.interactionType === "multiple_choice" ? { correctOptionKeys: indexes.map((index) => `option-${index}`) } : { correctOptionKey: `option-${indexes[0] || 0}` } }); }} /></label></div>}
         <label>Связанная теория<select value={draft.topicIds?.[0] || ""} onChange={(event) => { const topicId = Number(event.target.value) || null; const task = catalog?.tasks?.find((item) => item.topics.some((topic) => topic.id === topicId)); setDraft({ ...draft, topicIds: topicId ? [topicId] : [], examTaskIds: task ? [task.id] : draft.examTaskIds }); }}><option value="">Теория задания целиком</option>{catalog?.tasks?.flatMap((task) => task.topics.map((topic) => <option key={topic.id} value={topic.id}>Задание {task.number} · {topic.title}</option>))}</select></label>
-        <label>Пояснение после ответа<textarea rows="4" value={draft.feedbackData?.incorrect || draft.feedbackData?.correct || ""} onChange={(event) => setDraft({ ...draft, feedbackData: { ...draft.feedbackData, correct: event.target.value, incorrect: event.target.value } })} /></label>
+        <div className="feedback-editor"><label>Пояснение при верном ответе<textarea rows="4" value={draft.feedbackData?.correct || ""} onChange={(event) => setDraft({ ...draft, feedbackData: { ...draft.feedbackData, correct: event.target.value } })} placeholder="Необязательно: почему ответ верный" /></label><label>Пояснение при ошибке<textarea rows="4" value={draft.feedbackData?.incorrect || ""} onChange={(event) => setDraft({ ...draft, feedbackData: { ...draft.feedbackData, incorrect: event.target.value } })} placeholder="Подсказка или разбор ошибки" /></label></div>
         <button className="advanced-toggle" onClick={() => setAdvanced((value) => { if (!value) setJsonDraft({ interaction: prettyJson(draft.interactionConfig), answer: prettyJson(draft.answerConfig), checker: prettyJson(draft.checkerConfig), feedback: prettyJson(draft.feedbackData) }); return !value; })}>{advanced ? "Скрыть технические поля" : "Расширенные настройки"}</button>
         {advanced && <div className="advanced-json"><label>Интерфейс<textarea value={jsonDraft.interaction} onChange={(event) => setJsonDraft({ ...jsonDraft, interaction: event.target.value })} /></label><label>Правильный ответ<textarea value={jsonDraft.answer} onChange={(event) => setJsonDraft({ ...jsonDraft, answer: event.target.value })} /></label><label>Проверка<textarea value={jsonDraft.checker} onChange={(event) => setJsonDraft({ ...jsonDraft, checker: event.target.value })} /></label><label>Обратная связь и ссылки на теорию<textarea value={jsonDraft.feedback} onChange={(event) => setJsonDraft({ ...jsonDraft, feedback: event.target.value })} /></label></div>}
-        <footer><button className="danger" onClick={async () => { if (!window.confirm("Убрать упражнение из этой подборки?")) return; try { await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${draft.exerciseId}`, { method: "DELETE" }); setDraft(null); setSelectedId(null); await load(data.offset); reportNotice("Упражнение убрано из подборки."); } catch (reason) { reportError(reason.message); } }}>Убрать из подборки</button><button className="button primary" disabled={busy} onClick={saveExercise}>{busy ? "Публикуем…" : "Опубликовать исправление"}</button></footer>
+        <footer>{draft.exerciseId ? <button className="danger" onClick={async () => { if (!window.confirm("Убрать упражнение из этой подборки?")) return; try { await adminApi(`/operations/exercise-sets/${setInfo.setId}/items/${draft.exerciseId}`, { method: "DELETE" }); setDraft(null); setSelectedId(null); await load(data.offset); reportNotice("Упражнение убрано из подборки."); } catch (reason) { reportError(reason.message); } }}>Убрать из подборки</button> : <button className="button" onClick={() => setDraft(null)}>Отмена</button>}<button className="button primary" disabled={busy} onClick={saveExercise}>{busy ? "Публикуем…" : draft.exerciseId ? "Опубликовать исправление" : "Добавить упражнение"}</button></footer>
       </main> : <main className="exercise-empty"><p>Выберите упражнение слева, чтобы исправить условие, ответ или пояснение.</p></main>}
     </div>
+    {contextMenu && <div className="exercise-context-menu" style={{ left: Math.min(contextMenu.x, window.innerWidth - 330), top: Math.min(contextMenu.y, window.innerHeight - 150) }} onClick={(event) => event.stopPropagation()}>
+      <strong>Добавить в другую тему</strong>
+      {targetSets.length ? <><select value={targetSetId} onChange={(event) => setTargetSetId(event.target.value)}><option value="">Выберите тренажёр</option>{targetSets.map((item) => <option key={item.id} value={item.id}>{item.topicTitle || item.title} · {item.title}</option>)}</select><button className="button primary" disabled={!targetSetId || busy} onClick={copyToSet}>{busy ? "Добавляем…" : "Добавить"}</button></> : <small>Для этого задания нет других тематических тренажёров.</small>}
+    </div>}
   </section></div>;
 }
 

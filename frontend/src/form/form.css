@@ -286,6 +286,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 }
 .practice-form-list article > div:first-child { grid-column: 1 / -1; }
 .practice-form-list article.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.practice-form-list article.dirty { border-right-color: var(--warning); }
 .practice-form-list article > div strong,
 .practice-form-list article > div span,
 .practice-form-list article > div small { display: block; }
@@ -297,6 +298,13 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .practice-form-list .set-checkbox input { width: auto; }
 .practice-form-list .set-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .35rem; }
 .form-notice { padding: .7rem .85rem; border-radius: 10px; background: var(--success-soft); color: var(--success); }
+.practice-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.practice-summary > span { display: flex; align-items: baseline; gap: 5px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text-soft); font-size: 12px; }
+.practice-summary strong { color: var(--text); font-size: 15px; }
+.practice-summary .unsaved { border-color: color-mix(in srgb, var(--warning) 55%, var(--line)); color: var(--warning); }
+.practice-summary .unsaved strong { color: var(--warning); }
+.practice-toolbar { position: sticky; z-index: 5; top: 62px; display: grid; grid-template-columns: minmax(220px, 1fr) 180px 180px; gap: 8px; margin-bottom: 10px; padding: 8px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(12px); }
+.empty-filter { padding: 28px; border: 1px dashed var(--line); border-radius: 14px; color: var(--text-soft); text-align: center; }
 .demo-membership-editor {
   position: fixed;
   z-index: 80;
@@ -368,6 +376,11 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
   font-size: .82rem;
   line-height: 1.45;
 }
+.import-guide { margin: -.15rem 0 .8rem; color: var(--text-secondary); font-size: .82rem; }
+.import-guide summary { width: fit-content; cursor: pointer; color: var(--accent); font-weight: 800; }
+.import-guide ol { margin: .55rem 0 0; padding-left: 1.25rem; }
+.import-guide li + li { margin-top: .3rem; }
+.import-guide code { color: var(--text); }
 .import-source { position: relative; }
 .import-source textarea {
   width: 100%;
@@ -408,6 +421,9 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .compact-prompt-toggle input { width: auto; }
 .import-error { margin: 0; padding: .55rem .75rem; border-top: 1px solid var(--line); color: var(--danger); font-size: .8rem; }
 .import-button { margin-top: .75rem; }
+.import-quick-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.import-quick-actions .button { min-height: 31px; padding: 6px 9px; font-size: 11px; }
+.import-quick-actions span { margin-left: auto; color: var(--text-soft); font-size: 11px; }
 @media (max-width: 1000px) {
   .practice-form-list article { grid-template-columns: 1fr 1fr; }
   .practice-form-list article > div { grid-column: 1 / -1; }
@@ -477,6 +493,8 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .settings-fields > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
 .settings-fields > label { margin: 12px 0; }
 .settings-fields > .button { margin-left: auto; }
+.settings-fields > header small { color: var(--text-soft); }
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .media-library > p,
 .export-library > p { color: var(--text-soft); }
 .export-library > div { display: flex; flex-wrap: wrap; gap: .55rem; }
@@ -498,13 +516,18 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .exercise-manager { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1500px, 100%); height: 100%; margin: auto; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--bg); box-shadow: 0 24px 80px rgba(0, 0, 0, .24); }
 .exercise-manager > header { display: flex; justify-content: space-between; gap: 18px; padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .exercise-manager > header h2 { margin: 3px 0; }
+.editor-dirty-dot { display: inline-block; width: 8px; height: 8px; margin-left: 8px; border-radius: 50%; background: var(--warning); vertical-align: middle; }
 .exercise-manager > header p { margin: 0; color: var(--text-soft); font-size: 12px; }
 .exercise-manager-layout { display: grid; grid-template-columns: minmax(250px, 32%) minmax(0, 1fr); min-height: 0; }
-.exercise-manager-layout > aside { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-height: 0; padding: 12px; border-right: 1px solid var(--line); background: var(--surface); }
+.exercise-manager-layout > aside { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 0; padding: 12px; border-right: 1px solid var(--line); background: var(--surface); }
 .exercise-manager-layout > aside > input { margin-bottom: 8px; }
+.exercise-manager-layout > aside > .add-exercise-button { width: 100%; margin-bottom: 8px; }
 .exercise-manager-layout > aside > div { display: grid; align-content: start; gap: 5px; overflow: auto; }
 .exercise-manager-layout > aside > div button { display: grid; gap: 3px; width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); text-align: left; }
 .exercise-manager-layout > aside > div button.active { border-color: var(--accent); background: var(--accent-soft); }
+.exercise-context-menu { position: fixed; z-index: 100; display: grid; gap: 9px; width: 310px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 45px rgba(0, 0, 0, .25); }
+.exercise-context-menu strong { font-size: .85rem; }
+.exercise-context-menu small { color: var(--text-soft); line-height: 1.4; }
 .exercise-manager-layout > aside > div small { color: var(--text-soft); }
 .exercise-manager-layout > aside > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .exercise-manager-layout > aside > footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 8px; }
@@ -514,6 +537,7 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .exercise-basic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
 .exercise-basic-grid .wide { grid-column: 1 / -1; }
 .choice-editor { display: grid; grid-template-columns: 1fr 220px; gap: 12px; }
+.feedback-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .advanced-toggle { padding: 8px 0; }
 .advanced-json { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .advanced-json textarea { min-height: 170px; font-family: ui-monospace, monospace; font-size: 12px; }
@@ -526,11 +550,14 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
   .exercise-manager-backdrop { padding: 0; }
   .exercise-manager { border: 0; border-radius: 0; }
   .exercise-manager-layout { grid-template-columns: minmax(210px, 38%) minmax(0, 1fr); }
+  .feedback-editor { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
   .operations-page { padding-top: 78px; }
   .metric-grid, .settings-fields > div, .create-set-panel > div { grid-template-columns: 1fr; }
   .owner-panel > header { align-items: stretch; flex-direction: column; }
+  .practice-toolbar { position: static; grid-template-columns: 1fr; }
+  .settings-actions { align-items: stretch; flex-direction: column-reverse; }
   .owner-panel > header input { width: 100%; }
   .practice-heading { align-items: stretch; flex-direction: column; }
   .exercise-manager-layout { display: block; overflow: auto; }

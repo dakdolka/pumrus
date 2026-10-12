@@ -38,6 +38,7 @@ from app.infra.monetization.models import (
 from app.infra.practice.models import AttemptV2BD, PracticeSessionBD
 from app.infra.system.models import AdminAuditLogBD, AppSettingBD, MediaAssetBD
 from app.infra.user.general.models import UserBD
+from app.scripts.practice_scope_sync import sync_practice_scopes
 
 
 admin_router = APIRouter(
@@ -125,6 +126,10 @@ class ExerciseVersionIn(BaseModel):
     source: str | None = Field(default=None, max_length=256)
     exam_task_ids: list[int] | None = Field(default=None, max_length=10)
     topic_ids: list[int] | None = Field(default=None, max_length=20)
+
+
+class ExerciseSetMembershipIn(BaseModel):
+    target_set_id: int
 
 
 class ManualGrantIn(BaseModel):
@@ -656,6 +661,47 @@ def _correct_answer_label(body: ExerciseVersionIn) -> str:
     return str((body.answer_config.get("acceptedAnswers") or [""])[0])
 
 
+@admin_router.post("/exercise-sets/{exercise_set_id}/items", status_code=201)
+async def create_exercise(exercise_set_id: int, body: ExerciseVersionIn, db: AsyncSession = Depends(get_db)):
+    """Create and publish one exercise directly from the owner form."""
+    _validate_exercise(body)
+    exercise_set = await db.get(ExerciseSetBD, exercise_set_id)
+    if exercise_set is None:
+        raise HTTPException(404, "Подборка не найдена")
+    task_ids = body.exam_task_ids if body.exam_task_ids is not None else ([exercise_set.exam_task_id] if exercise_set.exam_task_id is not None else [])
+    topic_ids = body.topic_ids if body.topic_ids is not None else ([exercise_set.topic_id] if exercise_set.topic_id is not None else [])
+    valid_task_ids = set((await db.scalars(select(ExamTaskBD.id).where(ExamTaskBD.course_version_id == exercise_set.course_version_id, ExamTaskBD.id.in_(set(task_ids))))).all()) if task_ids else set()
+    if valid_task_ids != set(task_ids):
+        raise HTTPException(422, "Одно из заданий относится к другой версии курса")
+    valid_topic_ids = set((await db.scalars(select(TopicBD.id).where(TopicBD.course_version_id == exercise_set.course_version_id, TopicBD.id.in_(set(topic_ids))))).all()) if topic_ids else set()
+    if valid_topic_ids != set(topic_ids):
+        raise HTTPException(422, "Одна из тем относится к другой версии курса")
+    now = datetime.now(timezone.utc)
+    exercise = ExerciseBD(course_version_id=exercise_set.course_version_id, status="published", difficulty=body.difficulty, source=body.source or "form_single_create")
+    db.add(exercise)
+    await db.flush()
+    version = ExerciseVersionBD(
+        exercise_id=exercise.id, version_number=1, status="published", interaction_type=body.interaction_type,
+        response_schema_version=1, prompt_data=body.prompt_data, interaction_config=body.interaction_config,
+        answer_config=body.answer_config, checker_type=body.checker_type, checker_config=body.checker_config,
+        feedback_data={**body.feedback_data, "correctAnswer": _correct_answer_label(body)}, published_at=now,
+    )
+    db.add(version)
+    await db.flush()
+    exercise.published_version_id = version.id
+    for index, task_id in enumerate(task_ids):
+        db.add(ExerciseTaskLinkBD(exercise_id=exercise.id, exam_task_id=task_id, is_primary=index == 0))
+    for index, topic_id in enumerate(topic_ids):
+        db.add(ExerciseTopicLinkBD(exercise_id=exercise.id, topic_id=topic_id, is_primary=index == 0))
+    sort_order = await db.scalar(select(func.max(ExerciseSetItemBD.sort_order)).where(ExerciseSetItemBD.exercise_set_id == exercise_set.id))
+    membership = ExerciseSetItemBD(exercise_set_id=exercise_set.id, exercise_id=exercise.id, sort_order=(sort_order if sort_order is not None else -1) + 1)
+    db.add(membership)
+    await db.flush()
+    await sync_practice_scopes(db, exercise_set.course_version_id)
+    await db.commit()
+    return _exercise_out(membership, exercise, version, task_ids, topic_ids)
+
+
 @admin_router.put("/exercise-sets/{exercise_set_id}/items/{exercise_id}")
 async def update_exercise(
     exercise_set_id: int,
@@ -755,6 +801,43 @@ async def remove_exercise_from_set(
             exercise.status = "archived"
     await db.commit()
     return {"exerciseId": exercise_id, "removed": True, "archived": other_count == 0}
+
+
+@admin_router.post("/exercise-sets/{exercise_set_id}/items/{exercise_id}/copy")
+async def add_exercise_to_another_set(
+    exercise_set_id: int,
+    exercise_id: int,
+    body: ExerciseSetMembershipIn,
+    db: AsyncSession = Depends(get_db),
+):
+    source = await db.get(ExerciseSetBD, exercise_set_id)
+    target = await db.get(ExerciseSetBD, body.target_set_id)
+    source_membership = await db.scalar(select(ExerciseSetItemBD).where(
+        ExerciseSetItemBD.exercise_set_id == exercise_set_id,
+        ExerciseSetItemBD.exercise_id == exercise_id,
+    ))
+    if source is None or source_membership is None:
+        raise HTTPException(404, "Упражнение не найдено в исходном тренажёре")
+    if target is None or target.status == "archived":
+        raise HTTPException(404, "Целевой тренажёр не найден")
+    if target.id == source.id or target.exam_task_id != source.exam_task_id or target.topic_id is None:
+        raise HTTPException(422, "Можно выбрать только другую тему того же задания")
+    existing = await db.scalar(select(ExerciseSetItemBD).where(
+        ExerciseSetItemBD.exercise_set_id == target.id,
+        ExerciseSetItemBD.exercise_id == exercise_id,
+    ))
+    if existing is not None:
+        return {"exerciseId": exercise_id, "exerciseSetId": target.id, "alreadyAdded": True}
+    sort_order = await db.scalar(select(func.max(ExerciseSetItemBD.sort_order)).where(
+        ExerciseSetItemBD.exercise_set_id == target.id
+    ))
+    db.add(ExerciseSetItemBD(
+        exercise_set_id=target.id,
+        exercise_id=exercise_id,
+        sort_order=(sort_order if sort_order is not None else -1) + 1,
+    ))
+    await db.commit()
+    return {"exerciseId": exercise_id, "exerciseSetId": target.id, "alreadyAdded": False}
 
 
 @admin_router.get("/users")
