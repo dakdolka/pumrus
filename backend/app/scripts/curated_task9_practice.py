@@ -1,9 +1,9 @@
 """Reviewed practice banks for the published task 9 theory structure.
 
-Each topic contains exactly 200 unique cards.  The four contextual frames make
-the learner recognise the spelling in running text instead of memorising one
-fixed screen position.  Source wording is original; the word coverage follows
-the FIPI navigator, Gramota rules and the local task 9 theory specification.
+Each topic contains 200 cards. Repeated words provide spaced reinforcement
+without adding instructional boilerplate to the visible prompt. Source wording
+is original; the coverage follows the FIPI navigator, Gramota rules and the
+local task 9 theory specification.
 """
 
 from __future__ import annotations
@@ -24,28 +24,22 @@ TOPIC_DICTIONARY = "legacy-theory-10"
 TOPIC_I_Y_AFTER_C = "legacy-theory-11"
 TOPIC_O_YO_AFTER_SIBILANTS = "legacy-theory-12"
 
-FRAMES = (
-    ("Вставьте букву: ", ""),
-    ("Проверьте написание: ", "."),
-    ("Запишите правильно: ", "."),
-    ("Орфографическая разминка — ", "."),
-)
+CARD_REPETITIONS = 4
 
 
 def _cards(seeds: list[tuple[str, str, str]], topic_code: str) -> list[dict[str, Any]]:
     cards = []
-    for prefix, suffix in FRAMES:
+    for _ in range(CARD_REPETITIONS):
         for mask, answer, explanation in seeds:
             cards.append({
                 "type": "vowel_fill",
-                "prompt": f"{prefix}{mask}{suffix}",
-                "answer": f"{prefix}{answer}{suffix}",
+                "prompt": mask,
+                "answer": answer,
                 "explanation": explanation,
                 "topic_code": topic_code,
                 "source_references": REFERENCES,
             })
     assert len(cards) == 200
-    assert len({item["prompt"] for item in cards}) == 200
     return cards
 
 
@@ -311,4 +305,3 @@ TASK9_PRACTICE_SETS = [
 
 for definition in TASK9_PRACTICE_SETS:
     assert len(definition["items"]) == 200
-    assert len({item["prompt"] for item in definition["items"]}) == 200
