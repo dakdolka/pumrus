@@ -103,7 +103,7 @@ def _payload(item: dict[str, Any], key: str) -> dict[str, Any]:
     marker = {
         "curatedKey": key,
         "curatedRevision": PRACTICE_REVISION,
-        "sourceReferences": PRACTICE_REFERENCES,
+        "sourceReferences": item.get("source_references", PRACTICE_REFERENCES),
     }
     if item["type"] == "single_choice":
         options = [
@@ -186,6 +186,7 @@ async def _ensure_set(
     course_version_id: int,
     task: ExamTaskBD,
     definition: dict[str, Any],
+    topic: TopicBD | None = None,
 ) -> tuple[ExerciseSetBD, bool]:
     curated_code = definition["code"]
     candidates = list((await session.scalars(
@@ -215,7 +216,7 @@ async def _ensure_set(
         exercise_set = ExerciseSetBD(
             course_version_id=course_version_id,
             exam_task_id=task.id,
-            topic_id=None,
+            topic_id=topic.id if topic else None,
             title=definition["title"],
             selection_strategy="least_seen_random",
             configuration={
@@ -235,6 +236,8 @@ async def _ensure_set(
             "curatedCode": curated_code,
             "curatedRevision": PRACTICE_REVISION,
         }
+        if definition.get("topic_code") and topic is not None:
+            exercise_set.topic_id = topic.id
     return exercise_set, created
 
 
@@ -316,8 +319,14 @@ async def _publish_sets(
         if task is None:
             counters["tasks_missing"] += 1
             continue
+        target_topic = await _topic_by_code(
+            session, course_version_id, definition.get("topic_code")
+        )
+        if definition.get("topic_code") and target_topic is None:
+            counters["topic_links_missing"] += len(definition["items"])
+            continue
         exercise_set, created = await _ensure_set(
-            session, course_version_id, task, definition
+            session, course_version_id, task, definition, target_topic
         )
         counters["sets_created"] += int(created)
         existing = await _published_keys(session, exercise_set.id)

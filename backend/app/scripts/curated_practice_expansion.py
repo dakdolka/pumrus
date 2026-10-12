@@ -11,9 +11,10 @@ from typing import Any
 from app.scripts.curated_punctuation_practice import PUNCTUATION_PRACTICE
 from app.scripts.curated_practice_topups import TASK13_TOPUP, TASK15_TOPUP
 from app.scripts.curated_practice_volume import MORPHOLOGY_VOLUME, PARONYMS_500
+from app.scripts.curated_task9_practice import TASK9_PRACTICE_SETS
 
 
-PRACTICE_REVISION = "umrus-original-practice-2026-v4"
+PRACTICE_REVISION = "umrus-original-practice-2026-v5"
 PRACTICE_REFERENCES = [
     "FIPI EGE 2026 codifier, specification and preparation navigators",
     "FIPI 2026 methodological recommendations for Russian language",
@@ -313,4 +314,4 @@ PRACTICE_SETS = [
     {"task_number": 19, "code": "punctuation-19", "title": "Сложноподчинённые предложения", "items": PUNCTUATION_PRACTICE[19]},
     {"task_number": 20, "code": "punctuation-20", "title": "Сложные предложения с разными видами связи", "items": PUNCTUATION_PRACTICE[20]},
     {"task_number": 21, "code": "punctuation-21", "title": "Пунктуационный анализ", "items": PUNCTUATION_PRACTICE[21]},
-]
+] + TASK9_PRACTICE_SETS
