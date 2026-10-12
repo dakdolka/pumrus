@@ -186,6 +186,18 @@ DICTIONARY_WORDS = """
 
 
 def _dictionary_seed(word: str) -> tuple[str, str, str]:
+    # Keep paronyms distinguishable: masking their first differing vowel would
+    # otherwise produce the same prompt ``к_мпания`` with two valid answers.
+    mask_overrides = {
+        "кампания": "камп_ния",
+        "компания": "комп_ния",
+    }
+    if word in mask_overrides:
+        return (
+            mask_overrides[word],
+            word,
+            "Словарное написание: различайте кампанию и компанию по значению.",
+        )
     vowels = "аеёиоуыэюя"
     index = next((i for i, char in enumerate(word) if char in vowels and char != "ё"), -1)
     if index < 0:
