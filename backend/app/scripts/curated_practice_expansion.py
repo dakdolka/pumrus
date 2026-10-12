@@ -14,7 +14,7 @@ from app.scripts.curated_practice_volume import MORPHOLOGY_VOLUME, PARONYMS_500
 from app.scripts.curated_task9_practice import TASK9_PRACTICE_SETS
 
 
-PRACTICE_REVISION = "umrus-original-practice-2026-v5"
+PRACTICE_REVISION = "umrus-original-practice-2026-v6"
 PRACTICE_REFERENCES = [
     "FIPI EGE 2026 codifier, specification and preparation navigators",
     "FIPI 2026 methodological recommendations for Russian language",
@@ -301,8 +301,6 @@ INTRODUCTORY_CONTEXT = [
 PRACTICE_SETS = [
     {"task_number": 5, "code": "paronyms", "title": "Паронимы в контексте", "items": PARONYMS_500},
     {"task_number": 7, "code": "morphology", "title": "Морфологические нормы", "items": MORPHOLOGY + MORPHOLOGY_VOLUME},
-    {"task_number": 9, "code": "checkable-roots", "title": "Проверяемые гласные", "items": CHECKABLE_ROOTS},
-    {"task_number": 9, "code": "alternating-roots", "title": "Чередующиеся корни", "items": ALTERNATING_ROOTS},
     {"task_number": 10, "code": "prefixes", "title": "Приставки и разделительные знаки", "items": PREFIXES},
     {"task_number": 12, "code": "participles", "title": "Причастия и деепричастия", "items": PARTICIPLES},
     {"task_number": 13, "code": "task13-topup", "title": "НЕ с разными частями речи", "items": TASK13_TOPUP, "reuse_existing_title": True},

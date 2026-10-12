@@ -13,7 +13,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session_factory
@@ -80,7 +80,10 @@ TOPIC_CODE_ALIASES = {
     "task-10-exceptions-complete-2026": "task-10-invariable",
     "task-14-adverbs-complete-2026": "task-14-adverbs",
     "task-14-particles-complete-2026": "task-14-particles",
-    "legacy-theory-9": "task-9-alternating",
+    "task-9-alternating": "legacy-theory-9",
+    "task-9-dictionary": "legacy-theory-10",
+    "task-9-i-y": "legacy-theory-11",
+    "task-9-e-o": "legacy-theory-12",
     "legacy-theory-4": "task-10-zs",
     "legacy-theory-30": "task-10-invariable",
     "legacy-theory-6": "task-10-signs",
@@ -172,11 +175,21 @@ async def _topic_by_code(
 ) -> TopicBD | None:
     if not code:
         return None
-    code = TOPIC_CODE_ALIASES.get(code, code)
-    return await session.scalar(
+    topic = await session.scalar(
         select(TopicBD).where(
             TopicBD.course_version_id == course_version_id,
             TopicBD.code == code,
+        )
+    )
+    if topic is not None:
+        return topic
+    alias = TOPIC_CODE_ALIASES.get(code)
+    if not alias:
+        return None
+    return await session.scalar(
+        select(TopicBD).where(
+            TopicBD.course_version_id == course_version_id,
+            TopicBD.code == alias,
         )
     )
 
@@ -202,6 +215,16 @@ async def _ensure_set(
         ),
         None,
     )
+    if exercise_set is None and definition.get("reuse_scope"):
+        expected_role = "topic" if topic is not None else "task"
+        exercise_set = next(
+            (
+                item for item in candidates
+                if item.topic_id == (topic.id if topic else None)
+                and (item.configuration or {}).get("scopeRole") == expected_role
+            ),
+            None,
+        )
     if exercise_set is None and definition.get("reuse_existing_title"):
         exercise_set = next(
             (
@@ -224,6 +247,21 @@ async def _ensure_set(
                 "pageSize": 5,
                 "curatedCode": curated_code,
                 "curatedRevision": PRACTICE_REVISION,
+                **(
+                    {
+                        "scopeRole": "topic" if topic else "task",
+                        "scopeCode": (
+                            f"topic:{topic.id}" if topic else f"task:{task.id}"
+                        ),
+                        "scopeGenerated": False,
+                        "guestAccessible": True,
+                        "curatedFixedMembership": bool(
+                            definition.get("replace_membership")
+                        ),
+                    }
+                    if definition.get("reuse_scope")
+                    else {}
+                ),
             },
             status="published",
         )
@@ -236,6 +274,16 @@ async def _ensure_set(
             "curatedCode": curated_code,
             "curatedRevision": PRACTICE_REVISION,
         }
+        if definition.get("reuse_scope"):
+            exercise_set.configuration.update({
+                "scopeRole": "topic" if topic else "task",
+                "scopeCode": f"topic:{topic.id}" if topic else f"task:{task.id}",
+                "scopeGenerated": False,
+                "guestAccessible": True,
+                "curatedFixedMembership": bool(
+                    definition.get("replace_membership")
+                ),
+            })
         if definition.get("topic_code") and topic is not None:
             exercise_set.topic_id = topic.id
     return exercise_set, created
@@ -315,6 +363,7 @@ async def _publish_sets(
     now: datetime,
     task_number: int | None = None,
 ) -> None:
+    published_exercises: dict[str, ExerciseBD] = {}
     for definition in PRACTICE_SETS:
         if task_number is not None and definition["task_number"] != task_number:
             continue
@@ -339,9 +388,36 @@ async def _publish_sets(
             )
         )
         next_order = int(last_order if last_order is not None else -1) + 1
+        member_ids = set((await session.scalars(
+            select(ExerciseSetItemBD.exercise_id).where(
+                ExerciseSetItemBD.exercise_set_id == exercise_set.id
+            )
+        )).all())
+        desired_exercise_ids: set[int] = set()
         for index, item in enumerate(definition["items"]):
             key = f"{definition['code']}:{index + 1:03d}"
+            reuse_key = item.get("reuse_curated_key")
+            if reuse_key:
+                exercise = published_exercises.get(reuse_key)
+                if exercise is None:
+                    raise RuntimeError(
+                        f"Shared practice source was not published: {reuse_key}"
+                    )
+                desired_exercise_ids.add(exercise.id)
+                if exercise.id not in member_ids:
+                    session.add(ExerciseSetItemBD(
+                        exercise_set_id=exercise_set.id,
+                        exercise_id=exercise.id,
+                        sort_order=next_order,
+                    ))
+                    member_ids.add(exercise.id)
+                    next_order += 1
+                    counters["set_items_reused"] += 1
+                continue
             if key in existing:
+                exercise = existing[key]
+                desired_exercise_ids.add(exercise.id)
+                published_exercises[key] = exercise
                 published = await session.get(
                     ExerciseVersionBD, existing[key].published_version_id
                 )
@@ -352,7 +428,6 @@ async def _publish_sets(
                 ):
                     counters["exercises_unchanged"] += 1
                     continue
-                exercise = existing[key]
             else:
                 exercise = ExerciseBD(
                     course_version_id=course_version_id,
@@ -372,6 +447,8 @@ async def _publish_sets(
                     sort_order=next_order,
                 ))
                 next_order += 1
+                desired_exercise_ids.add(exercise.id)
+            published_exercises[key] = exercise
             await _publish_version(session, exercise, _payload(item, key), now)
             topic = await _topic_by_code(
                 session, course_version_id, item.get("topic_code")
@@ -399,6 +476,14 @@ async def _publish_sets(
                 else:
                     link.is_primary = True
             counters["exercises_published"] += 1
+        if definition.get("replace_membership"):
+            result = await session.execute(
+                delete(ExerciseSetItemBD).where(
+                    ExerciseSetItemBD.exercise_set_id == exercise_set.id,
+                    ExerciseSetItemBD.exercise_id.not_in(desired_exercise_ids),
+                )
+            )
+            counters["set_items_removed"] += max(result.rowcount or 0, 0)
 
 
 async def _rename_legacy_sets(
@@ -534,6 +619,8 @@ async def publish(
             "sets_created": 0,
             "exercises_published": 0,
             "exercises_unchanged": 0,
+            "set_items_removed": 0,
+            "set_items_reused": 0,
             "topic_links_missing": 0,
             "tasks_missing": 0,
             "legacy_sets_renamed": 0,
@@ -554,11 +641,16 @@ async def publish(
                 session, tasks_by_number
             )
             await _repair_legacy_data(session, tasks_by_number, counters, now)
+        if task_number is None:
+            counters.update(
+                await sync_practice_scopes(session, course_version.id)
+            )
         counters.update(
-            await sync_practice_scopes(session, course_version.id)
-        )
-        counters.update(
-            await sync_practice_theory_links(session, course_version.id)
+            await sync_practice_theory_links(
+                session,
+                course_version.id,
+                task_number=task_number,
+            )
         )
 
         print("Curated practice expansion plan:")

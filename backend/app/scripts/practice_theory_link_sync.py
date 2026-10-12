@@ -118,13 +118,14 @@ async def _publish_linked_version(
 async def sync_practice_theory_links(
     session: AsyncSession,
     course_version_id: int,
+    task_number: int | None = None,
 ) -> dict[str, int]:
     stats = {
         "theory_practice_links_published": 0,
         "theory_practice_links_existing": 0,
         "theory_practice_links_skipped": 0,
     }
-    scopes = (await session.execute(
+    scope_query = (
         select(ExerciseSetBD, ExamTaskBD.number, TopicBD.title)
         .join(ExamTaskBD, ExamTaskBD.id == ExerciseSetBD.exam_task_id)
         .outerjoin(TopicBD, TopicBD.id == ExerciseSetBD.topic_id)
@@ -134,7 +135,10 @@ async def sync_practice_theory_links(
             ExerciseSetBD.configuration["scopeRole"].astext.in_(("task", "topic")),
         )
         .order_by(ExamTaskBD.number, ExerciseSetBD.topic_id)
-    )).all()
+    )
+    if task_number is not None:
+        scope_query = scope_query.where(ExamTaskBD.number == task_number)
+    scopes = (await session.execute(scope_query)).all()
 
     for exercise_set, task_number, topic_title in scopes:
         scope_role = (exercise_set.configuration or {}).get("scopeRole")

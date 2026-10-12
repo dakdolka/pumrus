@@ -1,4 +1,4 @@
-"""Reviewed practice banks for every task 9 topic.
+"""Reviewed practice banks for the published task 9 theory structure.
 
 Each topic contains exactly 200 unique cards.  The four contextual frames make
 the learner recognise the spelling in running text instead of memorising one
@@ -18,6 +18,11 @@ REFERENCES = [
     "https://orfo.ruslang.ru/search",
     "UmRus theory specification: theory_specs/09.txt",
 ]
+
+TOPIC_ALTERNATING = "legacy-theory-9"
+TOPIC_DICTIONARY = "legacy-theory-10"
+TOPIC_I_Y_AFTER_C = "legacy-theory-11"
+TOPIC_O_YO_AFTER_SIBILANTS = "legacy-theory-12"
 
 FRAMES = (
     ("Вставьте букву: ", ""),
@@ -156,6 +161,59 @@ SHIBILANTS = [
     ("щ_ки", "щёки", "Проверка: щека, поэтому Ё."), ("пч_лы", "пчёлы", "Проверка: пчела, поэтому Ё."),
 ]
 
+I_Y_AFTER_C = [
+    ("ц_рк", "цирк", "В корне после Ц обычно пишется И."),
+    ("ц_ркач", "циркач", "В корне после Ц обычно пишется И."),
+    ("ц_рковой", "цирковой", "В корне после Ц обычно пишется И."),
+    ("ц_ркуль", "циркуль", "В корне после Ц обычно пишется И."),
+    ("ц_ркулярный", "циркулярный", "В корне после Ц обычно пишется И."),
+    ("ц_ркуляция", "циркуляция", "В корне после Ц обычно пишется И."),
+    ("ц_тата", "цитата", "В корне после Ц обычно пишется И."),
+    ("ц_тировать", "цитировать", "В корне после Ц обычно пишется И."),
+    ("ц_тирование", "цитирование", "В корне после Ц обычно пишется И."),
+    ("ц_татный", "цитатный", "В корне после Ц обычно пишется И."),
+    ("ц_вилизация", "цивилизация", "В корне после Ц обычно пишется И."),
+    ("ц_вилизованный", "цивилизованный", "В корне после Ц обычно пишется И."),
+    ("ц_вилизовать", "цивилизовать", "В корне после Ц обычно пишется И."),
+    ("ц_вилизационный", "цивилизационный", "В корне после Ц обычно пишется И."),
+    ("ц_фра", "цифра", "В корне после Ц обычно пишется И."),
+    ("ц_фровой", "цифровой", "В корне после Ц обычно пишется И."),
+    ("оц_фровать", "оцифровать", "В корне после Ц обычно пишется И."),
+    ("ц_фровизация", "цифровизация", "В корне после Ц обычно пишется И."),
+    ("ц_линдр", "цилиндр", "В корне после Ц обычно пишется И."),
+    ("ц_линдрический", "цилиндрический", "В корне после Ц обычно пишется И."),
+    ("ц_корий", "цикорий", "В корне после Ц обычно пишется И."),
+    ("ц_када", "цикада", "В корне после Ц обычно пишется И."),
+    ("ц_кл", "цикл", "В корне после Ц обычно пишется И."),
+    ("ц_клический", "циклический", "В корне после Ц обычно пишется И."),
+    ("ц_кличность", "цикличность", "В корне после Ц обычно пишется И."),
+    ("ц_клон", "циклон", "В корне после Ц обычно пишется И."),
+    ("ц_стерна", "цистерна", "В корне после Ц обычно пишется И."),
+    ("ц_нга", "цинга", "В корне после Ц обычно пишется И."),
+    ("ц_нк", "цинк", "В корне после Ц обычно пишется И."),
+    ("ц_нковый", "цинковый", "В корне после Ц обычно пишется И."),
+    ("ц_низм", "цинизм", "В корне после Ц обычно пишется И."),
+    ("ц_ничный", "циничный", "В корне после Ц обычно пишется И."),
+    ("ц_ник", "циник", "В корне после Ц обычно пишется И."),
+    ("ц_ган", "цыган", "Исключение: цыган пишется с Ы."),
+    ("ц_ганский", "цыганский", "Производное от слова-исключения цыган."),
+    ("ц_ганка", "цыганка", "Производное от слова-исключения цыган."),
+    ("ц_плёнок", "цыплёнок", "Исключение: цыплёнок пишется с Ы."),
+    ("ц_плячий", "цыплячий", "Производное от слова-исключения цыплёнок."),
+    ("на ц_почках", "на цыпочках", "Исключение: на цыпочках пишется с Ы."),
+    ("ц_ц", "цыц", "Исключение: цыц пишется с Ы."),
+    ("огурц_", "огурцы", "В окончании после Ц пишется Ы."),
+    ("молодц_", "молодцы", "В окончании после Ц пишется Ы."),
+    ("бойц_", "бойцы", "В окончании после Ц пишется Ы."),
+    ("улиц_", "улицы", "В окончании после Ц пишется Ы."),
+    ("столиц_", "столицы", "В окончании после Ц пишется Ы."),
+    ("границ_", "границы", "В окончании после Ц пишется Ы."),
+    ("страниц_", "страницы", "В окончании после Ц пишется Ы."),
+    ("сестриц_н", "сестрицын", "В суффиксе -ын- после Ц пишется Ы."),
+    ("лисиц_н", "лисицын", "В суффиксе -ын- после Ц пишется Ы."),
+    ("синиц_н", "синицын", "В суффиксе -ын- после Ц пишется Ы."),
+]
+
 DICTIONARY_WORDS = """
 абитуриент абонемент абрикос академический академия аквамарин акварель аккомпанемент аккомпанировать аннотация
 антресоли аплодировать аплодисменты аппаратура аппетит аромат архитектор архитектура асфальт атмосфера
@@ -217,17 +275,38 @@ def _dictionary_cards() -> list[dict[str, Any]]:
             "prompt": mask,
             "answer": answer,
             "explanation": explanation,
-            "topic_code": "task-9-dictionary",
+            "topic_code": TOPIC_DICTIONARY,
             "source_references": REFERENCES,
         })
     return cards
 
+ALTERNATING_CARDS = _cards(ALTERNATING, TOPIC_ALTERNATING)
+DICTIONARY_CARDS = _dictionary_cards()
+I_Y_CARDS = _cards(I_Y_AFTER_C, TOPIC_I_Y_AFTER_C)
+O_YO_CARDS = _cards(SHIBILANTS, TOPIC_O_YO_AFTER_SIBILANTS)
+
+
+def _mixed_cards() -> list[dict[str, Any]]:
+    cards = []
+    for source_code, topic_cards in (
+        ("task9-alternating-200", ALTERNATING_CARDS),
+        ("task9-dictionary-200", DICTIONARY_CARDS),
+        ("task9-i-y-after-c-200", I_Y_CARDS),
+        ("task9-o-yo-after-sibilants-200", O_YO_CARDS),
+    ):
+        for index, item in enumerate(topic_cards[:50], start=1):
+            mixed = dict(item)
+            mixed["reuse_curated_key"] = f"{source_code}:{index:03d}"
+            cards.append(mixed)
+    return cards
+
+
 TASK9_PRACTICE_SETS = [
-    {"task_number": 9, "code": "task9-checkable-200", "topic_code": "task-9-checkable", "title": "Проверяемые гласные · 200", "items": _cards(CHECKABLE, "task-9-checkable")},
-    {"task_number": 9, "code": "task9-alternating-200", "topic_code": "task-9-alternating", "title": "Чередующиеся корни · 200", "items": _cards(ALTERNATING, "task-9-alternating")},
-    {"task_number": 9, "code": "task9-dictionary-200", "topic_code": "task-9-dictionary", "title": "Словарные слова · 200", "items": _dictionary_cards()},
-    {"task_number": 9, "code": "task9-special-roots-200", "topic_code": "task-9-root-groups", "title": "Корни с особыми условиями · 200", "items": _cards(SPECIAL_ROOTS, "task-9-root-groups")},
-    {"task_number": 9, "code": "task9-shibilants-200", "topic_code": "task-9-e-o", "title": "О/Ё после шипящих · 200", "items": _cards(SHIBILANTS, "task-9-e-o")},
+    {"task_number": 9, "code": "task9-alternating-200", "topic_code": TOPIC_ALTERNATING, "title": "Чередующиеся корни", "items": ALTERNATING_CARDS, "reuse_scope": True, "replace_membership": True},
+    {"task_number": 9, "code": "task9-dictionary-200", "topic_code": TOPIC_DICTIONARY, "title": "Непроверяемые гласные", "items": DICTIONARY_CARDS, "reuse_scope": True, "replace_membership": True},
+    {"task_number": 9, "code": "task9-i-y-after-c-200", "topic_code": TOPIC_I_Y_AFTER_C, "title": "И/Ы после Ц", "items": I_Y_CARDS, "reuse_scope": True, "replace_membership": True},
+    {"task_number": 9, "code": "task9-o-yo-after-sibilants-200", "topic_code": TOPIC_O_YO_AFTER_SIBILANTS, "title": "О/Ё после шипящих в корне", "items": O_YO_CARDS, "reuse_scope": True, "replace_membership": True},
+    {"task_number": 9, "code": "task9-mixed-200", "title": "Смешанная практика", "items": _mixed_cards(), "reuse_scope": True, "replace_membership": True},
 ]
 
 for definition in TASK9_PRACTICE_SETS:
