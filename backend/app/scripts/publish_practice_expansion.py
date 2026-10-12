@@ -313,8 +313,11 @@ async def _publish_sets(
     tasks_by_number: dict[int, ExamTaskBD],
     counters: dict[str, int],
     now: datetime,
+    task_number: int | None = None,
 ) -> None:
     for definition in PRACTICE_SETS:
+        if task_number is not None and definition["task_number"] != task_number:
+            continue
         task = tasks_by_number.get(definition["task_number"])
         if task is None:
             counters["tasks_missing"] += 1
@@ -516,7 +519,11 @@ async def _repair_legacy_data(
                     counters["repairs_published"] += 1
 
 
-async def publish(course_version_code: str | None, execute: bool) -> None:
+async def publish(
+    course_version_code: str | None,
+    execute: bool,
+    task_number: int | None = None,
+) -> None:
     async with async_session_factory() as session:
         course_version = await _course_version(session, course_version_code)
         tasks = list((await session.scalars(select(ExamTaskBD).where(
@@ -535,12 +542,18 @@ async def publish(course_version_code: str | None, execute: bool) -> None:
         }
         now = datetime.now(timezone.utc)
         await _publish_sets(
-            session, course_version.id, tasks_by_number, counters, now
+            session,
+            course_version.id,
+            tasks_by_number,
+            counters,
+            now,
+            task_number,
         )
-        counters["legacy_sets_renamed"] = await _rename_legacy_sets(
-            session, tasks_by_number
-        )
-        await _repair_legacy_data(session, tasks_by_number, counters, now)
+        if task_number is None:
+            counters["legacy_sets_renamed"] = await _rename_legacy_sets(
+                session, tasks_by_number
+            )
+            await _repair_legacy_data(session, tasks_by_number, counters, now)
         counters.update(
             await sync_practice_scopes(session, course_version.id)
         )
@@ -563,9 +576,14 @@ async def publish(course_version_code: str | None, execute: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--course-version")
+    parser.add_argument("--task-number", type=int)
     parser.add_argument("--execute", action="store_true")
     arguments = parser.parse_args()
-    asyncio.run(publish(arguments.course_version, arguments.execute))
+    asyncio.run(publish(
+        arguments.course_version,
+        arguments.execute,
+        arguments.task_number,
+    ))
 
 
 if __name__ == "__main__":
