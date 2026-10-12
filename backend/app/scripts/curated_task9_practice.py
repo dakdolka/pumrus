@@ -302,11 +302,11 @@ def _mixed_cards() -> list[dict[str, Any]]:
 
 
 TASK9_PRACTICE_SETS = [
-    {"task_number": 9, "code": "task9-alternating-200", "topic_code": TOPIC_ALTERNATING, "title": "Чередующиеся корни", "items": ALTERNATING_CARDS, "reuse_scope": True, "replace_membership": True},
-    {"task_number": 9, "code": "task9-dictionary-200", "topic_code": TOPIC_DICTIONARY, "title": "Непроверяемые гласные", "items": DICTIONARY_CARDS, "reuse_scope": True, "replace_membership": True},
-    {"task_number": 9, "code": "task9-i-y-after-c-200", "topic_code": TOPIC_I_Y_AFTER_C, "title": "И/Ы после Ц", "items": I_Y_CARDS, "reuse_scope": True, "replace_membership": True},
-    {"task_number": 9, "code": "task9-o-yo-after-sibilants-200", "topic_code": TOPIC_O_YO_AFTER_SIBILANTS, "title": "О/Ё после шипящих в корне", "items": O_YO_CARDS, "reuse_scope": True, "replace_membership": True},
-    {"task_number": 9, "code": "task9-mixed-200", "title": "Смешанная практика", "items": _mixed_cards(), "reuse_scope": True, "replace_membership": True},
+    {"task_number": 9, "code": "task9-alternating-200", "topic_code": TOPIC_ALTERNATING, "title": "Чередующиеся корни", "items": ALTERNATING_CARDS, "reuse_scope": True},
+    {"task_number": 9, "code": "task9-dictionary-200", "topic_code": TOPIC_DICTIONARY, "title": "Непроверяемые гласные", "items": DICTIONARY_CARDS, "reuse_scope": True},
+    {"task_number": 9, "code": "task9-i-y-after-c-200", "topic_code": TOPIC_I_Y_AFTER_C, "title": "И/Ы после Ц", "items": I_Y_CARDS, "reuse_scope": True},
+    {"task_number": 9, "code": "task9-o-yo-after-sibilants-200", "topic_code": TOPIC_O_YO_AFTER_SIBILANTS, "title": "О/Ё после шипящих в корне", "items": O_YO_CARDS, "reuse_scope": True},
+    {"task_number": 9, "code": "task9-mixed-200", "title": "Смешанная практика", "items": _mixed_cards(), "reuse_scope": True},
 ]
 
 for definition in TASK9_PRACTICE_SETS:

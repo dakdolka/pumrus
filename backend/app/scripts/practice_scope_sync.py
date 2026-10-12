@@ -458,16 +458,7 @@ async def sync_practice_scopes(
             code=code,
             generated=generated,
         )
-        membership_target = (
-            item_ids_by_set.get(selected.id, set())
-            if (selected.configuration or {}).get("curatedFixedMembership")
-            else target_ids
-        )
-        added, removed = await _sync_membership(
-            session,
-            selected,
-            membership_target,
-        )
+        added, removed = await _sync_membership(session, selected, target_ids)
         await session.flush()
         if (selected.configuration or {}).get("demoSelectionMode") != "manual":
             stats["preview_items_updated"] += await sync_preview_membership(

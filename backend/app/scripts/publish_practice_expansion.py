@@ -13,7 +13,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session_factory
@@ -255,9 +255,6 @@ async def _ensure_set(
                         ),
                         "scopeGenerated": False,
                         "guestAccessible": True,
-                        "curatedFixedMembership": bool(
-                            definition.get("replace_membership")
-                        ),
                     }
                     if definition.get("reuse_scope")
                     else {}
@@ -280,10 +277,8 @@ async def _ensure_set(
                 "scopeCode": f"topic:{topic.id}" if topic else f"task:{task.id}",
                 "scopeGenerated": False,
                 "guestAccessible": True,
-                "curatedFixedMembership": bool(
-                    definition.get("replace_membership")
-                ),
             })
+            exercise_set.configuration.pop("curatedFixedMembership", None)
         if definition.get("topic_code") and topic is not None:
             exercise_set.topic_id = topic.id
     return exercise_set, created
@@ -393,7 +388,6 @@ async def _publish_sets(
                 ExerciseSetItemBD.exercise_set_id == exercise_set.id
             )
         )).all())
-        desired_exercise_ids: set[int] = set()
         for index, item in enumerate(definition["items"]):
             key = f"{definition['code']}:{index + 1:03d}"
             reuse_key = item.get("reuse_curated_key")
@@ -403,7 +397,6 @@ async def _publish_sets(
                     raise RuntimeError(
                         f"Shared practice source was not published: {reuse_key}"
                     )
-                desired_exercise_ids.add(exercise.id)
                 if exercise.id not in member_ids:
                     session.add(ExerciseSetItemBD(
                         exercise_set_id=exercise_set.id,
@@ -416,7 +409,6 @@ async def _publish_sets(
                 continue
             if key in existing:
                 exercise = existing[key]
-                desired_exercise_ids.add(exercise.id)
                 published_exercises[key] = exercise
                 published = await session.get(
                     ExerciseVersionBD, existing[key].published_version_id
@@ -447,7 +439,6 @@ async def _publish_sets(
                     sort_order=next_order,
                 ))
                 next_order += 1
-                desired_exercise_ids.add(exercise.id)
             published_exercises[key] = exercise
             await _publish_version(session, exercise, _payload(item, key), now)
             topic = await _topic_by_code(
@@ -476,14 +467,75 @@ async def _publish_sets(
                 else:
                     link.is_primary = True
             counters["exercises_published"] += 1
-        if definition.get("replace_membership"):
-            result = await session.execute(
-                delete(ExerciseSetItemBD).where(
-                    ExerciseSetItemBD.exercise_set_id == exercise_set.id,
-                    ExerciseSetItemBD.exercise_id.not_in(desired_exercise_ids),
-                )
+
+
+async def _restore_task_scope_memberships(
+    session: AsyncSession,
+    task: ExamTaskBD,
+    counters: dict[str, int],
+) -> None:
+    """Restore published exercises orphaned from scopes by an earlier run."""
+    exercise_ids = set((await session.scalars(
+        select(ExerciseBD.id)
+        .join(
+            ExerciseTaskLinkBD,
+            ExerciseTaskLinkBD.exercise_id == ExerciseBD.id,
+        )
+        .where(
+            ExerciseTaskLinkBD.exam_task_id == task.id,
+            ExerciseBD.status == "published",
+            ExerciseBD.published_version_id.is_not(None),
+        )
+    )).all())
+    if not exercise_ids:
+        return
+
+    topic_ids_by_exercise: dict[int, set[int]] = {}
+    for exercise_id, topic_id in (await session.execute(
+        select(
+            ExerciseTopicLinkBD.exercise_id,
+            ExerciseTopicLinkBD.topic_id,
+        ).where(ExerciseTopicLinkBD.exercise_id.in_(exercise_ids))
+    )).all():
+        topic_ids_by_exercise.setdefault(exercise_id, set()).add(topic_id)
+
+    scopes = list((await session.scalars(
+        select(ExerciseSetBD).where(
+            ExerciseSetBD.exam_task_id == task.id,
+            ExerciseSetBD.status == "published",
+            ExerciseSetBD.configuration["scopeRole"].astext.in_(("task", "topic")),
+        )
+    )).all())
+    for exercise_set in scopes:
+        role = (exercise_set.configuration or {}).get("scopeRole")
+        target_ids = (
+            exercise_ids
+            if role == "task"
+            else {
+                exercise_id
+                for exercise_id in exercise_ids
+                if exercise_set.topic_id
+                in topic_ids_by_exercise.get(exercise_id, set())
+            }
+        )
+        existing_ids = set((await session.scalars(
+            select(ExerciseSetItemBD.exercise_id).where(
+                ExerciseSetItemBD.exercise_set_id == exercise_set.id
             )
-            counters["set_items_removed"] += max(result.rowcount or 0, 0)
+        )).all())
+        missing_ids = sorted(target_ids - existing_ids)
+        next_order = int(await session.scalar(
+            select(func.coalesce(func.max(ExerciseSetItemBD.sort_order), -1))
+            .where(ExerciseSetItemBD.exercise_set_id == exercise_set.id)
+        )) + 1
+        for exercise_id in missing_ids:
+            session.add(ExerciseSetItemBD(
+                exercise_set_id=exercise_set.id,
+                exercise_id=exercise_id,
+                sort_order=next_order,
+            ))
+            next_order += 1
+        counters["legacy_items_restored"] += len(missing_ids)
 
 
 async def _rename_legacy_sets(
@@ -619,8 +671,8 @@ async def publish(
             "sets_created": 0,
             "exercises_published": 0,
             "exercises_unchanged": 0,
-            "set_items_removed": 0,
             "set_items_reused": 0,
+            "legacy_items_restored": 0,
             "topic_links_missing": 0,
             "tasks_missing": 0,
             "legacy_sets_renamed": 0,
@@ -636,6 +688,12 @@ async def publish(
             now,
             task_number,
         )
+        if task_number == 9 and 9 in tasks_by_number:
+            await _restore_task_scope_memberships(
+                session,
+                tasks_by_number[9],
+                counters,
+            )
         if task_number is None:
             counters["legacy_sets_renamed"] = await _rename_legacy_sets(
                 session, tasks_by_number
