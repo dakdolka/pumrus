@@ -15,6 +15,7 @@ def test_every_task9_topic_has_unique_cards_without_prompt_boilerplate():
     assert len(TASK9_PRACTICE_SETS) == 5
     for definition in TASK9_PRACTICE_SETS:
         items = definition["items"]
+        assert len(items) == 200
         assert len({item["prompt"] for item in items}) == len(items)
         assert all(item["answer"] and item["explanation"] for item in items)
         assert all(

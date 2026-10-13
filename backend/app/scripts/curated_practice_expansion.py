@@ -14,7 +14,7 @@ from app.scripts.curated_practice_volume import MORPHOLOGY_VOLUME, PARONYMS_500
 from app.scripts.curated_task9_practice import TASK9_PRACTICE_SETS
 
 
-PRACTICE_REVISION = "umrus-original-practice-2026-v7"
+PRACTICE_REVISION = "umrus-original-practice-2026-v8"
 PRACTICE_REFERENCES = [
     "FIPI EGE 2026 codifier, specification and preparation navigators",
     "FIPI 2026 methodological recommendations for Russian language",

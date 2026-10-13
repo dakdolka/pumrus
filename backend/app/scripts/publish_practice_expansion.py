@@ -416,6 +416,15 @@ async def _publish_sets(
             if key in existing:
                 exercise = existing[key]
                 published_exercises[key] = exercise
+                if exercise.id not in member_ids:
+                    session.add(ExerciseSetItemBD(
+                        exercise_set_id=exercise_set.id,
+                        exercise_id=exercise.id,
+                        sort_order=next_order,
+                    ))
+                    member_ids.add(exercise.id)
+                    next_order += 1
+                    counters["set_items_relinked"] += 1
                 published = await session.get(
                     ExerciseVersionBD, existing[key].published_version_id
                 )
@@ -570,6 +579,8 @@ async def _unlink_repeated_task9_cards(
         if (
             separator
             and code in TASK9_REPEATED_BANK_CODES
+            and (checker_config or {}).get("curatedRevision")
+            == "umrus-original-practice-2026-v7"
             and raw_index.isdigit()
             and int(raw_index) > 50
         ):
@@ -724,6 +735,7 @@ async def publish(
             "exercises_published": 0,
             "exercises_unchanged": 0,
             "set_items_reused": 0,
+            "set_items_relinked": 0,
             "legacy_items_restored": 0,
             "duplicate_items_unlinked": 0,
             "topic_links_missing": 0,
