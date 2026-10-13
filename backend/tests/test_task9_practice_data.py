@@ -15,7 +15,8 @@ def test_every_task9_topic_has_unique_cards_without_prompt_boilerplate():
     assert len(TASK9_PRACTICE_SETS) == 5
     for definition in TASK9_PRACTICE_SETS:
         items = definition["items"]
-        assert len(items) == 200
+        if definition.get("topic_code"):
+            assert len(items) == 200
         assert len({item["prompt"] for item in items}) == len(items)
         assert all(item["answer"] and item["explanation"] for item in items)
         assert all(
@@ -32,13 +33,22 @@ def test_every_task9_topic_has_unique_cards_without_prompt_boilerplate():
             assert all(item["topic_code"] == definition["topic_code"] for item in items)
 
 
-def test_mixed_practice_is_balanced_across_all_topics():
+def test_mixed_practice_is_the_union_of_all_topic_words():
     mixed = next(item for item in TASK9_PRACTICE_SETS if not item.get("topic_code"))
-    assert {
-        code: sum(item["topic_code"] == code for item in mixed["items"])
-        for code in EXPECTED_TOPICS
-    } == {code: 50 for code in EXPECTED_TOPICS}
-    assert len({item["reuse_curated_key"] for item in mixed["items"]}) == 200
+    topic_items = [
+        item
+        for definition in TASK9_PRACTICE_SETS
+        if definition.get("topic_code")
+        for item in definition["items"]
+    ]
+    expected_answers = {item["answer"].strip().casefold() for item in topic_items}
+    mixed_answers = [item["answer"].strip().casefold() for item in mixed["items"]]
+
+    assert set(mixed_answers) == expected_answers
+    assert len(mixed_answers) == len(set(mixed_answers))
+    assert len({item["reuse_curated_key"] for item in mixed["items"]}) == len(
+        mixed["items"]
+    )
 
 
 def test_masks_and_answers_have_matching_lengths():

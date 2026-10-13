@@ -492,13 +492,18 @@ O_YO_CARDS = _cards(SHIBILANTS, TOPIC_O_YO_AFTER_SIBILANTS)
 
 def _mixed_cards() -> list[dict[str, Any]]:
     cards = []
+    seen_answers: set[str] = set()
     for source_code, topic_cards in (
         ("task9-alternating-200", ALTERNATING_CARDS),
         ("task9-dictionary-200", DICTIONARY_CARDS),
         ("task9-i-y-after-c-200", I_Y_CARDS),
         ("task9-o-yo-after-sibilants-200", O_YO_CARDS),
     ):
-        for index, item in enumerate(topic_cards[:50], start=1):
+        for index, item in enumerate(topic_cards, start=1):
+            answer = str(item["answer"]).strip().casefold()
+            if answer in seen_answers:
+                continue
+            seen_answers.add(answer)
             mixed = dict(item)
             mixed["reuse_curated_key"] = f"{source_code}:{index:03d}"
             cards.append(mixed)

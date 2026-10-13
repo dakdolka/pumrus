@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -72,11 +73,111 @@ def _version_text(version: ExerciseVersionBD) -> tuple[str, str]:
     return prompt, answer
 
 
+@lru_cache(maxsize=1)
+def _task9_answer_topics() -> dict[str, set[str]]:
+    from app.scripts.curated_task9_practice import TASK9_PRACTICE_SETS
+
+    result: dict[str, set[str]] = {}
+    for definition in TASK9_PRACTICE_SETS:
+        topic_code = definition.get("topic_code")
+        if not topic_code:
+            continue
+        for item in definition["items"]:
+            result.setdefault(_normalise(item["answer"]), set()).add(topic_code)
+    return result
+
+
+TASK9_CURATED_KEY_TOPICS = {
+    "task9-alternating-200": "legacy-theory-9",
+    "task9-dictionary-200": "legacy-theory-10",
+    "task9-i-y-after-c-200": "legacy-theory-11",
+    "task9-o-yo-after-sibilants-200": "legacy-theory-12",
+}
+TASK9_ALTERNATING_ROOTS = (
+    "лаг", "лож", "раст", "ращ", "рос", "скак", "скоч", "скач",
+    "кас", "кос", "бер", "бир", "дер", "дир", "мер", "мир",
+    "пер", "пир", "тер", "тир", "стел", "стил", "блест", "блист",
+    "жег", "жиг", "чет", "чит", "гар", "гор", "зар", "зор",
+    "клан", "клон", "твар", "твор", "мак", "мок", "равн", "ровн",
+    "плав", "плов", "плыв", "ним", "ня", "чин", "ча", "жим", "жа",
+    "клин", "кля",
+)
+
+
+def _task9_topic_code(version: ExerciseVersionBD) -> str | None:
+    checker = version.checker_config or {}
+    curated_code = str(checker.get("curatedKey") or "").rpartition(":")[0]
+    if curated_code in TASK9_CURATED_KEY_TOPICS:
+        return TASK9_CURATED_KEY_TOPICS[curated_code]
+
+    prompt, answer = _version_text(version)
+    lowered_prompt = prompt.strip().casefold()
+    lowered_answer = answer.strip().casefold()
+    if len(lowered_prompt) == len(lowered_answer):
+        for index, character in enumerate(lowered_prompt):
+            if character != "_" or index == 0:
+                continue
+            answer_character = lowered_answer[index]
+            previous = lowered_answer[index - 1]
+            if previous == "ц" and answer_character in "иы":
+                return "legacy-theory-11"
+            if previous in "жшчщ" and answer_character in "оеё":
+                return "legacy-theory-12"
+
+        normalised_answer = _normalise(lowered_answer)
+        blank_positions = {
+            index for index, character in enumerate(lowered_prompt)
+            if character == "_"
+        }
+        for root in TASK9_ALTERNATING_ROOTS:
+            start = normalised_answer.find(root)
+            while start >= 0:
+                if any(start <= index < start + len(root) for index in blank_positions):
+                    return "legacy-theory-9"
+                start = normalised_answer.find(root, start + 1)
+
+    answer_topics = _task9_answer_topics().get(_normalise(answer), set())
+    if len(answer_topics) == 1:
+        return next(iter(answer_topics))
+
+    feedback = _normalise(" ".join(
+        str(value) for value in (version.feedback_data or {}).values()
+    ))
+    if "словарн" in feedback:
+        return "legacy-theory-10"
+    return None
+
+
+def _unique_word_exercise_ids(
+    exercise_ids: set[int],
+    version_by_exercise: dict[int, ExerciseVersionBD],
+) -> set[int]:
+    """Keep one preferred exercise for each answer in task 9 scope sets."""
+    selected: dict[str, int] = {}
+    ordered = sorted(
+        exercise_ids,
+        key=lambda exercise_id: (
+            0 if (version_by_exercise[exercise_id].checker_config or {}).get(
+                "curatedKey"
+            ) else 1,
+            exercise_id,
+        ),
+    )
+    for exercise_id in ordered:
+        prompt, answer = _version_text(version_by_exercise[exercise_id])
+        signature = _normalise(answer) or _normalise(prompt)
+        selected.setdefault(signature or f"exercise:{exercise_id}", exercise_id)
+    return set(selected.values())
+
+
 def infer_topic_code(task_number: int, version: ExerciseVersionBD) -> str | None:
     """Return a conservative topic for legacy rows that lost their topic link."""
     prompt, answer = _version_text(version)
     clean_answer = _normalise(answer)
     first_word = re.split(r"\s+", clean_answer, maxsplit=1)[0].strip(".,!?:;()[]«»\"")
+
+    if task_number == 9:
+        return _task9_topic_code(version)
 
     if task_number == 4:
         known = STRESS_TOPIC_WORDS.get(first_word)
@@ -272,6 +373,7 @@ async def sync_preview_membership(
 async def sync_practice_scopes(
     session: AsyncSession,
     course_version_id: int,
+    task_number: int | None = None,
 ) -> dict[str, int]:
     stats = {
         "topic_links_inferred": 0,
@@ -285,11 +387,19 @@ async def sync_practice_scopes(
     tasks = list((await session.scalars(
         select(ExamTaskBD).where(ExamTaskBD.course_version_id == course_version_id)
     )).all())
+    if task_number is not None:
+        tasks = [task for task in tasks if task.number == task_number]
+    task_ids = {task.id for task in tasks}
+    if not task_ids:
+        return stats
     task_by_id = {task.id: task for task in tasks}
     topic_rows = (await session.execute(
         select(TopicBD, ExamTaskTopicBD.exam_task_id)
         .join(ExamTaskTopicBD, ExamTaskTopicBD.topic_id == TopicBD.id)
-        .where(TopicBD.course_version_id == course_version_id)
+        .where(
+            TopicBD.course_version_id == course_version_id,
+            ExamTaskTopicBD.exam_task_id.in_(task_ids),
+        )
     )).all()
     topic_by_id = {topic.id: topic for topic, _ in topic_rows}
     task_id_by_topic_id = {topic.id: task_id for topic, task_id in topic_rows}
@@ -301,6 +411,7 @@ async def sync_practice_scopes(
     sets = list((await session.scalars(
         select(ExerciseSetBD).where(
             ExerciseSetBD.course_version_id == course_version_id,
+            ExerciseSetBD.exam_task_id.in_(task_ids),
             ExerciseSetBD.status == "published",
         )
     )).all())
@@ -485,13 +596,23 @@ async def sync_practice_scopes(
         task_ids = exercise_ids_by_task.get(task.id, set()) & eligible_ids
         if not task_ids:
             continue
-        await ensure_scope_set(task=task, topic=None, target_ids=task_ids)
+        task_scope_ids = (
+            _unique_word_exercise_ids(task_ids, version_by_exercise)
+            if task.number == 9
+            else task_ids
+        )
+        await ensure_scope_set(task=task, topic=None, target_ids=task_scope_ids)
         topics_for_task = [topic for topic, task_id in topic_rows if task_id == task.id]
         for topic in topics_for_task:
             topic_ids = {
                 exercise_id for exercise_id in task_ids
                 if topic.id in topic_ids_by_exercise.get(exercise_id, set())
             }
+            if task.number == 9:
+                topic_ids = _unique_word_exercise_ids(
+                    topic_ids,
+                    version_by_exercise,
+                )
             if topic_ids:
                 await ensure_scope_set(task=task, topic=topic, target_ids=topic_ids)
 

@@ -770,10 +770,13 @@ async def publish(
                 session, tasks_by_number
             )
             await _repair_legacy_data(session, tasks_by_number, counters, now)
-        if task_number is None:
-            counters.update(
-                await sync_practice_scopes(session, course_version.id)
+        counters.update(
+            await sync_practice_scopes(
+                session,
+                course_version.id,
+                task_number=task_number,
             )
+        )
         counters.update(
             await sync_practice_theory_links(
                 session,
