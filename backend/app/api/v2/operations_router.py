@@ -558,6 +558,9 @@ def _exercise_out(
         "answerConfig": version.answer_config,
         "checkerType": version.checker_type,
         "checkerConfig": version.checker_config,
+        "isException": bool(
+            (version.checker_config or {}).get("isException", False)
+        ),
         "feedbackData": version.feedback_data,
         "examTaskIds": task_ids or [],
         "topicIds": topic_ids or [],
@@ -568,6 +571,7 @@ def _exercise_out(
 async def list_exercise_items(
     exercise_set_id: int,
     search: str = Query(default="", max_length=200),
+    exceptions_only: bool = Query(default=False),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -583,9 +587,18 @@ async def list_exercise_items(
     if search.strip():
         needle = f"%{search.strip().lower()}%"
         base = base.where(func.lower(func.cast(ExerciseVersionBD.prompt_data, String)).like(needle))
+    exception_marker = (
+        ExerciseVersionBD.checker_config["isException"].as_boolean()
+    )
+    if exceptions_only:
+        base = base.where(exception_marker.is_(True))
     total = int(await db.scalar(select(func.count()).select_from(base.subquery())) or 0)
     rows = (await db.execute(
-        base.order_by(ExerciseSetItemBD.sort_order, ExerciseSetItemBD.id).offset(offset).limit(limit)
+        base.order_by(
+            exception_marker.desc().nullslast(),
+            ExerciseSetItemBD.sort_order,
+            ExerciseSetItemBD.id,
+        ).offset(offset).limit(limit)
     )).all()
     exercise_ids = [exercise.id for _, exercise, _ in rows]
     task_links: dict[int, list[int]] = {}

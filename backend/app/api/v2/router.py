@@ -59,6 +59,7 @@ class SessionCreateIn(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=100)
     page_size: int | None = Field(default=None, ge=1, le=20)
     preview: bool = False
+    exceptions_only: bool = False
 
 
 class AnswerIn(BaseModel):
@@ -498,11 +499,26 @@ async def list_exercise_sets(
                 func.count(ExerciseSetItemBD.id)
                 .filter(ExerciseSetItemBD.is_preview.is_(True))
                 .label("preview_count"),
+                func.count(ExerciseSetItemBD.id)
+                .filter(
+                    ExerciseVersionBD.checker_config["isException"]
+                    .as_boolean()
+                    .is_(True)
+                )
+                .label("exception_count"),
             )
             .outerjoin(TopicBD, TopicBD.id == ExerciseSetBD.topic_id)
             .outerjoin(
                 ExerciseSetItemBD,
                 ExerciseSetItemBD.exercise_set_id == ExerciseSetBD.id,
+            )
+            .outerjoin(
+                ExerciseBD,
+                ExerciseBD.id == ExerciseSetItemBD.exercise_id,
+            )
+            .outerjoin(
+                ExerciseVersionBD,
+                ExerciseVersionBD.id == ExerciseBD.published_version_id,
             )
             .where(*conditions)
             .group_by(ExerciseSetBD.id, TopicBD.title)
@@ -515,7 +531,13 @@ async def list_exercise_sets(
         required=False,
     )
     serialized_sets = []
-    for exercise_set, topic_title, exercise_count, preview_count in rows:
+    for (
+        exercise_set,
+        topic_title,
+        exercise_count,
+        preview_count,
+        exception_count,
+    ) in rows:
         has_full_access = await user_has_exercise_set_access(
             db,
             authenticated_user.id if authenticated_user else None,
@@ -538,6 +560,7 @@ async def list_exercise_sets(
             ),
             "exerciseCount": exercise_count,
             "demoExerciseCount": preview_count,
+            "exceptionCount": exception_count,
             "selectionStrategy": exercise_set.selection_strategy,
             "sessionSize": int(exercise_set.configuration.get("sessionSize", 50)),
             "pageSize": int(exercise_set.configuration.get("pageSize", 5)),
@@ -718,6 +741,12 @@ def _public_question(
             "response": attempt.response_data,
             "correctResponse": correct_response,
             "correctAnswer": version.feedback_data.get("correctAnswer"),
+            "feedback": {
+                "message": version.feedback_data.get(
+                    "correct" if attempt.result_status == "correct" else "incorrect"
+                ),
+                "theoryLinks": [],
+            },
         }
     return {
         "sessionItemId": item.id,
@@ -727,6 +756,9 @@ def _public_question(
         "responseSchemaVersion": version.response_schema_version,
         "prompt": version.prompt_data,
         "interaction": version.interaction_config,
+        "isException": bool(
+            (version.checker_config or {}).get("isException", False)
+        ),
         "result": result,
     }
 
@@ -897,6 +929,12 @@ async def create_practice_session(
                 previous.status = "expired"
                 previous.completed_at = now
                 continue
+            if bool(
+                (previous.configuration or {}).get("exceptionsOnly")
+            ) != body.exceptions_only:
+                previous.status = "expired"
+                previous.completed_at = now
+                continue
             paused_at_raw = (previous.configuration or {}).get("pausedAt")
             reference_time = previous.last_activity_at
             if paused_at_raw:
@@ -927,6 +965,15 @@ async def create_practice_session(
     )
     if preview_mode:
         query = query.where(ExerciseSetItemBD.is_preview.is_(True))
+    if body.exceptions_only:
+        query = query.join(
+            ExerciseVersionBD,
+            ExerciseVersionBD.id == ExerciseBD.published_version_id,
+        ).where(
+            ExerciseVersionBD.checker_config["isException"]
+            .as_boolean()
+            .is_(True)
+        )
     if body.mode == "mistakes":
         if resolved_user_id is None:
             raise HTTPException(400, "Mistake practice requires a user")
@@ -1001,6 +1048,7 @@ async def create_practice_session(
         "clientSessionId": body.client_session_id,
         "pausedAt": None,
         "previewMode": preview_mode,
+        "exceptionsOnly": body.exceptions_only,
         "accessLevel": exercise_set.access_level,
         "hasFullAccess": has_full_access,
         "offer": (

@@ -112,6 +112,7 @@ def _payload(item: dict[str, Any], key: str) -> dict[str, Any]:
     marker = {
         "curatedKey": key,
         "curatedRevision": PRACTICE_REVISION,
+        "isException": bool(item.get("is_exception", False)),
         "sourceReferences": item.get("source_references", PRACTICE_REFERENCES),
     }
     if item["type"] == "single_choice":

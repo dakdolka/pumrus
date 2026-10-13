@@ -363,6 +363,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   border-radius: var(--radius-lg);
 }
 .set-card-shell .set-card { flex: 1; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.set-card-shell .set-card:last-child { border-radius: var(--radius-lg); }
 .set-unlock {
   min-height: 42px;
   padding: 9px 13px;
@@ -381,6 +382,19 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .set-card strong { margin: auto 36px 5px 0; font-size: 18px; line-height: 1.25; letter-spacing: -.02em; }
 .set-card small { color: var(--text-faint); font-size: 10px; }
 .set-card i { position: absolute; right: 17px; bottom: 18px; color: var(--text-faint); }
+.exception-start-button {
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-top: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: var(--warning);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: left;
+}
 
 .trainer { width: min(100%, var(--reading-max)); margin: 0 auto; padding: 24px 16px 48px; }
 .related-theory { width: min(100%, var(--reading-max)); margin: 0 auto; padding: 18px 16px 48px; }
@@ -400,6 +414,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 .related-theory-back svg { width: 14px; }
 .trainer-meta { display: flex; align-items: center; gap: 12px; color: var(--text-faint); font-size: 11px; font-weight: 700; }
 .trainer-meta > span:nth-child(2) { margin-left: auto; }
+.exception-mode-badge { padding: 4px 7px; border-radius: 999px; background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning); }
 .session-reset {
   padding: 4px 8px;
   color: var(--text-soft);
@@ -729,6 +744,9 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 }
 
 .batch-content { min-width: 0; overflow: hidden; }
+.question-exception-badge { display: inline-flex; margin-bottom: 4px; color: var(--warning); font-size: 10px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
+.answer-explanation { margin: .6rem 0 0; padding: .55rem .65rem; border-radius: 10px; background: var(--surface-raised); color: var(--text-soft); font-size: .8rem; line-height: 1.45; }
+.answer-explanation strong { color: var(--text); }
 .batch-content .question-text,
 .batch-content .vowel-word,
 .batch-content .stress-word {
@@ -878,6 +896,7 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   font-weight: 750;
 }
 .shared-keyboard button:disabled { opacity: .42; }
+.practice-next-page { display: block; width: 100%; margin: .8rem 0; }
 .vowel-keyboard button {
   min-width: 3rem;
   height: 3rem;

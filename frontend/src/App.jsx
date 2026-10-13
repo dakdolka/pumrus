@@ -795,7 +795,7 @@ function PracticeTask({ taskNumber, navigate, userId }) {
     [taskNumber, topicId],
   );
   const [autoStartingSetId, setAutoStartingSetId] = useState(null);
-  const startSet = useCallback(async (set) => {
+  const startSet = useCallback(async (set, exceptionsOnly = false) => {
     try {
       const session = await api("/v2/practice/sessions", {
         method: "POST",
@@ -806,6 +806,7 @@ function PracticeTask({ taskNumber, navigate, userId }) {
           mode: mistakesMode ? "mistakes" : "standard",
           limit: set.sessionSize,
           page_size: set.pageSize,
+          exceptions_only: exceptionsOnly,
         }),
       });
       const contextQuery = theoryOrigin ? "?origin=theory" : "";
@@ -820,7 +821,7 @@ function PracticeTask({ taskNumber, navigate, userId }) {
     const onlySet = state.data?.sets?.length === 1
       ? state.data.sets[0]
       : null;
-    if (!onlySet || autoStartingSetId !== null) return;
+    if (!onlySet || onlySet.exceptionCount > 0 || autoStartingSetId !== null) return;
     setAutoStartingSetId(onlySet.id);
     startSet(onlySet);
   }, [autoStartingSetId, startSet, state.data]);
@@ -885,6 +886,11 @@ function PracticeTask({ taskNumber, navigate, userId }) {
                     : `${set.exerciseCount} упражнений в банке`}</small>
                   <i><AppIcon type="arrow" /></i>
                 </button>
+                {set.hasFullAccess && set.exceptionCount > 0 && (
+                  <button className="exception-start-button" onClick={() => startSet(set, true)}>
+                    ★ Только исключения · {set.exceptionCount}
+                  </button>
+                )}
                 {!set.hasFullAccess && <UnlockCard offer={set.offer} compact />}
               </article>
             )) : <EmptyCard text="Для этого раздела пока нет опубликованных тренажёров." />}
@@ -1189,10 +1195,7 @@ function PracticeSession({ sessionId, navigate }) {
       if (next) {
         setActiveItemId(next.sessionItemId);
       } else if (pageStart + pageSize < session.items.length) {
-        window.setTimeout(() => {
-          setPage((current) => current + 1);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }, 450);
+        setActiveItemId(null);
       }
     } catch (error) {
       reportAppError(error);
@@ -1279,6 +1282,7 @@ function PracticeSession({ sessionId, navigate }) {
         <div className="trainer-meta">
           <span>{Math.min(pageStart + 1, session.items.length)}–{Math.min(pageStart + pageSize, session.items.length)} / {session.items.length}</span>
           <span>{Math.round(progress)}%</span>
+          {session.configuration?.exceptionsOnly && <span className="exception-mode-badge">★ Только исключения</span>}
           {session.status === "active" && (
             <button className="session-reset" onClick={resetSession}>Сбросить</button>
           )}
@@ -1302,6 +1306,7 @@ function PracticeSession({ sessionId, navigate }) {
               >
                 <span className="batch-number">{pageStart + itemIndex + 1}</span>
                 <div className="batch-content">
+                  {item.isException && <span className="question-exception-badge">★ Исключение</span>}
                   <QuestionPrompt item={item} result={result} displayMode={promptDisplay} />
                   {item.interactionType === "vowel_fill" ? (
                     <VowelWord item={item} response={response} result={result} displayMode={promptDisplay} />
@@ -1328,6 +1333,11 @@ function PracticeSession({ sessionId, navigate }) {
                       result={result}
                       showSingleLetterSuccess={Boolean(session.configuration?.showSingleLetterSuccess)}
                     />
+                  )}
+                  {result?.feedback?.message && (
+                    <p className={`answer-explanation ${result.status}`}>
+                      <strong>Пояснение:</strong> {result.feedback.message}
+                    </p>
                   )}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
@@ -1359,6 +1369,15 @@ function PracticeSession({ sessionId, navigate }) {
           );
         })()}
 
+        {pageComplete && !finished && (
+          <button className="primary-button practice-next-page" onClick={() => {
+            setPage((current) => current + 1);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}>
+            Следующие упражнения
+          </button>
+        )}
+
         {finished && session.configuration?.previewMode && !session.configuration?.hasFullAccess
           ? <UnlockCard offer={session.configuration?.offer} />
           : null}
@@ -1373,6 +1392,7 @@ function PracticeSession({ sessionId, navigate }) {
           <button className="answer-sheet-close" onClick={dismissError} aria-label="Закрыть">×</button>
           <strong>{errorResult.status === "partial" ? "Частично верно" : "Нужно повторить"}</strong>
           {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
+          {errorResult.feedback?.message && <p><b>Пояснение:</b> {errorResult.feedback.message}</p>}
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
             <button
               key={link.route}

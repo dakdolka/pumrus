@@ -520,16 +520,19 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .exercise-manager > header p { margin: 0; color: var(--text-soft); font-size: 12px; }
 .exercise-manager-layout { display: grid; grid-template-columns: minmax(250px, 32%) minmax(0, 1fr); min-height: 0; }
 .exercise-manager-layout > aside { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; min-height: 0; padding: 12px; border-right: 1px solid var(--line); background: var(--surface); }
-.exercise-manager-layout > aside > input { margin-bottom: 8px; }
 .exercise-manager-layout > aside > .add-exercise-button { width: 100%; margin-bottom: 8px; }
-.exercise-manager-layout > aside > div { display: grid; align-content: start; gap: 5px; overflow: auto; }
-.exercise-manager-layout > aside > div button { display: grid; gap: 3px; width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); text-align: left; }
-.exercise-manager-layout > aside > div button.active { border-color: var(--accent); background: var(--accent-soft); }
+.exercise-list-filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-bottom: 8px; }
+.exercise-list-filters button { padding: 0 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); color: var(--text-soft); font: inherit; font-size: 11px; font-weight: 800; }
+.exercise-list-filters button.active { border-color: color-mix(in srgb, var(--warning) 58%, var(--line)); background: color-mix(in srgb, var(--warning) 12%, var(--surface)); color: var(--warning); }
+.exercise-item-list { display: grid; align-content: start; gap: 5px; overflow: auto; }
+.exercise-item-list button { display: grid; gap: 3px; width: 100%; padding: 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); text-align: left; }
+.exercise-item-list button.active { border-color: var(--accent); background: var(--accent-soft); }
+.exercise-item-list button.exception:not(.active) { border-color: color-mix(in srgb, var(--warning) 34%, transparent); background: color-mix(in srgb, var(--warning) 7%, transparent); }
 .exercise-context-menu { position: fixed; z-index: 100; display: grid; gap: 9px; width: 310px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 16px 45px rgba(0, 0, 0, .25); }
 .exercise-context-menu strong { font-size: .85rem; }
 .exercise-context-menu small { color: var(--text-soft); line-height: 1.4; }
-.exercise-manager-layout > aside > div small { color: var(--text-soft); }
-.exercise-manager-layout > aside > div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exercise-item-list small { color: var(--text-soft); }
+.exercise-item-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .exercise-manager-layout > aside > footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-top: 8px; }
 .exercise-manager-layout > aside > footer button, .advanced-toggle { border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 800; }
 .exercise-inspector { overflow: auto; padding: clamp(16px, 3vw, 30px); }
@@ -538,6 +541,10 @@ input:focus, textarea:focus, select:focus { border-color: color-mix(in srgb, var
 .exercise-basic-grid .wide { grid-column: 1 / -1; }
 .choice-editor { display: grid; grid-template-columns: 1fr 220px; gap: 12px; }
 .feedback-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.exception-editor-toggle { display: flex !important; align-items: center; gap: 10px !important; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--warning) 38%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--warning) 7%, var(--surface)); }
+.exception-editor-toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--warning); }
+.exception-editor-toggle span { display: grid; gap: 2px; color: var(--text); }
+.exception-editor-toggle small { color: var(--text-soft); font-weight: 500; }
 .advanced-toggle { padding: 8px 0; }
 .advanced-json { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .advanced-json textarea { min-height: 170px; font-family: ui-monospace, monospace; font-size: 12px; }
