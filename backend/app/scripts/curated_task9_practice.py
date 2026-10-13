@@ -1,7 +1,6 @@
 """Reviewed practice banks for the published task 9 theory structure.
 
-Each topic contains 200 cards. Repeated words provide spaced reinforcement
-without adding instructional boilerplate to the visible prompt. Source wording
+Every visible prompt is unique inside its authored topic bank. Source wording
 is original; the coverage follows the FIPI navigator, Gramota rules and the
 local task 9 theory specification.
 """
@@ -24,22 +23,19 @@ TOPIC_DICTIONARY = "legacy-theory-10"
 TOPIC_I_Y_AFTER_C = "legacy-theory-11"
 TOPIC_O_YO_AFTER_SIBILANTS = "legacy-theory-12"
 
-CARD_REPETITIONS = 4
-
-
 def _cards(seeds: list[tuple[str, str, str]], topic_code: str) -> list[dict[str, Any]]:
     cards = []
-    for _ in range(CARD_REPETITIONS):
-        for mask, answer, explanation in seeds:
-            cards.append({
-                "type": "vowel_fill",
-                "prompt": mask,
-                "answer": answer,
-                "explanation": explanation,
-                "topic_code": topic_code,
-                "source_references": REFERENCES,
-            })
-    assert len(cards) == 200
+    for mask, answer, explanation in seeds:
+        cards.append({
+            "type": "vowel_fill",
+            "prompt": mask,
+            "answer": answer,
+            "explanation": explanation,
+            "topic_code": topic_code,
+            "source_references": REFERENCES,
+        })
+    assert len(cards) == len(seeds)
+    assert len({item["prompt"] for item in cards}) == len(cards)
     return cards
 
 
@@ -304,4 +300,6 @@ TASK9_PRACTICE_SETS = [
 ]
 
 for definition in TASK9_PRACTICE_SETS:
-    assert len(definition["items"]) == 200
+    assert len({item["prompt"] for item in definition["items"]}) == len(
+        definition["items"]
+    )

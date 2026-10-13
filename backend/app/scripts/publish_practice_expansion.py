@@ -13,7 +13,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import async_session_factory
@@ -89,6 +89,12 @@ TOPIC_CODE_ALIASES = {
     "legacy-theory-6": "task-10-signs",
     "legacy-theory-7": "task-10-signs",
     "legacy-theory-8": "task-10-pre-pri",
+}
+
+TASK9_REPEATED_BANK_CODES = {
+    "task9-alternating-200",
+    "task9-i-y-after-c-200",
+    "task9-o-yo-after-sibilants-200",
 }
 
 
@@ -473,6 +479,7 @@ async def _restore_task_scope_memberships(
     session: AsyncSession,
     task: ExamTaskBD,
     counters: dict[str, int],
+    excluded_exercise_ids: set[int] | None = None,
 ) -> None:
     """Restore published exercises orphaned from scopes by an earlier run."""
     exercise_ids = set((await session.scalars(
@@ -486,7 +493,7 @@ async def _restore_task_scope_memberships(
             ExerciseBD.status == "published",
             ExerciseBD.published_version_id.is_not(None),
         )
-    )).all())
+    )).all()) - (excluded_exercise_ids or set())
     if not exercise_ids:
         return
 
@@ -536,6 +543,51 @@ async def _restore_task_scope_memberships(
             ))
             next_order += 1
         counters["legacy_items_restored"] += len(missing_ids)
+
+
+async def _unlink_repeated_task9_cards(
+    session: AsyncSession,
+    task: ExamTaskBD,
+    counters: dict[str, int],
+) -> set[int]:
+    """Unlink only the 3 repeated copies created by the faulty v7 bank."""
+    rows = (await session.execute(
+        select(ExerciseBD.id, ExerciseVersionBD.checker_config)
+        .join(
+            ExerciseTaskLinkBD,
+            ExerciseTaskLinkBD.exercise_id == ExerciseBD.id,
+        )
+        .join(
+            ExerciseVersionBD,
+            ExerciseVersionBD.id == ExerciseBD.published_version_id,
+        )
+        .where(ExerciseTaskLinkBD.exam_task_id == task.id)
+    )).all()
+    duplicate_ids: set[int] = set()
+    for exercise_id, checker_config in rows:
+        key = str((checker_config or {}).get("curatedKey") or "")
+        code, separator, raw_index = key.rpartition(":")
+        if (
+            separator
+            and code in TASK9_REPEATED_BANK_CODES
+            and raw_index.isdigit()
+            and int(raw_index) > 50
+        ):
+            duplicate_ids.add(exercise_id)
+    if not duplicate_ids:
+        return duplicate_ids
+
+    task_set_ids = select(ExerciseSetBD.id).where(
+        ExerciseSetBD.exam_task_id == task.id
+    )
+    result = await session.execute(
+        delete(ExerciseSetItemBD).where(
+            ExerciseSetItemBD.exercise_set_id.in_(task_set_ids),
+            ExerciseSetItemBD.exercise_id.in_(duplicate_ids),
+        )
+    )
+    counters["duplicate_items_unlinked"] += max(result.rowcount or 0, 0)
+    return duplicate_ids
 
 
 async def _rename_legacy_sets(
@@ -673,6 +725,7 @@ async def publish(
             "exercises_unchanged": 0,
             "set_items_reused": 0,
             "legacy_items_restored": 0,
+            "duplicate_items_unlinked": 0,
             "topic_links_missing": 0,
             "tasks_missing": 0,
             "legacy_sets_renamed": 0,
@@ -689,10 +742,16 @@ async def publish(
             task_number,
         )
         if task_number == 9 and 9 in tasks_by_number:
+            duplicate_ids = await _unlink_repeated_task9_cards(
+                session,
+                tasks_by_number[9],
+                counters,
+            )
             await _restore_task_scope_memberships(
                 session,
                 tasks_by_number[9],
                 counters,
+                excluded_exercise_ids=duplicate_ids,
             )
         if task_number is None:
             counters["legacy_sets_renamed"] = await _rename_legacy_sets(
