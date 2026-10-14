@@ -745,8 +745,6 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
 
 .batch-content { min-width: 0; overflow: hidden; }
 .question-exception-badge { display: inline-flex; margin-bottom: 4px; color: var(--warning); font-size: 10px; font-weight: 850; letter-spacing: .04em; text-transform: uppercase; }
-.answer-explanation { margin: .6rem 0 0; padding: .55rem .65rem; border-radius: 10px; background: var(--surface-raised); color: var(--text-soft); font-size: .8rem; line-height: 1.45; }
-.answer-explanation strong { color: var(--text); }
 .batch-content .question-text,
 .batch-content .vowel-word,
 .batch-content .stress-word {
@@ -896,7 +894,6 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   font-weight: 750;
 }
 .shared-keyboard button:disabled { opacity: .42; }
-.practice-next-page { display: block; width: 100%; margin: .8rem 0; }
 .vowel-keyboard button {
   min-width: 3rem;
   height: 3rem;

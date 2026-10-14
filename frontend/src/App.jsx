@@ -1195,7 +1195,10 @@ function PracticeSession({ sessionId, navigate }) {
       if (next) {
         setActiveItemId(next.sessionItemId);
       } else if (pageStart + pageSize < session.items.length) {
-        setActiveItemId(null);
+        window.setTimeout(() => {
+          setPage((current) => current + 1);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }, 450);
       }
     } catch (error) {
       reportAppError(error);
@@ -1334,11 +1337,6 @@ function PracticeSession({ sessionId, navigate }) {
                       showSingleLetterSuccess={Boolean(session.configuration?.showSingleLetterSuccess)}
                     />
                   )}
-                  {result?.feedback?.message && (
-                    <p className={`answer-explanation ${result.status}`}>
-                      <strong>Пояснение:</strong> {result.feedback.message}
-                    </p>
-                  )}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
                 {result?.status === "partial" && <span className="batch-status partial">½</span>}
@@ -1368,15 +1366,6 @@ function PracticeSession({ sessionId, navigate }) {
             />
           );
         })()}
-
-        {pageComplete && !finished && (
-          <button className="primary-button practice-next-page" onClick={() => {
-            setPage((current) => current + 1);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}>
-            Следующие упражнения
-          </button>
-        )}
 
         {finished && session.configuration?.previewMode && !session.configuration?.hasFullAccess
           ? <UnlockCard offer={session.configuration?.offer} />
