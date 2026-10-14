@@ -1072,9 +1072,9 @@ function PracticeSession({ sessionId, navigate }) {
     setPendingAdvance((pending) => {
       if (pending?.itemId) {
         setActiveItemId(pending.itemId);
-      } else if (pending?.nextPage) {
+      } else if (Number.isInteger(pending?.nextPage)) {
         window.setTimeout(() => {
-          setPage((current) => current + 1);
+          setPage(pending.nextPage);
           window.scrollTo({ top: 0, behavior: "smooth" });
         }, 180);
       }
@@ -1149,6 +1149,7 @@ function PracticeSession({ sessionId, navigate }) {
   }
 
   const pageSize = session.configuration?.pageSize || 5;
+  const totalPages = Math.max(1, Math.ceil(session.items.length / pageSize));
   const promptDisplay = session.configuration?.promptDisplay || "normal";
   const pageStart = page * pageSize;
   const pageItems = session.items.slice(pageStart, pageStart + pageSize);
@@ -1187,7 +1188,7 @@ function PracticeSession({ sessionId, navigate }) {
         setPendingAdvance(
           next
             ? { itemId: next.sessionItemId }
-            : { nextPage: pageStart + pageSize < session.items.length },
+            : { nextPage: pageStart + pageSize < session.items.length ? page + 1 : null },
         );
         setActiveItemId(item.sessionItemId);
         return;
@@ -1196,7 +1197,7 @@ function PracticeSession({ sessionId, navigate }) {
         setActiveItemId(next.sessionItemId);
       } else if (pageStart + pageSize < session.items.length) {
         window.setTimeout(() => {
-          setPage((current) => current + 1);
+          setPage(page + 1);
           window.scrollTo({ top: 0, behavior: "smooth" });
         }, 450);
       }
@@ -1366,6 +1367,30 @@ function PracticeSession({ sessionId, navigate }) {
             />
           );
         })()}
+
+        <nav className="practice-page-nav" aria-label="Страницы упражнений">
+          <button
+            type="button"
+            disabled={page === 0 || Boolean(errorResult)}
+            onClick={() => {
+              setPage(page - 1);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            <span aria-hidden="true">←</span> Назад
+          </button>
+          <span>{page + 1} / {totalPages}</span>
+          <button
+            type="button"
+            disabled={!pageComplete || page + 1 >= totalPages || Boolean(errorResult)}
+            onClick={() => {
+              setPage(page + 1);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            Вперёд <span aria-hidden="true">→</span>
+          </button>
+        </nav>
 
         {finished && session.configuration?.previewMode && !session.configuration?.hasFullAccess
           ? <UnlockCard offer={session.configuration?.offer} />
