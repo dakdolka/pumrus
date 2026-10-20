@@ -623,7 +623,7 @@ function DeprecatedTheory({ navigate, userId }) {
           <button className="deprecated-back" onClick={() => setSelectedId(null)}><AppIcon type="back" /> К списку</button>
           {document.loading && <Loading />}
           {document.error && <ErrorState message={document.error} />}
-          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} /></>}
+          {document.data && <><h2>{document.data.title}</h2><TheoryDocument document={document.data} onTheoryNavigate={navigate} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} /></>}
         </section>
       )}
     </Shell>
@@ -743,7 +743,7 @@ function TaskTheory({ taskNumber, navigate, userId }) {
             {state.data.shortDescription && <p>{state.data.shortDescription}</p>}
             <RemindButton navigate={navigate} taskNumber={taskNumber} title={`Теория · задание ${taskNumber}: ${state.data.title}`} />
           </section>
-          {state.data.theory && <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />}
+          {state.data.theory && <TheoryDocument document={state.data.theory} onTheoryNavigate={navigate} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />}
           <section className="section-block">
             <div className="section-heading">
               <p className="eyebrow">По частям</p>
@@ -810,7 +810,7 @@ function TopicTheory({ taskNumber, topicId, navigate, userId }) {
             <RemindButton navigate={navigate} taskNumber={taskNumber} topicId={topicId} title={state.data.title} />
           </section>
           {state.data.theory
-            ? <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />
+            ? <TheoryDocument document={state.data.theory} onTheoryNavigate={navigate} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />
             : <EmptyCard text="Материал этой темы пока готовится." />}
         </>
       )}

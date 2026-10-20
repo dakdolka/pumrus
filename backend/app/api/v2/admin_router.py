@@ -37,7 +37,7 @@ from app.infra.exercises.models import (
 from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
 from app.api.v2.content_export import build_practice_export, build_theory_export
 from app.api.v2.theory_edit import (
-    TheoryEditPackage, check_base, fingerprint, flatten_page, make_package, tree_blocks,
+    TheoryEditPackage, check_base, fingerprint, flatten_page, make_package, tree_blocks, validate_anchor, validate_data,
 )
 from app.scripts.practice_scope_sync import (
     sync_practice_scopes,
@@ -547,6 +547,25 @@ async def publish_live_document(
         raise HTTPException(404, "Документ не найден")
     if not body.blocks:
         raise HTTPException(409, "Нельзя опубликовать пустой документ")
+
+    anchors: set[str] = set()
+    targets: set[tuple[int, int]] = set()
+    for item in body.blocks:
+        try:
+            validate_anchor(item.settings, anchors)
+            if item.block_type == "theory_link":
+                validate_data(item.block_type, item.data)
+                targets.add((item.data["taskNumber"], item.data["topicId"]))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+    for task_number, topic_id in targets:
+        target = await db.scalar(select(TopicBD.id).join(
+            ExamTaskTopicBD, ExamTaskTopicBD.topic_id == TopicBD.id,
+        ).join(ExamTaskBD, ExamTaskBD.id == ExamTaskTopicBD.exam_task_id).where(
+            TopicBD.id == topic_id, ExamTaskBD.number == task_number,
+        ))
+        if target is None:
+            raise HTTPException(400, f"Тема {topic_id} не найдена в задании {task_number}")
 
     client_ids = [block.client_id for block in body.blocks]
     if len(client_ids) != len(set(client_ids)):

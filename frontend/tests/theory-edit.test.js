@@ -61,3 +61,13 @@ test("JSON fenced by a chat response is accepted", () => {
   const value=fixture();
   assert.equal(parseTheoryEdit(`\`\`\`json\n${prettyPackage(value)}\n\`\`\``,value).changed,false);
 });
+
+test("an incomplete inspector field can be repaired while publication is blocked", () => {
+  const value=fixture();
+  value.after.blocks.push({type:"theory_link",data:{taskNumber:11,topicId:19}});
+  const invalid=editPackageBlock(value,"new:auto:3",{data:{taskNumber:11,topicId:null}});
+  assert.throws(()=>parseTheoryEdit(prettyPackage(invalid)),/taskNumber и topicId/);
+  const repaired=editPackageBlock(invalid,"new:auto:3",{data:{taskNumber:11,topicId:20}});
+  assert.equal(parseTheoryEdit(prettyPackage(repaired)).blocks.at(-1).data.topicId,20);
+  assert.equal(value.after.blocks.at(-1).data.topicId,19);
+});

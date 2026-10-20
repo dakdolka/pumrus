@@ -13,6 +13,21 @@ def page():
 
 
 class TheoryEditTests(unittest.TestCase):
+    def test_theory_links_and_stable_section_labels(self):
+        definition = page()
+        definition["blocks"].append({"type": "theory_link", "data": {"taskNumber": 11, "topicId": 19, "anchor": "i-y-suffix"}, "settings": {"anchor": "next-part"}})
+        flat = flatten_page(EditPage.model_validate(definition))
+        self.assertEqual(flat[-1]["block_type"], "theory_link")
+        self.assertEqual(flat[-1]["settings"]["anchor"], "next-part")
+        for bad in [True, 0, "19", None]:
+            definition["blocks"][-1]["data"]["topicId"] = bad
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "topicId"):
+                flatten_page(EditPage.model_validate(definition))
+        definition["blocks"][-1]["data"]["topicId"] = 19
+        definition["blocks"][0].setdefault("settings", {})["anchor"] = "next-part"
+        with self.assertRaisesRegex(ValueError, "повторяется метка"):
+            flatten_page(EditPage.model_validate(definition))
+
     def test_roundtrip_and_fingerprint_ignore_object_key_order(self):
         original = page()
         package = TheoryEditPackage.model_validate(make_package(1, 2, original))

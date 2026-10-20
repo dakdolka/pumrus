@@ -1,5 +1,6 @@
+import { theoryAnchorId, theoryHref } from "../theory/theoryLinks.js";
 export const THEORY_EDIT_FORMAT = "pumrus.theory-edit";
-const TYPES = new Set(["rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link"]);
+const TYPES = new Set(["rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link", "theory_link"]);
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -20,6 +21,7 @@ function text(value, path, max) {
 }
 
 function validateData(block, path) {
+  if (block.type === "theory_link" && !theoryHref(block.data)) throw new Error(`${path}.data: укажите положительные целые taskNumber и topicId и корректную метку anchor`);
   for (const key of ["markdown", "title", "url", "alt", "caption", "svg", "buttonLabel"]) {
     if (key in block.data && typeof block.data[key] !== "string") throw new Error(`${path}.data.${key}: ожидается текст`);
   }
@@ -36,7 +38,7 @@ export function flattenEditPage(page, path = "after") {
   text(page.ownerTitle, `${path}.ownerTitle`, 256);
   if (page.description !== undefined && (typeof page.description !== "string" || page.description.length > 1024)) throw new Error(`${path}.description: текст до 1024 символов`);
   if (!Array.isArray(page.blocks)) throw new Error(`${path}.blocks: ожидается список блоков [ … ]`);
-  const flat = [], ids = new Set();
+  const flat = [], ids = new Set(), anchors = new Set();
   function walk(blocks, parentId, ancestors) {
     if (ancestors.length > 32) throw new Error("Вложенность блоков не должна превышать 32 уровня");
     blocks.forEach((block, sortOrder) => {
@@ -52,6 +54,12 @@ export function flattenEditPage(page, path = "after") {
       if (block.data !== undefined && !object(block.data)) throw new Error(`${label}.data: ожидается объект`);
       if (block.settings !== undefined && !object(block.settings)) throw new Error(`${label}.settings: ожидается объект`);
       const normalized = {id, type:block.type, data:block.data || {}, settings:block.settings || {}, parentId, sortOrder};
+      const anchor = normalized.settings.anchor;
+      if (anchor != null && anchor !== "") {
+        if (!theoryAnchorId(anchor)) throw new Error(`${label}.settings.anchor: используйте латинские строчные буквы, цифры и дефис; начните с буквы (до 64 символов)`);
+        if (anchors.has(anchor)) throw new Error(`${label}.settings.anchor: повторяется метка раздела`);
+        anchors.add(anchor);
+      }
       validateData(normalized, label);
       flat.push({...normalized, path:indices});
       if (block.children !== undefined && !Array.isArray(block.children)) throw new Error(`${label}.children: ожидается список`);
@@ -85,13 +93,23 @@ export function parseTheoryEdit(source, expected) {
 
 export function editPackageBlock(value, id, patch, remove = false) {
   const next = clone(value);
-  const target = flattenEditPage(next.after).find((block) => block.id === id);
-  if (!target) throw new Error("Блок не найден в after");
-  let siblings = next.after.blocks;
-  for (const index of target.path.slice(0, -1)) siblings = siblings[index].children;
-  const index = target.path.at(-1);
-  if (remove) siblings.splice(index, 1);
-  else siblings[index] = {...siblings[index], id, ...patch};
+  // Inspector fields may temporarily be incomplete; keep them editable until
+  // validation succeeds again. Publication still requires parseTheoryEdit.
+  let count = 0;
+  function update(blocks) {
+    for (let index = 0; index < blocks.length; index++) {
+      count++;
+      const block = blocks[index], blockId = block.id || `new:auto:${count}`;
+      if (blockId === id) {
+        if (remove) blocks.splice(index, 1);
+        else blocks[index] = {...block, id, ...patch};
+        return true;
+      }
+      if (update(block.children || [])) return true;
+    }
+    return false;
+  }
+  if (!update(next.after.blocks)) throw new Error("Блок не найден в after");
   return next;
 }
 

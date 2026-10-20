@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from copy import deepcopy
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-BLOCK_TYPES = ("rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link")
+BLOCK_TYPES = ("rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link", "theory_link")
+ANCHOR = re.compile(r"[a-z][a-z0-9-]{0,63}")
 
 
 class StrictModel(BaseModel):
@@ -18,7 +20,7 @@ class StrictModel(BaseModel):
 
 class EditBlock(StrictModel):
     id: str | None = Field(default=None, min_length=1, max_length=96)
-    type: Literal["rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link"]
+    type: Literal["rich_text", "section", "callout", "example", "list", "table", "image", "video_embed", "practice_link", "theory_link"]
     data: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, Any] = Field(default_factory=dict)
     children: list[EditBlock] = Field(default_factory=list, max_length=2000)
@@ -46,6 +48,13 @@ class TheoryEditPackage(StrictModel):
 
 
 def validate_data(block_type: str, data: dict[str, Any]) -> None:
+    if block_type == "theory_link":
+        for key in ("taskNumber", "topicId"):
+            if type(data.get(key)) is not int or not 0 < data[key] <= 2**53 - 1:
+                raise ValueError(f"data.{key}: укажите положительное целое число")
+        anchor = data.get("anchor")
+        if anchor is not None and (not isinstance(anchor, str) or (anchor and not ANCHOR.fullmatch(anchor))):
+            raise ValueError("data.anchor: некорректная метка раздела")
     for key in ("markdown", "title", "url", "alt", "caption", "svg", "buttonLabel"):
         if key in data and not isinstance(data[key], str):
             raise ValueError(f"data.{key}: ожидается текст")
@@ -67,9 +76,21 @@ def validate_data(block_type: str, data: dict[str, Any]) -> None:
                 raise ValueError("Каждая строка таблицы должна содержать cells: [текст, ...]")
 
 
+def validate_anchor(settings: dict[str, Any], used: set[str]) -> None:
+    anchor = settings.get("anchor")
+    if anchor is None or anchor == "":
+        return
+    if not isinstance(anchor, str) or not ANCHOR.fullmatch(anchor):
+        raise ValueError("settings.anchor: латинские строчные буквы, цифры и дефис; начните с буквы (до 64 символов)")
+    if anchor in used:
+        raise ValueError("settings.anchor: повторяется метка раздела")
+    used.add(anchor)
+
+
 def flatten_page(page: EditPage) -> list[dict[str, Any]]:
     flat: list[dict[str, Any]] = []
     used: set[str] = set()
+    anchors: set[str] = set()
 
     def walk(blocks: list[EditBlock], parent: str | None, depth: int) -> None:
         if depth > 32:
@@ -82,6 +103,7 @@ def flatten_page(page: EditPage) -> list[dict[str, Any]]:
                 raise ValueError(f"Повторяется id блока: {block_id}")
             used.add(block_id)
             validate_data(block.type, block.data)
+            validate_anchor(block.settings, anchors)
             flat.append({
                 "client_id": block_id, "parent_client_id": parent, "block_type": block.type,
                 "data": deepcopy(block.data), "settings": deepcopy(block.settings), "sort_order": order,

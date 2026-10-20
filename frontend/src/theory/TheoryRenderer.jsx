@@ -1,11 +1,21 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "./theory.css";
 import { buildTheoryTree } from "./theoryTree";
+import { revealTheoryAnchor, theoryAnchorId, theoryHref } from "./theoryLinks";
 
-export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPracticeNavigate, onAuthorNoteChange }) {
+export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPracticeNavigate, onTheoryNavigate, onAuthorNoteChange, preview = false }) {
+  const article = useRef(null);
   const tree = useMemo(() => buildTheoryTree(document?.blocks || []), [document]);
+  useEffect(() => {
+    if (preview || onBlockClick) return undefined;
+    let frame;
+    const reveal = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => revealTheoryAnchor(article.current, window.location.hash)); };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("hashchange", reveal); };
+  }, [document, preview, onBlockClick]);
   return (
-    <article className="theory-document">
+    <article className="theory-document" ref={article}>
       {tree.map((block) => (
         <TheoryBlock
           key={block.id}
@@ -14,6 +24,8 @@ export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPrac
           onBlockClick={onBlockClick}
           selectedBlockId={selectedBlockId}
           onPracticeNavigate={onPracticeNavigate}
+          onTheoryNavigate={onTheoryNavigate}
+          preview={preview}
           onAuthorNoteChange={onAuthorNoteChange}
         />
       ))}
@@ -21,8 +33,9 @@ export function TheoryDocument({ document, onBlockClick, selectedBlockId, onPrac
   );
 }
 
-function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNavigate, onAuthorNoteChange }) {
+function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNavigate, onTheoryNavigate, onAuthorNoteChange, preview }) {
   const children = block.children || [];
+  const anchorId = !preview && !onBlockClick ? theoryAnchorId(block.settings?.anchor) : "";
   const markdown = block.data?.markdown || "";
   const click = (event) => {
     if (!onBlockClick) return;
@@ -58,12 +71,14 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
       <details
         className={`theory-section depth-${Math.min(depth, 3)} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`}
         data-theory-block-id={block.id}
+        id={anchorId || undefined}
+        tabIndex={anchorId ? -1 : undefined}
         onClick={click}
       >
         <summary><span><InlineMarkdown value={block.data?.title || "Подраздел"} /></span><i>+</i></summary>
         <div className="theory-section-content">
           {children.map((child) => (
-            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onAuthorNoteChange={onAuthorNoteChange} />
+            <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onTheoryNavigate={onTheoryNavigate} onAuthorNoteChange={onAuthorNoteChange} preview={preview} />
           ))}
         </div>
         {authorNote && <AuthorNote {...authorNoteProps} />}
@@ -94,6 +109,23 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
     content = <div className="table-scroll"><table className="theory-table">{hasHeader && <thead>{renderRow(rows[0], 0, true)}</thead>}<tbody>{rows.slice(hasHeader ? 1 : 0).map((row, index) => renderRow(row, index + (hasHeader ? 1 : 0)))}</tbody></table></div>;
   } else if (block.type === "video_embed" && block.data?.url) {
     content = <a className="video-link" href={safeUrl(block.data.url) || "#"} target="_blank" rel="noreferrer">Открыть видео <span>↗</span></a>;
+  } else if (block.type === "theory_link") {
+    const href = theoryHref(block.data);
+    const follow = (event) => {
+      if (preview || onBlockClick || !href) {
+        event.preventDefault(); event.stopPropagation(); onBlockClick?.(block.id);
+      } else if (onTheoryNavigate && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+        const target = new URL(href, window.location.origin);
+        if (target.pathname !== window.location.pathname || target.search !== window.location.search) {
+          event.preventDefault(); onTheoryNavigate(href);
+        }
+      }
+    };
+    content = <aside className="theory-link-card">
+      <span className="theory-link-kicker">Продолжение теории · задание {block.data?.taskNumber || "—"}</span>
+      <Markdown value={markdown} />
+      <a href={href || undefined} role={!href ? "link" : undefined} aria-disabled={!href || undefined} onClick={follow}>{block.data?.buttonLabel || "Продолжить тему"}<span aria-hidden="true">→</span></a>
+    </aside>;
   } else if (block.type === "practice_link") {
     const taskNumber = Number(block.data?.taskNumber);
     const exerciseSetId = Number(block.data?.exerciseSetId) || null;
@@ -125,12 +157,12 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
   }
 
   return (
-    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`} data-theory-block-id={block.id} onClick={click}>
+    <div className={`theory-block theory-block-${block.type} ${authorNote ? `has-author-note note-${notePlacement}` : ""} ${String(selectedBlockId) === String(block.id) ? "is-selected" : ""}`} data-theory-block-id={block.id} id={anchorId || undefined} tabIndex={anchorId ? -1 : undefined} onClick={click}>
       <div className="theory-block-main">
         <div className="theory-block-content">{content}</div>
         {authorNote && <AuthorNote {...authorNoteProps} />}
       </div>
-      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onAuthorNoteChange={onAuthorNoteChange} />)}</div>}
+      {children.length > 0 && <div className="theory-nested">{children.map((child) => <TheoryBlock key={child.id} block={child} depth={depth + 1} onBlockClick={onBlockClick} selectedBlockId={selectedBlockId} onPracticeNavigate={onPracticeNavigate} onTheoryNavigate={onTheoryNavigate} onAuthorNoteChange={onAuthorNoteChange} preview={preview} />)}</div>}
     </div>
   );
 }

@@ -41,6 +41,13 @@
 .theory-table thead th { background: var(--surface-soft); font-weight: 700; }
 .theory-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-soft) 46%, transparent); }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
+.theory-link-card { display: grid; gap: 10px; margin: 14px 0; padding: 16px; border: 1px solid color-mix(in srgb, var(--info, #79a8d8) 55%, var(--line)); border-radius: 12px; background: color-mix(in srgb, var(--info, #79a8d8) 7%, var(--surface)); overflow-wrap: anywhere; }
+.theory-link-kicker { color: var(--info, #79a8d8); font-size: 12px; font-weight: 700; }
+.theory-link-card .rich-text p { margin: 0; }
+.theory-link-card > a { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: var(--surface); text-decoration: none; font-weight: 700; }
+.theory-link-card > a:hover { border-color: var(--info, #79a8d8); }
+.theory-link-card > a:focus-visible { outline: 2px solid var(--info, #79a8d8); outline-offset: 3px; }
+.theory-block[id], .theory-section[id] { scroll-margin-top: 100px; }
 .practice-link-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px 12px; margin: 12px 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 .practice-link-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); }
 .practice-link-mark svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }

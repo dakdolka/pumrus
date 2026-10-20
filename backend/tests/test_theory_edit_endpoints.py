@@ -8,6 +8,7 @@ from app.api.v2 import admin_router
 from app.api.v2.theory_edit import TheoryEditPackage, make_package
 from app.infra.catalog.models import TopicBD
 from app.infra.content.models import TheoryDocumentBD
+from app.infra.content.models import TheoryBlockV2BD, TheoryDocumentVersionBD
 from tests.test_theory_edit import page
 
 
@@ -22,6 +23,53 @@ def complete(coroutine):
 
 
 class TheoryEditEndpointTests(unittest.TestCase):
+    def test_link_publication_keeps_labels_and_remaps_nested_block_ids(self):
+        document = TheoryDocumentBD(id=10, topic_id=9, published_version_id=20)
+        owner = TopicBD(id=9, course_version_id=1, title="Тема", code="test")
+        previous = TheoryDocumentVersionBD(id=20, status="published")
+        session = MagicMock()
+        session.scalar = AsyncMock(side_effect=[document, 19, 3])
+        session.get = AsyncMock(return_value=owner)
+        session.scalars = AsyncMock(return_value=SimpleNamespace(all=lambda: [previous]))
+        added = []
+        session.add.side_effect = added.append
+
+        async def flush():
+            for index, record in enumerate(added, start=100):
+                if record.id is None:
+                    record.id = index
+
+        session.flush = AsyncMock(side_effect=flush)
+        session.commit = AsyncMock()
+        payload = admin_router.LivePublishIn(title="Тема", owner_title="Тема", blocks=[
+            {"client_id": "section", "block_type": "section", "data": {"title": "Правило"}, "settings": {"anchor": "stable-label"}},
+            {"client_id": "link", "parent_client_id": "section", "block_type": "theory_link", "data": {"taskNumber": 11, "topicId": 19, "anchor": "i-y-suffix"}},
+        ])
+        with patch.object(admin_router, "_document_out", AsyncMock(return_value={"ok": True})):
+            saved = complete(admin_router.publish_live_document(10, payload, session))
+        self.assertTrue(saved["ok"])
+        blocks = [item for item in added if isinstance(item, TheoryBlockV2BD)]
+        self.assertEqual(blocks[0].settings["anchor"], "stable-label")
+        self.assertEqual(blocks[1].data["anchor"], "i-y-suffix")
+        self.assertEqual(blocks[1].parent_block_id, blocks[0].id)
+        self.assertEqual(previous.status, "archived")
+        session.commit.assert_awaited_once()
+
+    def test_missing_link_target_is_rejected_before_any_write(self):
+        document = TheoryDocumentBD(id=10, topic_id=9, published_version_id=20)
+        session = MagicMock()
+        session.scalar = AsyncMock(side_effect=[document, None])
+        payload = admin_router.LivePublishIn(title="Тема", owner_title="Тема", blocks=[{
+            "client_id": "new:link", "block_type": "theory_link", "data": {"taskNumber": 11, "topicId": 19},
+        }])
+        with self.assertRaises(HTTPException) as caught:
+            complete(admin_router.publish_live_document(10, payload, session))
+        self.assertEqual(caught.exception.status_code, 400)
+        self.assertIn("не найдена", caught.exception.detail)
+        session.add.assert_not_called()
+        session.commit.assert_not_called()
+        self.assertIn("exam_task.number", str(session.scalar.call_args_list[1].args[0]))
+
     def setup_case(self, *, version=20, draft=None):
         self.current = page()
         self.body = TheoryEditPackage.model_validate(make_package(10, 20, self.current))

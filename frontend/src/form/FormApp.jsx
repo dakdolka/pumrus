@@ -5,12 +5,14 @@ import BrandLogo from "../BrandLogo";
 import TheoryChangeDialog from "./TheoryChangeDialog";
 import FormattedText from "./FormattedText";
 import TableEditor from "./TableEditor";
+import TheoryLinkFields from "./TheoryLinkFields";
 import "./form.css";
 
 const BLOCK_TYPES = [
   ["rich_text", "Текст"], ["section", "Группа"], ["callout", "Выноска"],
   ["example", "Пример"], ["list", "Список"], ["table", "Таблица"],
   ["image", "Изображение"], ["video_embed", "Видео"], ["practice_link", "Ссылка на тренажёр"],
+  ["theory_link", "Продолжение теории"],
 ];
 const CALLOUTS = [
   ["note", "Примечание"], ["rule", "Правило"], ["warning", "Предупреждение"],
@@ -107,6 +109,7 @@ function defaultData(type, previous = {}, currentOwner = null, exerciseSets = []
   if (type === "table") return { rows: previous.rows || [{ cells: ["Ячейка"] }] };
   if (type === "image") return { url: previous.url || "", alt: previous.alt || "", caption: previous.caption || "" };
   if (type === "video_embed") return { url: previous.url || "" };
+  if (type === "theory_link") return { markdown, taskNumber:Number(previous.taskNumber) || null, topicId:Number(previous.topicId) || null, anchor:previous.anchor || "", buttonLabel:previous.buttonLabel || "Продолжить тему" };
   if (type === "practice_link") {
     const currentTaskNumber = Number(currentOwner?.taskNumber) || null;
     const matchingSets = exerciseSets.filter((item) => item.taskNumber === currentTaskNumber);
@@ -1115,7 +1118,7 @@ function PocketEditor() {
                 <div className="block-list">{tree.map((node) => <BlockNode key={node.id} node={node} depth={0} selectedId={selectedId} changedBlockIds={changedBlockIds} onSelect={setSelectedId} onDrag={setDraggedId} onDrop={dropAdjacent} onNest={nestInside} onAdd={addBlock} />)}</div>
               </div>
               {selectedBlock
-                ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={selected} />
+                ? <BlockInspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={selected} catalog={catalog} />
                 : <aside className="inspector inspector-empty"><span className="overline">Редактор блока</span><p>Выберите блок или добавьте новый.</p></aside>}
             </div>
           </section>
@@ -1123,7 +1126,7 @@ function PocketEditor() {
         </>}
       </main>
     </div>
-    {changesOpen && document && <TheoryChangeDialog key={document.id} documentId={document.id} owner={selected} exerciseSets={exerciseSets} api={adminApi} inspector={BlockInspector} localDirty={dirty} onApplied={appliedPackage} onClose={() => setChangesOpen(false)} />}
+    {changesOpen && document && <TheoryChangeDialog key={document.id} documentId={document.id} owner={selected} exerciseSets={exerciseSets} catalog={catalog} api={adminApi} inspector={BlockInspector} localDirty={dirty} onApplied={appliedPackage} onClose={() => setChangesOpen(false)} />}
     {notice && <div className="toast">{notice}</div>}{error && <button className="global-error" onClick={() => setError("")}>{error}</button>}
   </div>;
 }
@@ -1170,7 +1173,7 @@ function BlockNode({ node, depth, selectedId, changedBlockIds, onSelect, onDrag,
   </div>;
 }
 
-function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
+function BlockInspector({ block, update, remove, exerciseSets, currentOwner, catalog }) {
   const editorRef = useRef(null);
   const setData = (patch) => update(block.id, { data: { ...(block.data || {}), ...patch } });
   function changeType(type) { update(block.id, { type, data: defaultData(type, block.data, currentOwner, exerciseSets) }); }
@@ -1180,7 +1183,8 @@ function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
   }, [block.id]);
   return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
     <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
-    <BlockFields block={block} setData={setData} update={update} exerciseSets={exerciseSets} currentOwner={currentOwner} />
+    <BlockFields block={block} setData={setData} update={update} exerciseSets={exerciseSets} currentOwner={currentOwner} catalog={catalog} />
+    <details className="inspector-extra"><summary>Метка для ссылки{block.settings?.anchor ? ` · ${block.settings.anchor}` : ""}</summary><label>Метка раздела<input value={block.settings?.anchor || ""} onChange={(event) => update(block.id, {settings:{...block.settings, anchor:event.target.value}})} placeholder="Например: i-y-suffix" /></label><small>От 1 до 64 символов: латинские строчные буквы, цифры и дефис; первый символ — буква. Метка должна быть уникальной в теме.</small></details>
     <details className="inspector-extra"><summary>Авторская пометка{block.settings?.authorNote ? " · добавлена" : ""}</summary><AuthorNoteEditor block={block} update={update} /></details>
   </aside>;
 }
@@ -1220,7 +1224,8 @@ function boundedNumber(value, fallback, min, max) {
     : fallback;
 }
 
-function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
+function BlockFields({ block, setData, update, exerciseSets, currentOwner, catalog }) {
+  if (block.type === "theory_link") return <TheoryLinkFields data={block.data || {}} setData={setData} catalog={catalog} />;
   if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<FormattedText label="Содержание" value={block.data?.markdown || ""} onChange={(value) => setData({markdown:value})} placeholder="Напишите текст. Для оформления выделите слова и нажмите кнопку выше." />{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
   if (block.type === "section") return <FormattedText label="Название группы" value={block.data?.title || ""} onChange={(value) => setData({title:value})} singleLine compact />;
   if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><FormattedText label="Пункты · один на строку" value={(block.data?.items || []).map((item) => item?.text ?? item).join("\n")} onChange={(value) => setData({items:value.split("\n").map((text, index) => {const previous = block.data?.items?.[index]; return previous && typeof previous === "object" ? {...previous, text} : text;})})} compact lineTools={false} /></>;

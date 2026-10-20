@@ -3,13 +3,15 @@ import { TheoryDocument } from "../theory/TheoryRenderer";
 import { editPackageBlock, parseTheoryEdit, prettyPackage } from "./theoryEdit";
 import "./theoryChanges.css";
 
-export default function TheoryChangeDialog({ documentId, owner, exerciseSets, api, inspector, onApplied, onClose, localDirty }) {
+export default function TheoryChangeDialog({ documentId, owner, exerciseSets, catalog, api, inspector, onApplied, onClose, localDirty }) {
   const Inspector = inspector;
   const dialog = useRef(null);
   const [source, setSource] = useState("");
   const [expected, setExpected] = useState(null);
   const [examples, setExamples] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [inspectorDraft, setInspectorDraft] = useState(null);
+  const [lastPreview, setLastPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +25,8 @@ export default function TheoryChangeDialog({ documentId, owner, exerciseSets, ap
     catch (reason) { return {result:null, error:reason.message}; }
   }, [source, expected]);
   const result = parsed.result;
-  const selectedBlock = result?.blocks.find((block) => block.id === selectedId);
+  const previewResult = result || (selectedId ? lastPreview : null);
+  const selectedBlock = result?.blocks.find((block) => block.id === selectedId) || (inspectorDraft?.id === selectedId ? inspectorDraft : null);
 
   useEffect(() => {
     dialog.current.showModal();
@@ -82,13 +85,16 @@ export default function TheoryChangeDialog({ documentId, owner, exerciseSets, ap
     field.scrollLeft = 0;
   }
   function updateBlock(id, patch) {
-    if (!result) return;
-    setSource(prettyPackage(editPackageBlock(result.package, id, patch)));
-    setError("");
+    if (result) setLastPreview(result);
+    try {
+      const block = result?.blocks.find((item) => item.id === id) || inspectorDraft;
+      setInspectorDraft({...block, ...patch});
+      setSource(prettyPackage(editPackageBlock(result?.package || JSON.parse(source), id, patch)));
+      setError("");
+    } catch (reason) { setError(reason.message); }
   }
   function removeBlock(id) {
-    if (!result) return;
-    setSource(prettyPackage(editPackageBlock(result.package, id, {}, true)));
+    setSource(prettyPackage(editPackageBlock(result?.package || JSON.parse(source), id, {}, true)));
     setSelectedId(null);
   }
   function close() {
@@ -118,8 +124,8 @@ export default function TheoryChangeDialog({ documentId, owner, exerciseSets, ap
       <header className="change-page-label"><strong>{after ? "После" : "До"}</strong><span>{after ? "Нажмите на блок, чтобы отредактировать" : "Текущая опубликованная версия"}</span></header>
       <div className="change-page-scroll"><div className="preview-device">
         <header><span>Задание {owner.taskNumber}</span><h1>{value.ownerTitle}</h1>{value.description && <p>{value.description}</p>}</header>
-        <TheoryDocument document={{blocks}} selectedBlockId={after ? selectedId : null} onBlockClick={after && !busy && !loading ? (id) => setSelectedId(String(id)) : undefined}
-          onAuthorNoteChange={after && !busy && !loading ? (id, patch) => { const block = result.blocks.find((b) => b.id === String(id)); if (block) updateBlock(String(id), {settings:{...block.settings, ...patch}}); } : undefined} />
+        <TheoryDocument preview document={{blocks}} selectedBlockId={after ? selectedId : null} onBlockClick={after && !busy && !loading ? (id) => setSelectedId(String(id)) : undefined}
+          onAuthorNoteChange={after && !busy && !loading ? (id, patch) => { const block = previewResult.blocks.find((b) => b.id === String(id)); if (block) updateBlock(String(id), {settings:{...block.settings, ...patch}}); } : undefined} />
       </div></div>
     </section>;
   }
@@ -136,10 +142,11 @@ export default function TheoryChangeDialog({ documentId, owner, exerciseSets, ap
       {(parsed.error || error) && <p className="change-error" role="alert">{parsed.error || error}</p>}
       {notice && <p role="status">{notice}</p>}
       {localDirty && <p className="change-error">В обычном редакторе есть неопубликованные изменения. Опубликуйте их перед применением пакета, затем экспортируйте тему заново.</p>}
-      {result && <div className={`change-preview-layout ${selectedBlock ? "has-inspector" : ""}`}>
-        {page(result.package.before, result.before.blocks, false)}
-        {page(result.package.after, result.after.blocks, true)}
-        {selectedBlock && <section className="change-inspector" aria-label="Редактирование блока результата"><button className="button" onClick={() => setSelectedId(null)}>Завершить правку блока</button><fieldset disabled={busy || loading}><Inspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={owner} /></fieldset></section>}
+      {!result && previewResult && <p role="status">Предпросмотр показывает последнюю корректную версию. Исправьте поле блока — применение станет доступно.</p>}
+      {previewResult && <div className={`change-preview-layout ${selectedBlock ? "has-inspector" : ""}`}>
+        {page(previewResult.package.before, previewResult.before.blocks, false)}
+        {page(previewResult.package.after, previewResult.after.blocks, true)}
+        {selectedBlock && <section className="change-inspector" aria-label="Редактирование блока результата"><button className="button" onClick={() => setSelectedId(null)}>Завершить правку блока</button><fieldset disabled={busy || loading}><Inspector key={selectedBlock.id} block={selectedBlock} update={updateBlock} remove={removeBlock} exerciseSets={exerciseSets} currentOwner={owner} catalog={catalog} /></fieldset></section>}
       </div>}
     </div>
     <footer className="change-dialog-footer"><p>{result?.changed ? "Будет создана новая опубликованная версия. Предыдущая сохранится в истории." : "Измените after или вставьте подготовленный пакет."}</p><button className="button primary" disabled={busy || loading || !result?.changed || !result.after.blocks.length || localDirty} onClick={apply}>{busy ? "Применяем…" : "Применить изменения"}</button></footer>
