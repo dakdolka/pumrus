@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     WEB_APP_URL: str
     API_URL: str
     TG_PROXY: str | None = None
+    REMINDERS_ENABLED: bool = True
 
     BOT_MODE: Literal["polling", "webhook"] = "polling"
     WEBHOOK_BASE_URL: str | None = None

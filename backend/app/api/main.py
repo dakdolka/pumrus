@@ -20,6 +20,7 @@ from app.core.rate_limit import RateLimitMiddleware
 from app.core.config import settings
 from app.core.db import async_engine
 from app.core.payment_worker import payment_worker
+from app.api.v2.planner_router import router as planner_router, internal_router as reminder_internal_router
 
 
 @asynccontextmanager
@@ -53,6 +54,8 @@ app.include_router(v2_admin_router)
 app.include_router(v2_monetization_admin_router)
 app.include_router(v2_payments_router)
 app.include_router(v2_internal_router)
+app.include_router(planner_router)
+app.include_router(reminder_internal_router)
 app.include_router(v2_operations_public_router)
 app.include_router(v2_operations_admin_router)
 

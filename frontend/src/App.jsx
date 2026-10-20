@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./app.css";
 import { TheoryDocument } from "./theory/TheoryRenderer";
 import BrandLogo from "./BrandLogo";
+import Planner from "./planner/Planner";
 
 
 async function api(path, options = {}) {
@@ -15,7 +16,10 @@ async function api(path, options = {}) {
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.detail || "Не удалось выполнить запрос");
+    const detail = payload?.detail;
+    throw new Error(Array.isArray(detail)
+      ? detail.map((item) => item.msg).join(". ")
+      : detail || "Не удалось выполнить запрос");
   }
   return response.json();
 }
@@ -27,6 +31,18 @@ function requestIdentityHeaders() {
     ...(telegramInitData ? { "X-Telegram-Init-Data": telegramInitData } : {}),
     "X-Client-Session-Id": practiceClientId(),
   };
+}
+
+
+let telegramAuthPromise;
+function authenticateTelegram() {
+  if (!telegramAuthPromise) {
+    telegramAuthPromise = api("/v2/auth/telegram", { method: "POST" }).catch((error) => {
+      telegramAuthPromise = null;
+      throw error;
+    });
+  }
+  return telegramAuthPromise;
 }
 
 
@@ -265,6 +281,7 @@ function AppIcon({ type }) {
     check: "m5 12 4 4L19 6",
     home: "M3.5 11.2 12 4l8.5 7.2M5.5 9.7V20h13V9.7M9.5 20v-6h5v6",
     bookmark: "M7 3.5h10v17L12 17l-5 3.5v-17Z",
+    calendar: "M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm2-2v4m10-4v4M4 10h16M8 14h2m4 0h2m-8 3h2",
   };
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -315,6 +332,9 @@ function Shell({ children, breadcrumbs = [], contextAction, navigate }) {
       <header className="topbar">
         <button className="brand" onClick={() => navigate("/")} aria-label="На главную">
           <BrandLogo />
+        </button>
+        <button className="planner-nav-link" onClick={() => navigate("/planner")} aria-label="Мой план и напоминания">
+          <AppIcon type="calendar" /><span>Мой план</span>
         </button>
       </header>
 
@@ -430,6 +450,9 @@ function Home({ navigate }) {
             <i><AppIcon type="arrow" /></i>
           </button>
         </div>
+        <button className="planner-home-link" onClick={() => navigate("/planner")}>
+          <AppIcon type="calendar" /><span><strong>Мой план</strong><small>Расписание занятий и напоминания</small></span><AppIcon type="arrow" />
+        </button>
       </section>
       <AppFooter config={config} />
       </div>
@@ -681,6 +704,16 @@ function topicWord(count) {
 }
 
 
+function RemindButton({ navigate, taskNumber, topicId, activity = "theory", title }) {
+  return <button className="planner-context-button" onClick={() => {
+    const query = new URLSearchParams({ new: "1", activity, title });
+    if (taskNumber) query.set("task", taskNumber);
+    if (topicId) query.set("topic", topicId);
+    navigate(`/planner?${query}`);
+  }}><AppIcon type="calendar" />Напомнить о занятии</button>;
+}
+
+
 function TaskTheory({ taskNumber, navigate, userId }) {
   const state = useRemote(
     () => api(`/v2/catalog/tasks/${taskNumber}`),
@@ -708,6 +741,7 @@ function TaskTheory({ taskNumber, navigate, userId }) {
             <p className="eyebrow">Задание {taskNumber}</p>
             <h1>{state.data.title}</h1>
             {state.data.shortDescription && <p>{state.data.shortDescription}</p>}
+            <RemindButton navigate={navigate} taskNumber={taskNumber} title={`Теория · задание ${taskNumber}: ${state.data.title}`} />
           </section>
           {state.data.theory && <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />}
           <section className="section-block">
@@ -773,6 +807,7 @@ function TopicTheory({ taskNumber, topicId, navigate, userId }) {
           <section className="page-head topic-head">
             <p className="eyebrow">Задание {taskNumber} · тема</p>
             <h1>{state.data.title}</h1>
+            <RemindButton navigate={navigate} taskNumber={taskNumber} topicId={topicId} title={state.data.title} />
           </section>
           {state.data.theory
             ? <TheoryDocument document={state.data.theory} onPracticeNavigate={(targetTaskNumber, exerciseSetId) => openRelatedPractice(targetTaskNumber, navigate, exerciseSetId, userId)} />
@@ -865,6 +900,7 @@ function PracticeTask({ taskNumber, navigate, userId }) {
             <p className="eyebrow">Практика · задание {taskNumber}</p>
             <h1>{state.data.task.title}</h1>
             <p>Выберите всё задание или конкретную тему. Сначала попадутся упражнения, которые вы ещё не решали.</p>
+            <RemindButton navigate={navigate} taskNumber={taskNumber} topicId={topicId} activity="practice" title={`Практика · задание ${taskNumber}`} />
           </section>
           <section className="set-list">
             {state.data.sets.length ? [...state.data.sets]
@@ -970,6 +1006,7 @@ function MistakesPractice({ navigate, userId }) {
       <section className="page-head task-head">
         <p className="eyebrow">Практика</p>
         <h1>Отработать ошибки</h1>
+        <RemindButton navigate={navigate} activity="mistakes" title="Повторить ошибки" />
         <p>Здесь хранится ваша очередь повторения. Закрепите сложное слово, чтобы оно не исчезло после успешной тренировки.</p>
         {userId && <button className="mistake-manage-button" onClick={() => setManaging((value) => !value)}>{managing ? "Скрыть список" : "Управлять списком"}</button>}
       </section>
@@ -1819,6 +1856,7 @@ function PaymentReturn({ navigate }) {
 function resolveRoute(path) {
   let match;
   if (path === "/") return { screen: "home" };
+  if (path === "/planner") return { screen: "planner" };
   if (path === "/theory") return { screen: "catalog", mode: "theory" };
   if (path === "/theory/deprecated") return { screen: "deprecatedTheory" };
   if (path === "/practice") return { screen: "catalog", mode: "practice" };
@@ -1883,7 +1921,7 @@ export default function App() {
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (!tg?.initData) return;
-    api("/v2/auth/telegram", { method: "POST" }).then((payload) => {
+    authenticateTelegram().then((payload) => {
       const id = Number(payload.id);
       if (!Number.isInteger(id) || id <= 0) return;
       sessionStorage.setItem("umrus:user-id", String(id));
@@ -1892,6 +1930,7 @@ export default function App() {
   }, []);
 
   if (route.screen === "home") return <Home navigate={navigate} />;
+  if (route.screen === "planner") return <Planner api={api} authenticate={authenticateTelegram} navigate={navigate} Shell={Shell} Loading={Loading} ErrorState={ErrorState} />;
   if (route.screen === "catalog") {
     return <TaskCatalog mode={route.mode} navigate={navigate} userId={userId} />;
   }

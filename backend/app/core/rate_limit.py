@@ -25,6 +25,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return "auth", 30, 60
         if "/v2/payments/checkout" in path:
             return "checkout", 20, 60
+        if "/v2/planner" in path:
+            return "planner", 120, 60
         if "/attempts" in path:
             return "attempt", 240, 60
         return None

@@ -130,6 +130,7 @@ services:
       - API_URL=http://backend:8000/api
       - BACKEND_INTERNAL_TOKEN=${BACKEND_INTERNAL_TOKEN:-}
       - TG_PROXY=${TG_PROXY}
+      - REMINDERS_ENABLED=${REMINDERS_ENABLED:-true}
       - BOT_MODE=${BOT_MODE:-polling}
       - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/telegram/webhook}

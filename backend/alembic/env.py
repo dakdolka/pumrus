@@ -25,6 +25,7 @@ import app.infra.exercises
 import app.infra.practice
 import app.infra.monetization
 import app.infra.system
+import app.infra.planner
 
 target_metadata = Base.metadata
 
