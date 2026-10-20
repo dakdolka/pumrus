@@ -37,9 +37,9 @@
 .theory-list li + li { margin-top: 4px; }
 .table-scroll { margin: 10px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
 .table-scroll table { width: 100%; border-collapse: collapse; }
-.table-scroll td { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; }
-.table-scroll tr:first-child td { background: var(--surface-soft); font-weight: 700; }
-.table-scroll tr:nth-child(even):not(:first-child) td { background: color-mix(in srgb, var(--surface-soft) 46%, transparent); }
+.table-scroll td, .table-scroll th { padding: 9px 11px; border: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.theory-table thead th { background: var(--surface-soft); font-weight: 700; }
+.theory-table tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-soft) 46%, transparent); }
 .video-link { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); text-decoration: none; }
 .practice-link-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px 12px; margin: 12px 0; padding: 13px 14px; border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 .practice-link-mark { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); color: var(--accent); }
@@ -84,32 +84,32 @@
   .theory-block.note-left-tilted > .theory-block-main > .author-note { left: -30px; padding-left: 9px; }
   .theory-block.note-right-tilted > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 142px; }
   .theory-block.note-left-tilted > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 142px; }
-  .theory-block.note-right-tilted > .theory-block-main > .theory-block-content > .table-scroll td:last-child { padding-right: 142px; }
-  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content > .table-scroll td:first-child { padding-left: 142px; }
+  .theory-block.note-right-tilted > .theory-block-main > .theory-block-content > .table-scroll :is(td, th):last-child { padding-right: 142px; }
+  .theory-block.note-left-tilted > .theory-block-main > .theory-block-content > .table-scroll :is(td, th):first-child { padding-left: 142px; }
   .theory-block.note-vertical-right > .theory-block-main > .author-note,
   .theory-block.note-vertical-left > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 7px; bottom: 7px; width: 34px; margin: 0; padding-inline: 5px; justify-content: flex-start; border-inline-start: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); writing-mode: vertical-rl; }
   .theory-block.note-vertical-right > .theory-block-main > .author-note { right: 2px; }
   .theory-block.note-vertical-left > .theory-block-main > .author-note { left: 2px; border-inline-start: 0; border-inline-end: 1px solid color-mix(in srgb, var(--note-color) 44%, transparent); transform: rotate(180deg); }
   .theory-block.note-vertical-right > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 46px; }
   .theory-block.note-vertical-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 46px; }
-  .theory-block.note-vertical-right > .theory-block-main > .theory-block-content > .table-scroll td:last-child { padding-right: 46px; }
-  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content > .table-scroll td:first-child { padding-left: 46px; }
+  .theory-block.note-vertical-right > .theory-block-main > .theory-block-content > .table-scroll :is(td, th):last-child { padding-right: 46px; }
+  .theory-block.note-vertical-left > .theory-block-main > .theory-block-content > .table-scroll :is(td, th):first-child { padding-left: 46px; }
   .theory-block.note-top-right > .theory-block-main > .author-note,
   .theory-block.note-top-left > .theory-block-main > .author-note { position: absolute; z-index: 2; top: 1px; width: min(46%, 260px); margin: 0; }
   .theory-block.note-top-right > .theory-block-main > .author-note { top: -14px; right: -18px; text-align: right; }
   .theory-block.note-top-left > .theory-block-main > .author-note { top: -14px; left: -18px; }
   .theory-block.note-top-right > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 142px; }
   .theory-block.note-top-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 142px; }
-  .theory-block.note-top-right > .theory-block-main > .theory-block-content > .table-scroll tr:first-child td:last-child { padding-right: 142px; }
-  .theory-block.note-top-left > .theory-block-main > .theory-block-content > .table-scroll tr:first-child td:first-child { padding-left: 142px; }
+  .theory-block.note-top-right > .theory-block-main > .theory-block-content > .table-scroll table > :first-child > tr:first-child > :is(td, th):last-child { padding-right: 142px; }
+  .theory-block.note-top-left > .theory-block-main > .theory-block-content > .table-scroll table > :first-child > tr:first-child > :is(td, th):first-child { padding-left: 142px; }
   .theory-block.note-below-right > .theory-block-main > .author-note,
   .theory-block.note-below-left > .theory-block-main > .author-note { position: absolute; z-index: 2; bottom: -14px; width: min(46%, 260px); margin: 0; }
   .theory-block.note-below-right > .theory-block-main > .author-note { right: -18px; text-align: right; }
   .theory-block.note-below-left > .theory-block-main > .author-note { left: -18px; }
   .theory-block.note-below-right > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-right: 142px; }
   .theory-block.note-below-left > .theory-block-main > .theory-block-content > :where(.rich-text, .callout, .example-block, .theory-list, .video-link) { padding-left: 142px; }
-  .theory-block.note-below-right > .theory-block-main > .theory-block-content > .table-scroll tr:last-child td:last-child { padding-right: 142px; }
-  .theory-block.note-below-left > .theory-block-main > .theory-block-content > .table-scroll tr:last-child td:first-child { padding-left: 142px; }
+  .theory-block.note-below-right > .theory-block-main > .theory-block-content > .table-scroll table > :last-child > tr:last-child > :is(td, th):last-child { padding-right: 142px; }
+  .theory-block.note-below-left > .theory-block-main > .theory-block-content > .table-scroll table > :last-child > tr:last-child > :is(td, th):first-child { padding-left: 142px; }
   .theory-block-table.note-right-tilted > .theory-block-main > .author-note { right: 18px; }
   .theory-block-table.note-left-tilted > .theory-block-main > .author-note { left: 18px; }
   .theory-block-table.note-top-right > .theory-block-main > .author-note { top: 8px; right: 18px; }

@@ -3,6 +3,8 @@ import { TheoryDocument } from "../theory/TheoryRenderer";
 import { buildTheoryTree } from "../theory/theoryTree";
 import BrandLogo from "../BrandLogo";
 import TheoryChangeDialog from "./TheoryChangeDialog";
+import FormattedText from "./FormattedText";
+import TableEditor from "./TableEditor";
 import "./form.css";
 
 const BLOCK_TYPES = [
@@ -1179,7 +1181,7 @@ function BlockInspector({ block, update, remove, exerciseSets, currentOwner }) {
   return <aside className="inspector" ref={editorRef}><div className="inspector-head"><div><span className="overline">Редактор блока</span><h2>{label(block.type)}</h2></div><button className="danger" onClick={() => remove(block.id)}>Удалить</button></div>
     <label>Тип<select value={block.type} onChange={(e) => changeType(e.target.value)}>{BLOCK_TYPES.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
     <BlockFields block={block} setData={setData} update={update} exerciseSets={exerciseSets} currentOwner={currentOwner} />
-    <AuthorNoteEditor block={block} update={update} />
+    <details className="inspector-extra"><summary>Авторская пометка{block.settings?.authorNote ? " · добавлена" : ""}</summary><AuthorNoteEditor block={block} update={update} /></details>
   </aside>;
 }
 
@@ -1192,7 +1194,7 @@ function AuthorNoteEditor({ block, update }) {
   const patchSettings = (patch) => update(block.id, { settings: { ...settings, authorNotePlacement: "free", ...patch } });
   return <fieldset className="author-note-editor">
     <legend>Авторская пометка</legend>
-    <label>Текст · Markdown<input value={settings.authorNote || ""} onChange={(event) => patchSettings({ authorNote: event.target.value })} placeholder="Самое противное · Лайфхак · Запомни" /></label>
+    <FormattedText label="Текст пометки" value={settings.authorNote || ""} onChange={(value) => patchSettings({authorNote:value})} compact singleLine placeholder="Лайфхак · Запомни" />
     <div className="author-note-controls">
       <label>Цвет<select value={settings.authorNoteColor || "note"} onChange={(event) => patchSettings({ authorNoteColor: event.target.value })}><option value="note">Синий</option><option value="rule">Зелёный</option><option value="warning">Красный</option><option value="important">Жёлтый</option><option value="tip">Фиолетовый</option></select></label>
     </div>
@@ -1219,38 +1221,13 @@ function boundedNumber(value, fallback, min, max) {
 }
 
 function BlockFields({ block, setData, update, exerciseSets, currentOwner }) {
-  if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<label>Содержание · Markdown<textarea className="markdown-editor" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="**Жирный**, *курсив*, списки, ссылки…" /></label>{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
-  if (block.type === "section") return <label>Название группы · Markdown<input value={block.data?.title || ""} onChange={(e) => setData({ title: e.target.value })} /></label>;
-  if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><label>Пункты · один на строку<textarea className="markdown-editor short" value={(block.data?.items || []).map((item) => item?.text || item).join("\n")} onChange={(e) => setData({ items: e.target.value.split("\n") })} /></label></>;
-  if (block.type === "table") {
-    const value = serializeTable(block.data?.rows || []);
-    const change = (nextValue) => setData({ rows: parseTable(nextValue) });
-    const handleKeyDown = (event) => {
-      if (event.key !== "Enter" || !event.shiftKey) return;
-      event.preventDefault();
-      const field = event.currentTarget;
-      const start = field.selectionStart;
-      const end = field.selectionEnd;
-      const nextValue = `${value.slice(0, start)}\\n${value.slice(end)}`;
-      change(nextValue);
-      requestAnimationFrame(() => field.setSelectionRange(start + 2, start + 2));
-    };
-    return <label>Таблица · Enter — новая строка, Shift+Enter — перенос в ячейке, ячейки через |<textarea className="markdown-editor short" value={value} onChange={(event) => change(event.target.value)} onKeyDown={handleKeyDown} /></label>;
-  }
+  if (["rich_text", "callout", "example"].includes(block.type)) return <>{block.type === "callout" && <label>Вид<select value={block.data?.variant || "note"} onChange={(e) => setData({ variant: e.target.value })}>{CALLOUTS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>}<FormattedText label="Содержание" value={block.data?.markdown || ""} onChange={(value) => setData({markdown:value})} placeholder="Напишите текст. Для оформления выделите слова и нажмите кнопку выше." />{block.type === "rich_text" && <label>Стиль<select value={block.settings?.variant || "paragraph"} onChange={(e) => update(block.id, { settings: { ...(block.settings || {}), variant: e.target.value } })}><option value="paragraph">Обычный текст</option><option value="heading_1">Заголовок</option><option value="heading_2">Подзаголовок</option></select></label>}</>;
+  if (block.type === "section") return <FormattedText label="Название группы" value={block.data?.title || ""} onChange={(value) => setData({title:value})} singleLine compact />;
+  if (block.type === "list") return <><label>Вид<select value={block.data?.style || "unordered"} onChange={(e) => setData({ style: e.target.value })}><option value="unordered">Маркированный</option><option value="ordered">Нумерованный</option></select></label><FormattedText label="Пункты · один на строку" value={(block.data?.items || []).map((item) => item?.text ?? item).join("\n")} onChange={(value) => setData({items:value.split("\n").map((text, index) => {const previous = block.data?.items?.[index]; return previous && typeof previous === "object" ? {...previous, text} : text;})})} compact lineTools={false} /></>;
+  if (block.type === "table") return <TableEditor rows={block.data?.rows || []} settings={block.settings || {}} onChange={(rows, settingsPatch) => update(block.id, {data:{...block.data, rows}, ...(settingsPatch ? {settings:{...block.settings, ...settingsPatch}} : {})})} />;
   if (block.type === "image") return <div className="field-stack"><label>Ссылка<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label><label className="inline-upload button">Загрузить изображение<input hidden type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={async (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (!file) return; try { const data = new FormData(); data.append("file", file); const uploaded = await adminApi("/operations/media", { method: "POST", body: data }); setData({ url: uploaded.url, alt: block.data?.alt || file.name.replace(/\.[^.]+$/, "") }); } catch (reason) { window.alert(reason.message); } }} /></label><label>Описание для доступности<input value={block.data?.alt || ""} onChange={(e) => setData({ alt: e.target.value })} /></label><label>Подпись · Markdown<input value={block.data?.caption || ""} onChange={(e) => setData({ caption: e.target.value })} /></label></div>;
-  if (block.type === "practice_link") return <div className="field-stack"><label>Текст · Markdown<textarea className="markdown-editor short" value={block.data?.markdown || ""} onChange={(e) => setData({ markdown: e.target.value })} placeholder="А это лучше отработать в нашем тренажёре" /></label><label>Связанный тренажёр<select value={Number(block.data?.exerciseSetId) || ""} onChange={(e) => { const selectedSet = exerciseSets.find((item) => item.id === Number(e.target.value)); setData({ exerciseSetId: selectedSet?.id || null, taskNumber: selectedSet?.taskNumber || Number(currentOwner?.taskNumber) || null }); }}><option value="">Автоматически · задание {block.data?.taskNumber || currentOwner?.taskNumber}</option>{exerciseSets.map((item) => <option key={item.id} value={item.id}>Задание {item.taskNumber} · {item.title}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</option>)}</select></label><label>Текст кнопки<input value={block.data?.buttonLabel || ""} onChange={(e) => setData({ buttonLabel: e.target.value })} placeholder="Перейти к тренажёру" /></label></div>;
+  if (block.type === "practice_link") return <div className="field-stack"><FormattedText label="Текст ссылки на тренажёр" value={block.data?.markdown || ""} onChange={(value) => setData({markdown:value})} compact placeholder="А это лучше отработать в нашем тренажёре" /><label>Связанный тренажёр<select value={Number(block.data?.exerciseSetId) || ""} onChange={(e) => { const selectedSet = exerciseSets.find((item) => item.id === Number(e.target.value)); setData({ exerciseSetId: selectedSet?.id || null, taskNumber: selectedSet?.taskNumber || Number(currentOwner?.taskNumber) || null }); }}><option value="">Автоматически · задание {block.data?.taskNumber || currentOwner?.taskNumber}</option>{exerciseSets.map((item) => <option key={item.id} value={item.id}>Задание {item.taskNumber} · {item.title}{item.topicTitle ? ` · ${item.topicTitle}` : ""}</option>)}</select></label><label>Текст кнопки<input value={block.data?.buttonLabel || ""} onChange={(e) => setData({ buttonLabel: e.target.value })} placeholder="Перейти к тренажёру" /></label></div>;
   return <label>Ссылка на видео<input value={block.data?.url || ""} onChange={(e) => setData({ url: e.target.value })} /></label>;
-}
-function serializeTable(rows) {
-  return rows.map((row) => (row?.cells || row || [])
-    .map((cell) => String(cell?.text ?? cell ?? "").replace(/\n/g, "\\n"))
-    .join(" | "))
-    .join("\n");
-}
-function parseTable(value) {
-  return value.split("\n").map((row) => ({
-    cells: row.split("|").map((cell) => cell.trim().replace(/\\n/g, "\n")),
-  }));
 }
 function label(type) { return BLOCK_TYPES.find(([value]) => value === type)?.[1] || type; }
 function excerpt(block) {

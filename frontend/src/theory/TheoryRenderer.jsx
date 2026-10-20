@@ -85,7 +85,13 @@ function TheoryBlock({ block, depth, onBlockClick, selectedBlockId, onPracticeNa
     const Tag = block.data?.style === "ordered" ? "ol" : "ul";
     content = <Tag className="theory-list">{(block.data?.items || []).map((item, index) => <li key={index}><InlineMarkdown value={String(item?.text || item)} /></li>)}</Tag>;
   } else if (block.type === "table") {
-    content = <div className="table-scroll"><table><tbody>{(block.data?.rows || []).map((row, rowIndex) => <tr key={rowIndex}>{(row?.cells || row || []).map((cell, cellIndex) => <td key={cellIndex}><InlineMarkdown value={String(cell?.text || cell || "")} /></td>)}</tr>)}</tbody></table></div>;
+    const rows = block.data?.rows || [];
+    const hasHeader = block.settings?.tableHeader !== false && rows.length > 0;
+    const renderRow = (row, rowIndex, header = false) => {
+      const Cell = header ? "th" : "td";
+      return <tr key={rowIndex}>{(row?.cells || row || []).map((cell, cellIndex) => <Cell key={cellIndex} scope={header ? "col" : undefined} style={{textAlign:block.settings?.columnAlign?.[cellIndex] || "left"}}><InlineMarkdown value={String(cell?.text ?? cell ?? "")} /></Cell>)}</tr>;
+    };
+    content = <div className="table-scroll"><table className="theory-table">{hasHeader && <thead>{renderRow(rows[0], 0, true)}</thead>}<tbody>{rows.slice(hasHeader ? 1 : 0).map((row, index) => renderRow(row, index + (hasHeader ? 1 : 0)))}</tbody></table></div>;
   } else if (block.type === "video_embed" && block.data?.url) {
     content = <a className="video-link" href={safeUrl(block.data.url) || "#"} target="_blank" rel="noreferrer">Открыть видео <span>↗</span></a>;
   } else if (block.type === "practice_link") {
@@ -284,18 +290,22 @@ export function Markdown({ value }) {
   return <div className="rich-text">{nodes}</div>;
 }
 
-export function InlineMarkdown({ value }) {
-  const parts = String(value || "").split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|~~[^~]+~~|`[^`]+`|\*[^*\n]+\*)/g);
-  return parts.filter(Boolean).map((part, index) => {
+export function InlineMarkdown({ value, depth = 0 }) {
+  if (depth > 12) return String(value || "");
+  const parts = String(value ?? "").split(/(\[[^\]]+\]\([^)]+\)|\*\*\*[\s\S]+?\*\*\*|\*\*(?:(?!\*\*(?!\*))[\s\S])+?\*\*(?!\*)|~~[^~]+~~|`[^`]+`|\*(?:[^*\n]|\*\*[^*\n]+\*\*)+\*)/g);
+  return parts.map((part, index) => {
+    if (!part) return null;
+    if (index % 2 === 0) return part.split("\n").map((line, lineIndex, lines) => <span key={`${index}-${lineIndex}`}>{line}{lineIndex < lines.length - 1 && <br />}</span>);
     const link = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (link) {
       const href = safeUrl(link[2]);
-      return href ? <a key={index} href={href} target={href.startsWith("/") ? undefined : "_blank"} rel="noreferrer">{link[1]}</a> : link[1];
+      return href ? <a key={index} href={href} target={href.startsWith("/") ? undefined : "_blank"} rel="noreferrer"><InlineMarkdown value={link[1]} depth={depth + 1} /></a> : link[1];
     }
-    if (part.startsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("~~")) return <del key={index}>{part.slice(2, -2)}</del>;
-    if (part.startsWith("`")) return <code key={index}>{part.slice(1, -1)}</code>;
-    if (part.startsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+    if (part.startsWith("***") && part.endsWith("***") && part.length > 6) return <strong key={index}><em><InlineMarkdown value={part.slice(3, -3)} depth={depth + 1} /></em></strong>;
+    if (part.startsWith("**") && part.endsWith("**") && part.length > 4) return <strong key={index}><InlineMarkdown value={part.slice(2, -2)} depth={depth + 1} /></strong>;
+    if (part.startsWith("~~") && part.endsWith("~~") && part.length > 4) return <del key={index}><InlineMarkdown value={part.slice(2, -2)} depth={depth + 1} /></del>;
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) return <code key={index}>{part.slice(1, -1)}</code>;
+    if (part.startsWith("*") && part.endsWith("*") && part.length > 2) return <em key={index}><InlineMarkdown value={part.slice(1, -1)} depth={depth + 1} /></em>;
     return part.split("\n").map((line, lineIndex) => <span key={`${index}-${lineIndex}`}>{line}{lineIndex < part.split("\n").length - 1 && <br />}</span>);
   });
 }
