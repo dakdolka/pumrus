@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TheoryDocument } from "../theory/TheoryRenderer";
 import { buildTheoryTree } from "../theory/theoryTree";
 import BrandLogo from "../BrandLogo";
+import TheoryChangeDialog from "./TheoryChangeDialog";
 import "./form.css";
 
 const BLOCK_TYPES = [
@@ -857,6 +858,7 @@ function PocketEditor() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [drafts, setDrafts] = useState({});
+  const [changesOpen, setChangesOpen] = useState(false);
   const previewRef = useRef(null);
   const draftsRef = useRef({});
   const chooseRequestRef = useRef(0);
@@ -1046,6 +1048,19 @@ function PocketEditor() {
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
+  function appliedPackage(result, page) {
+    const next = {blocks:normalizeBlocks(result.blocks), ownerTitle:page.ownerTitle.trim(), description:page.description || "", documentTitle:result.title};
+    setDocument(result); setBlocks(next.blocks); setOwnerTitle(next.ownerTitle); setDescription(next.description);
+    setDocumentTitle(next.documentTitle); setBaseline(signature(next)); setSelectedId(null);
+    setSelected((current) => ({...current, title:next.ownerTitle, shortDescription:next.description}));
+    const remainingDrafts = {...draftsRef.current};
+    delete remainingDrafts[currentOwnerKey];
+    replaceDrafts(remainingDrafts);
+    setChangesOpen(false); setNotice("Изменения применены и опубликованы");
+    setTimeout(() => setNotice(""), 3000);
+    loadCatalog().catch((reason) => setError(`Изменения опубликованы. Не удалось обновить каталог: ${reason.message}`));
+  }
+
   async function toggleTopicVisibility() {
     if (selected?.type !== "topic" || visibilityBusy) return;
     const willShow = !isTopicVisible(selected.status);
@@ -1088,6 +1103,7 @@ function PocketEditor() {
       <Catalog catalog={catalog} selected={selected} choose={choose} createTopic={createTopic} dirtyOwnerKeys={dirtyOwnerKeys} />
       <main className="workspace">
         {!selected ? <Welcome /> : <>
+          <div className="theory-code-toolbar"><span>Правки из подготовленного пакета</span><button className="button" disabled={!document || busy} onClick={() => setChangesOpen(true)}>Изменения по коду</button></div>
           <div className="mobile-tabs"><button className={panel === "edit" ? "active" : ""} onClick={() => setPanel("edit")}>Редактор</button><button className={panel === "preview" ? "active" : ""} onClick={() => setPanel("preview")}>Предпросмотр</button></div>
           <section className={`edit-pane mobile-${panel}`}>
             <div className="owner-fields"><div className="owner-meta"><span className="overline">Задание {selected.taskNumber} · {selected.type === "topic" ? "тема" : "введение"}</span>{selected.type === "topic" && <div className="topic-actions"><button className={`visibility-button ${!isTopicVisible(selected.status) ? "is-hidden" : ""}`} disabled={visibilityBusy || deleteBusy} onClick={toggleTopicVisibility}>{visibilityBusy ? "Сохраняем…" : !isTopicVisible(selected.status) ? "Показать тему" : "Скрыть тему"}</button><button className="delete-topic-button" disabled={deleteBusy || visibilityBusy} onClick={deleteTopic}>{deleteBusy ? "Удаляем…" : "Удалить"}</button></div>}</div><input className="title-input" value={ownerTitle} onChange={(e) => setOwnerTitle(e.target.value)} /><textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Краткое описание" rows="2" /><input value={documentTitle} onChange={(e) => setDocumentTitle(e.target.value)} placeholder="Название документа" /></div>
@@ -1105,6 +1121,7 @@ function PocketEditor() {
         </>}
       </main>
     </div>
+    {changesOpen && document && <TheoryChangeDialog key={document.id} documentId={document.id} owner={selected} exerciseSets={exerciseSets} api={adminApi} inspector={BlockInspector} localDirty={dirty} onApplied={appliedPackage} onClose={() => setChangesOpen(false)} />}
     {notice && <div className="toast">{notice}</div>}{error && <button className="global-error" onClick={() => setError("")}>{error}</button>}
   </div>;
 }

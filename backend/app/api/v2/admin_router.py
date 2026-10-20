@@ -36,6 +36,9 @@ from app.infra.exercises.models import (
 )
 from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
 from app.api.v2.content_export import build_practice_export, build_theory_export
+from app.api.v2.theory_edit import (
+    TheoryEditPackage, check_base, fingerprint, flatten_page, make_package, tree_blocks,
+)
 from app.scripts.practice_scope_sync import (
     sync_practice_scopes,
     sync_preview_membership,
@@ -462,6 +465,74 @@ async def create_document(
     return await _document_out(db, document)
 
 
+async def _edit_package_snapshot(db: AsyncSession, document: TheoryDocumentBD):
+    owner = await db.get(ExamTaskBD if document.exam_task_id is not None else TopicBD,
+                         document.exam_task_id or document.topic_id)
+    if owner is None:
+        raise HTTPException(409, "Владелец темы не найден")
+    blocks = list((await db.scalars(select(TheoryBlockV2BD).where(
+        TheoryBlockV2BD.document_version_id == document.published_version_id,
+    ).order_by(TheoryBlockV2BD.sort_order, TheoryBlockV2BD.id))).all()) if document.published_version_id else []
+    records = [{"id": b.id, "parent_id": b.parent_block_id, "type": b.block_type,
+                "data": b.data, "settings": b.settings, "sort_order": b.sort_order,
+                "schema_version": b.schema_version} for b in blocks]
+    page = {"title": document.title, "ownerTitle": owner.title,
+            "description": owner.short_description or "", "blocks": tree_blocks(records)}
+    return owner, records, page
+
+
+@router.get("/theory-documents/{document_id}/edit-package", dependencies=[Depends(require_admin)])
+async def export_edit_package(document_id: int, example: str | None = None, db: AsyncSession = Depends(get_db)):
+    document = await db.get(TheoryDocumentBD, document_id)
+    if document is None:
+        raise HTTPException(404, "Документ не найден")
+    try:
+        owner, records, page = await _edit_package_snapshot(db, document)
+        package = make_package(document.id, document.published_version_id, page)
+        eligible = isinstance(owner, TopicBD) and owner.code == "legacy-theory-9" and bool(await db.scalar(
+            select(ExamTaskTopicBD.exam_task_id).join(ExamTaskBD, ExamTaskBD.id == ExamTaskTopicBD.exam_task_id)
+            .where(ExamTaskTopicBD.topic_id == owner.id, ExamTaskBD.number == 9).limit(1)
+        ))
+        examples = [{"key": "task9-homonymy", "title": "Омонимичные корни · задание 9"}] if eligible else []
+        if example:
+            if example != "task9-homonymy" or not eligible:
+                raise HTTPException(400, "Этот пример не подходит для выбранной темы")
+            from app.scripts.task9_homonymy import plan_patch
+            after, _ = plan_patch(records)
+            package["after"]["blocks"] = tree_blocks(after)
+        return {"package": package, "examples": examples}
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+
+
+@router.post("/theory-documents/{document_id}/apply-package", dependencies=[Depends(require_admin)])
+async def apply_edit_package(document_id: int, body: TheoryEditPackage, db: AsyncSession = Depends(get_db)):
+    document = await db.scalar(select(TheoryDocumentBD).where(TheoryDocumentBD.id == document_id).with_for_update())
+    if document is None:
+        raise HTTPException(404, "Документ не найден")
+    # Lock the owner as well: its title/description are part of the exported page.
+    owner_model = ExamTaskBD if document.exam_task_id is not None else TopicBD
+    await db.scalar(select(owner_model).where(owner_model.id == (document.exam_task_id or document.topic_id)).with_for_update())
+    try:
+        _, _, page = await _edit_package_snapshot(db, document)
+        check_base(body, document.id, document.published_version_id, page)
+        if fingerprint(body.after) == fingerprint(page):
+            raise ValueError("В after нет изменений для применения")
+        if not body.after.title.strip() or not body.after.ownerTitle.strip():
+            raise ValueError("Названия темы и документа не должны быть пустыми")
+        blocks = flatten_page(body.after)
+    except ValueError as error:
+        raise HTTPException(409, str(error)) from error
+    if await db.scalar(select(TheoryDocumentVersionBD.id).where(
+        TheoryDocumentVersionBD.document_id == document_id, TheoryDocumentVersionBD.status == "draft",
+    ).limit(1)):
+        raise HTTPException(409, "У темы есть черновик. Завершите работу с ним перед применением пакета")
+    return await publish_live_document(document_id, LivePublishIn(
+        title=body.after.title, owner_title=body.after.ownerTitle,
+        owner_description=body.after.description or None, blocks=blocks,
+    ), db)
+
+
 @router.post(
     "/theory-documents/{document_id}/publish-live",
     dependencies=[Depends(require_admin)],
@@ -471,7 +542,7 @@ async def publish_live_document(
     body: LivePublishIn,
     db: AsyncSession = Depends(get_db),
 ):
-    document = await db.get(TheoryDocumentBD, document_id)
+    document = await db.scalar(select(TheoryDocumentBD).where(TheoryDocumentBD.id == document_id).with_for_update())
     if document is None:
         raise HTTPException(404, "Документ не найден")
     if not body.blocks:
