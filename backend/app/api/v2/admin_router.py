@@ -36,6 +36,7 @@ from app.infra.exercises.models import (
 )
 from app.api.v2.exercise_import import PARSER_TYPES, parse_exercises
 from app.api.v2.content_export import build_practice_export, build_theory_export
+from app.api.v2 import practice_revision
 from app.api.v2.theory_edit import (
     TheoryEditPackage, check_base, fingerprint, flatten_page, make_package, tree_blocks, validate_anchor, validate_data,
 )
@@ -176,6 +177,16 @@ async def export_practice(
         payload,
         "practice-history" if include_history else "practice",
     )
+
+
+@router.post("/practice-edit/preview", dependencies=[Depends(require_admin)])
+async def preview_practice_edit(body: dict[str, Any], db: AsyncSession = Depends(get_db)):
+    return await practice_revision.preview(db, body)
+
+
+@router.post("/practice-edit/apply", dependencies=[Depends(require_admin)])
+async def apply_practice_edit(body: dict[str, Any], db: AsyncSession = Depends(get_db)):
+    return await practice_revision.apply(db, body)
 
 
 def _block_out(block: TheoryBlockV2BD) -> dict[str, Any]:

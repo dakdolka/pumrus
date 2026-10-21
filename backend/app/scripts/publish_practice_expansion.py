@@ -373,6 +373,16 @@ async def _publish_sets(
         if task is None:
             counters["tasks_missing"] += 1
             continue
+        if task.number in {10, 11} and await session.scalar(select(ExerciseSetBD.id).where(
+            ExerciseSetBD.course_version_id == course_version_id,
+            ExerciseSetBD.exam_task_id == task.id,
+            ExerciseSetBD.status == "published",
+            ExerciseSetBD.configuration["reviewedBank"].astext == "task10-11",
+        ).limit(1)):
+            # The newer reviewed bank owns these scopes. Do not resurrect the
+            # earlier 30-card source set on an unrelated full-bank deployment.
+            counters["reviewed_sets_preserved"] = counters.get("reviewed_sets_preserved", 0) + 1
+            continue
         target_topic = await _topic_by_code(
             session, course_version_id, definition.get("topic_code")
         )

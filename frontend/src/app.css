@@ -974,6 +974,11 @@ main { width: min(100%, var(--layout-max)); margin: 0 auto; }
   .batch-question { padding: .9rem 1rem; }
 }
 
+.answer-explanation { margin-top:10px; padding:10px 12px; border:1px solid var(--line); border-radius:9px; font-size:13px; }
+.answer-explanation > summary { cursor:pointer; color:var(--muted); font-weight:700; }
+.answer-explanation .rich-text { margin-top:10px; font-size:14px; line-height:1.5; }
+.answer-explanation-sources { display:flex; flex-wrap:wrap; gap:8px 12px; margin-top:10px; }
+.answer-explanation-sources a { color:var(--accent); }
 @media (max-width: 620px) {
   .catalog-title { align-items: flex-start; }
   .catalog-actions { align-items: flex-start; }

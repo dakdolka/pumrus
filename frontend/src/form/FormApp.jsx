@@ -6,6 +6,7 @@ import TheoryChangeDialog from "./TheoryChangeDialog";
 import FormattedText from "./FormattedText";
 import TableEditor from "./TableEditor";
 import TheoryLinkFields from "./TheoryLinkFields";
+import PracticeChangeDialog from "./PracticeChangeDialog";
 import "./form.css";
 
 const BLOCK_TYPES = [
@@ -351,6 +352,7 @@ function ApplicationSettings() {
 }
 
 function PracticeSettings() {
+  const [bankChangesOpen, setBankChangesOpen] = useState(false);
   const [sets, setSets] = useState([]);
   const [catalog, setCatalog] = useState(null);
   const [error, setError] = useState("");
@@ -495,7 +497,7 @@ function PracticeSettings() {
   });
   return <main className="practice-form">
     <header className="practice-heading"><div><span className="overline">Карманная форма</span><h1>Практика</h1>
-      <p>Создавайте подборки, исправляйте отдельные упражнения и публикуйте материалы без скриптов.</p></div><button className="button primary" onClick={() => setCreating((value) => !value)}>+ Подборка</button></header>
+      <p>Создавайте подборки, исправляйте отдельные упражнения и публикуйте материалы без скриптов.</p></div><button className="button" onClick={() => setBankChangesOpen(true)}>Обновить банк по JSON</button><button className="button primary" onClick={() => setCreating((value) => !value)}>+ Подборка</button></header>
     {error && <p className="form-error">{error}</p>}
     {notice && <p className="form-notice">{notice}</p>}
     <section className="practice-summary">
@@ -553,6 +555,7 @@ function PracticeSettings() {
       {!visibleSets.length && <p className="empty-filter">По этим условиям тренажёров не найдено.</p>}
     </section>
     {exerciseEditor && <ExerciseManager setInfo={exerciseEditor} sets={sets} catalog={catalog} close={() => { setExerciseEditor(null); refreshSets(); }} reportError={setError} reportNotice={setNotice} />}
+    {bankChangesOpen && <PracticeChangeDialog api={adminApi} localDirty={dirtySetIds.size > 0 || Boolean(rawText.trim())} onClose={() => setBankChangesOpen(false)} onApplied={(result) => {setBankChangesOpen(false);setNotice(`Банк обновлён: ${result.changes.created} новых, ${result.changes.updated} исправленных упражнений.`);refreshSets();}} />}
     {demoEditor && <section className="demo-membership-editor">
       <header><div><span className="overline">Демоверсия</span><h2>{demoEditor.title}</h2></div><button className="demo-close" onClick={() => setDemoEditor(null)}>×</button></header>
       {demoEditor.loading ? <p>Загружаем упражнения…</p> : <>

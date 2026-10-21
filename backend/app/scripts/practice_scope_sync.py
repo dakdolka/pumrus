@@ -152,20 +152,19 @@ def _unique_word_exercise_ids(
     exercise_ids: set[int],
     version_by_exercise: dict[int, ExerciseVersionBD],
 ) -> set[int]:
-    """Keep one preferred exercise for each answer in task 9 scope sets."""
+    """Keep one preferred exercise per word in spelling scope sets."""
     selected: dict[str, int] = {}
     ordered = sorted(
         exercise_ids,
         key=lambda exercise_id: (
-            0 if (version_by_exercise[exercise_id].checker_config or {}).get(
-                "curatedKey"
-            ) else 1,
+            0 if (version_by_exercise[exercise_id].checker_config or {}).get("dictionaryEvidence", {}).get("status") == "verified"
+            else 1 if (version_by_exercise[exercise_id].checker_config or {}).get("curatedKey") else 2,
             exercise_id,
         ),
     )
     for exercise_id in ordered:
         prompt, answer = _version_text(version_by_exercise[exercise_id])
-        signature = _normalise(answer) or _normalise(prompt)
+        signature = _normalise((version_by_exercise[exercise_id].checker_config or {}).get("lexeme") or answer) or _normalise(prompt)
         selected.setdefault(signature or f"exercise:{exercise_id}", exercise_id)
     return set(selected.values())
 
@@ -175,6 +174,10 @@ def infer_topic_code(task_number: int, version: ExerciseVersionBD) -> str | None
     prompt, answer = _version_text(version)
     clean_answer = _normalise(answer)
     first_word = re.split(r"\s+", clean_answer, maxsplit=1)[0].strip(".,!?:;()[]«»\"")
+    declared = (version.checker_config or {}).get("topicCode")
+    verified_topics = {10: {"legacy-theory-4", "legacy-theory-5", "legacy-theory-6", "legacy-theory-7", "legacy-theory-8", "legacy-theory-30"}, 11: {"legacy-theory-23", "legacy-theory-24", "legacy-theory-25", "legacy-theory-26"}}
+    if declared in verified_topics.get(task_number, set()):
+        return declared
 
     if task_number == 9:
         return _task9_topic_code(version)
@@ -598,7 +601,7 @@ async def sync_practice_scopes(
             continue
         task_scope_ids = (
             _unique_word_exercise_ids(task_ids, version_by_exercise)
-            if task.number == 9
+            if task.number in {9, 10, 11}
             else task_ids
         )
         await ensure_scope_set(task=task, topic=None, target_ids=task_scope_ids)
@@ -608,7 +611,7 @@ async def sync_practice_scopes(
                 exercise_id for exercise_id in task_ids
                 if topic.id in topic_ids_by_exercise.get(exercise_id, set())
             }
-            if task.number == 9:
+            if task.number in {9, 10, 11}:
                 topic_ids = _unique_word_exercise_ids(
                     topic_ids,
                     version_by_exercise,

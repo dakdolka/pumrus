@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./app.css";
-import { TheoryDocument } from "./theory/TheoryRenderer";
+import { Markdown, TheoryDocument } from "./theory/TheoryRenderer";
 import BrandLogo from "./BrandLogo";
 import Planner from "./planner/Planner";
 
@@ -1375,6 +1375,7 @@ function PracticeSession({ sessionId, navigate }) {
                       showSingleLetterSuccess={Boolean(session.configuration?.showSingleLetterSuccess)}
                     />
                   )}
+                  {result?.feedback?.message && <details className="answer-explanation"><summary>Почему так?</summary><Markdown value={result.feedback.message} />{(result.feedback.sources || []).length > 0 && <div className="answer-explanation-sources"><small>Источники:</small>{result.feedback.sources.map(url=><a href={url} key={url} target="_blank" rel="noreferrer">{url.includes("orfo.ruslang.ru/search") ? "Словарь РАН" : url.includes("fipi.ru") ? "ФИПИ" : "Правило"}</a>)}</div>}</details>}
                 </div>
                 {result?.status === "correct" && <span className="batch-status"><AppIcon type="check" /></span>}
                 {result?.status === "partial" && <span className="batch-status partial">½</span>}
@@ -1443,7 +1444,7 @@ function PracticeSession({ sessionId, navigate }) {
           <button className="answer-sheet-close" onClick={dismissError} aria-label="Закрыть">×</button>
           <strong>{errorResult.status === "partial" ? "Частично верно" : "Нужно повторить"}</strong>
           {errorResult.correctAnswer && <p>Правильный ответ: <b>{errorResult.correctAnswer}</b></p>}
-          {errorResult.feedback?.message && <p><b>Пояснение:</b> {errorResult.feedback.message}</p>}
+          {errorResult.feedback?.message && <div><b>Пояснение:</b><Markdown value={errorResult.feedback.message} /></div>}
           {(errorResult.feedback?.theoryLinks || []).map((link) => (
             <button
               key={link.route}
@@ -1620,7 +1621,7 @@ function vowelFillState(item, response) {
 
 
 function VowelWord({ item, response, result, displayMode = "normal" }) {
-  const word = vowelFillState(item, response).word;
+  const word = (result?.status === "correct" && (result.correctAnswer || result.correctResponse?.text)) || vowelFillState(item, response).word;
   const effectiveDisplay = item.prompt?.displayMode || displayMode;
   return (
     <div

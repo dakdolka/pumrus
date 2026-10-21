@@ -710,6 +710,11 @@ async def review_mistakes(
     return {"resolved": len(resolved), "kept": len(kept)}
 
 
+def _feedback_sources(version: ExerciseVersionBD) -> list[str]:
+    values = (version.checker_config or {}).get("sourceReferences") or []
+    return list(dict.fromkeys(value for value in values if isinstance(value, str) and value.startswith("https://")))[:10]
+
+
 def _public_question(
     item: PracticeSessionItemBD,
     version: ExerciseVersionBD,
@@ -746,6 +751,7 @@ def _public_question(
                     "correct" if attempt.result_status == "correct" else "incorrect"
                 ),
                 "theoryLinks": [],
+                "sources": _feedback_sources(version),
             },
         }
     return {
@@ -1380,6 +1386,7 @@ async def submit_attempt(
                 "correct" if status == "correct" else "incorrect"
             ),
             "theoryLinks": await _theory_links(db, version),
+            "sources": _feedback_sources(version),
         },
         "sessionStatus": session.status,
         "mistakeReviewCandidates": review_candidates,
