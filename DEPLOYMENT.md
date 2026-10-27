@@ -1,5 +1,10 @@
 # UmRus release and handover
 
+## Server VPN
+
+Порядок смены VPN-ссылки для серверного `sing-box`, проверки Telegram и отката:
+[docs/server-vpn.md](docs/server-vpn.md).
+
 ## First deployment after this release
 
 1. Make a database backup.
